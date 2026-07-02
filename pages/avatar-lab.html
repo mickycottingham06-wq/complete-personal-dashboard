@@ -199,6 +199,18 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
   const root = document.documentElement;
   const body = document.body;
 
+  // ---- persistence: remember colors / size / state across visits ----
+  const LS_KEY = 'avatar_lab_v1';
+  function loadSaved(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || null; } catch(e){ return null; } }
+  function persist(){
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        c1: c1.value, c2: c2.value, c3: c3.value,
+        size: size.value, state: body.dataset.state
+      }));
+    } catch(e){}
+  }
+
   const DESIGNS = [
     { id:'orb',     name:'Orb',     desc:'Glossy sphere with eyes — the original Nova.', html:'' },
     { id:'reactor', name:'Reactor', desc:'Spinning energy rings around a bright core.',   html:'<i></i>' },
@@ -244,21 +256,36 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
   // colors
   const c1 = document.getElementById('c1'), c2 = document.getElementById('c2'), c3 = document.getElementById('c3');
   function syncColors(){ root.style.setProperty('--c1', c1.value); root.style.setProperty('--c2', c2.value); root.style.setProperty('--c3', c3.value); }
-  [c1,c2,c3].forEach(el => el.addEventListener('input', syncColors));
-  function applyPalette(p){ c1.value=p.c1; c2.value=p.c2; c3.value=p.c3; syncColors(); }
-  syncColors();
+  [c1,c2,c3].forEach(el => el.addEventListener('input', () => { syncColors(); persist(); }));
+  function applyPalette(p){ c1.value=p.c1; c2.value=p.c2; c3.value=p.c3; syncColors(); persist(); }
 
   // size
   const size = document.getElementById('size'), sizeVal = document.getElementById('sizeVal');
   function syncSize(){ document.querySelectorAll('.av').forEach(a => a.style.setProperty('--s', size.value+'px')); sizeVal.textContent = size.value+'px'; }
-  size.addEventListener('input', syncSize); syncSize();
+  size.addEventListener('input', () => { syncSize(); persist(); });
 
   // state
+  function setState(name){
+    body.dataset.state = name;
+    document.querySelectorAll('#stateSeg button').forEach(b => b.classList.toggle('on', b.dataset.state === name));
+  }
   document.getElementById('stateSeg').addEventListener('click', e => {
     const btn = e.target.closest('button'); if (!btn) return;
-    body.dataset.state = btn.dataset.state;
-    document.querySelectorAll('#stateSeg button').forEach(b => b.classList.toggle('on', b === btn));
+    setState(btn.dataset.state);
+    persist();
   });
+
+  // ---- restore saved colors / size / state, falling back to the markup defaults ----
+  const saved = loadSaved();
+  if (saved){
+    if (saved.c1) c1.value = saved.c1;
+    if (saved.c2) c2.value = saved.c2;
+    if (saved.c3) c3.value = saved.c3;
+    if (saved.size) size.value = saved.size;
+    if (saved.state) setState(saved.state);
+  }
+  syncColors();
+  syncSize();
 
   // ---- "Use in Nova": copy the chosen design's CSS, ready to paste ----
   const toast = document.getElementById('toast');

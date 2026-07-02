@@ -326,7 +326,7 @@ body::after {
   ];
 
   /* ============ Storage ============ */
-  const LOGS_KEY='caf:logs', CUSTOM_KEY='caf:custom';
+  const LOGS_KEY='caf:logs', CUSTOM_KEY='caf:custom', MODE_KEY='caf:chartMode';
   function loadJSON(k,f){ try { return JSON.parse(localStorage.getItem(k)) || f; } catch(e){ return f; } }
   function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
   let logs = loadJSON(LOGS_KEY, []);
@@ -439,7 +439,7 @@ body::after {
   }
 
   /* ============ Rendering ============ */
-  let chartMode = 'line';
+  let chartMode = loadJSON(MODE_KEY, 'line');
   let scrubT = null; // hovered hour, or null
 
   function todaysLogs(){ const s=startOfToday(); return logs.filter(l=>l.ts>=s); }
@@ -618,8 +618,9 @@ body::after {
 
   /* ============ Wire up ============ */
   $('modeToggle').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    chartMode=b.dataset.m; $('modeToggle').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderChart();
+    chartMode=b.dataset.m; $('modeToggle').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); saveJSON(MODE_KEY,chartMode); renderChart();
   }));
+  $('modeToggle').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.m===chartMode));
   $('search').addEventListener('input',(e)=>renderResults(e.target.value));
   $('customAdd').addEventListener('click',addCustom);
   $('customMg').addEventListener('keydown',(e)=>{ if(e.key==='Enter') addCustom(); });

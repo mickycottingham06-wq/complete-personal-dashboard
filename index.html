@@ -474,6 +474,11 @@ body::after {
     setTimeout(() => { s.textContent = ''; }, 1800);
   }
 
+  // Auto-save as the user edits, so nothing is lost if they close the
+  // modal without pressing Save. Debounced so typing doesn't thrash storage.
+  let autoSaveTimer = null;
+  function autoSave() { clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(save, 400); }
+
   /* ---------- open / close ---------- */
   function open() { populate(); renderWhoop(); $('settingsBg').classList.add('show'); syncWhoop(); }
   function close() { $('settingsBg').classList.remove('show'); }
@@ -482,16 +487,20 @@ body::after {
   $('settingsBg').addEventListener('click', (e) => { if (e.target === $('settingsBg')) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   $('settingsSave').addEventListener('click', save);
+  ['heightA', 'heightB', 'weight', 'age', 'activity'].forEach((id) => {
+    $(id).addEventListener('input', autoSave);
+  });
   $('heightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const cm = getHeightCm(); setHeightUnit(b.dataset.u); fillHeight(cm);
+    const cm = getHeightCm(); setHeightUnit(b.dataset.u); fillHeight(cm); save();
   }));
   $('weightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     const v = parseFloat($('weight').value);
     const kg = v > 0 ? (weightUnit === 'lb' ? v / 2.20462 : v) : null;
     setWeightUnit(b.dataset.u);
     if (kg) $('weight').value = weightUnit === 'lb' ? Math.round(kg * 2.20462) : Math.round(kg);
+    save();
   }));
-  $('sexSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setSex(b.dataset.s)));
+  $('sexSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { setSex(b.dataset.s); save(); }));
 
   /* ---------- WHOOP ---------- */
   let whStats = null;
