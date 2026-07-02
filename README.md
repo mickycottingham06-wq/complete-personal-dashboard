@@ -15,11 +15,11 @@ Open any `.html` file directly in your browser — no build step, no install.
 | File | What it is |
 |---|---|
 | [index.html](index.html) | Goals tracker (Day Ring, Goal Ticker, To Do list) — the home page |
-| [health.html](health.html) | Supplement / daily stack tracker |
-| [po-water.html](po-water.html) | Water intake tracker |
-| [finance.html](finance.html) | Finances |
-| [gym.html](gym.html) | Progressive overload gym tracker |
-| [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
+| [pages/health.html](pages/health.html) | Supplement / daily stack tracker |
+| [pages/po-water.html](pages/po-water.html) | Water intake tracker |
+| [pages/finance.html](pages/finance.html) | Finances |
+| [pages/gym.html](pages/gym.html) | Progressive overload gym tracker |
+| [scripts/topbar.js](scripts/topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 
 Each app stores its own state in browser `localStorage`. No accounts, no server.
 

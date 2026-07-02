@@ -198,13 +198,13 @@ body.topbar-modal-open {
   const topbarHtml = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick actions">
   <div class="topbar-water-wrap">
-    <a href="health.html#water" class="topbar-water-pill" id="topbarWater" aria-label="Water progress">
+    <a href="/pages/health.html#water" class="topbar-water-pill" id="topbarWater" aria-label="Water progress">
       <span class="topbar-pill-dot"></span>
       <span class="topbar-pill-count" id="topbarWaterCount">0/0</span>
     </a>
     <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
   </div>
-  <a href="finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
+  <a href="/pages/finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
     <span class="topbar-finance-icon">📊</span>
   </a>
 </header>
@@ -212,15 +212,15 @@ body.topbar-modal-open {
 
   const bottombarHtml = `
 <nav class="bottombar" id="bottombar" role="navigation" aria-label="Main tabs">
-  <a href="index.html" class="bottombar-tab" data-page="main">
+  <a href="/index.html" class="bottombar-tab" data-page="main">
     <span class="bottombar-tab-icon">🏠</span>
     <span>Main</span>
   </a>
-  <a href="health.html" class="bottombar-tab" data-page="health">
+  <a href="/pages/health.html" class="bottombar-tab" data-page="health">
     <span class="bottombar-tab-icon">💊</span>
     <span>Health</span>
   </a>
-  <a href="gym.html" class="bottombar-tab" data-page="fitness">
+  <a href="/pages/gym.html" class="bottombar-tab" data-page="fitness">
     <span class="bottombar-tab-icon">💪</span>
     <span>Fitness</span>
   </a>

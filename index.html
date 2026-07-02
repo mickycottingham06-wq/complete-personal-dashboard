@@ -9,8 +9,8 @@
 <title>Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="sync.js" defer></script>
-<script src="topbar.js" defer></script>
+<script src="scripts/sync.js" defer></script>
+<script src="scripts/topbar.js" defer></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -222,7 +222,7 @@ body::after {
   <div class="bento">
 
     <!-- Big tile -->
-    <a class="tile big" href="main.html" style="--accent:#6BE3A4">
+    <a class="tile big" href="pages/main.html" style="--accent:#6BE3A4">
       <div class="tile-top">
         <span class="tile-num">·01</span>
         <span class="tile-emoji">🏠</span>
@@ -236,7 +236,7 @@ body::after {
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
+    <a class="tile wide" href="pages/gym.html" style="--accent:#7DD3FC">
       <div class="tile-top">
         <span class="tile-num">·02</span>
         <span class="tile-emoji">💪</span>
@@ -250,7 +250,7 @@ body::after {
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="health.html" style="--accent:#A7F3D0">
+    <a class="tile" href="pages/health.html" style="--accent:#A7F3D0">
       <div class="tile-top">
         <span class="tile-num">·03</span>
         <span class="tile-emoji">💊</span>
@@ -264,7 +264,7 @@ body::after {
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="po-water.html" style="--accent:#60A5FA">
+    <a class="tile" href="pages/po-water.html" style="--accent:#60A5FA">
       <div class="tile-top">
         <span class="tile-num">·04</span>
         <span class="tile-emoji">💧</span>
@@ -278,7 +278,7 @@ body::after {
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="finance.html" style="--accent:#F2C063">
+    <a class="tile wide" href="pages/finance.html" style="--accent:#F2C063">
       <div class="tile-top">
         <span class="tile-num">·05</span>
         <span class="tile-emoji">📊</span>
@@ -292,7 +292,7 @@ body::after {
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="caffeine.html" style="--accent:#C9A36B">
+    <a class="tile" href="pages/caffeine.html" style="--accent:#C9A36B">
       <div class="tile-top">
         <span class="tile-num">·06</span>
         <span class="tile-emoji">☕</span>
@@ -306,7 +306,7 @@ body::after {
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="nova-lite.html" style="--accent:#A78BFA">
+    <a class="tile wide" href="pages/nova-lite.html" style="--accent:#A78BFA">
       <div class="tile-top">
         <span class="tile-num">·07</span>
         <span class="tile-emoji">🧠</span>
@@ -562,7 +562,7 @@ body::after {
   }
   $('whAction').addEventListener('click', () => {
     const t = loadJSON(WHOOP_KEY, null);
-    if (!t || !t.access) { window.location.href = 'health.html'; return; }
+    if (!t || !t.access) { window.location.href = 'pages/health.html'; return; }
     $('whAction').textContent = 'Syncing…'; syncWhoop();
   });
 })();

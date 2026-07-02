@@ -70,9 +70,9 @@ Redeploy. The app reads these automatically via `/api/config`.
 
 **Way B — edit the files:**
 Replace the old URL/key in these files:
-- [`sync.js`](sync.js)
-- [`topbar.js`](topbar.js)
-- [`gym.html`](gym.html)
+- [`sync.js`](scripts/sync.js)
+- [`topbar.js`](scripts/topbar.js)
+- [`gym.html`](pages/gym.html)
 
 > ⚠️ Only the **anon** key (public) is used here. **Never** put the `service_role` key in code
 > or in these env vars.
@@ -84,7 +84,7 @@ Replace the old URL/key in these files:
 1. **developer.whoop.com** → create an app.
 2. Set its **Redirect URI** to exactly: `https://your-app.vercel.app/api/whoop-callback`
    (use your real Vercel domain — add every domain you'll open the site from).
-3. Put your app's **Client ID** in [`health.html`](health.html) (`const CLIENT_ID = '...'`),
+3. Put your app's **Client ID** in [`health.html`](pages/health.html) (`const CLIENT_ID = '...'`),
    and add these in Vercel → **Settings → Environment Variables**, then redeploy:
 
 | Variable | Value |

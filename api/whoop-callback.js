@@ -1,7 +1,7 @@
 // ============================================================
 // GET /api/whoop-callback?code=...&state=...
 // Receives the OAuth code from WHOOP, exchanges it for tokens,
-// and bounces back to /health.html with the tokens in the URL
+// and bounces back to /pages/health.html with the tokens in the URL
 // hash. The hash never reaches the server — only the browser
 // reads it, then stores the tokens in localStorage.
 // Env vars required on Vercel:
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       whoop_refresh: refresh,
       whoop_expires: String(Date.now() + expiresIn * 1000),
     }).toString();
-    res.writeHead(302, { Location: '/health.html#' + hash });
+    res.writeHead(302, { Location: '/pages/health.html#' + hash });
     res.end();
   } catch (e) {
     res.status(500).send('Unexpected error: ' + (e && e.message ? e.message : String(e)));
