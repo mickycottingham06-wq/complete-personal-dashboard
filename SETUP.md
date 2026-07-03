@@ -1,4 +1,4 @@
-# Dashboard — Setup Guide (fork → deploy in ~5 min)
+# Micky's Dashboard — Setup Guide (fork → deploy in ~5 min)
 
 This is a static dashboard (plain HTML/JS) that deploys on **Vercel** and syncs across your
 devices with **Supabase**. WHOOP is an optional add-on.

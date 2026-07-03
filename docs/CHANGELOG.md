@@ -78,6 +78,36 @@ Create long-term maintainability.
 
 ---
 
+## 2026-07-03
+
+### Branding Cleanup
+
+Removed all old placeholder branding (Rowan / Rowan Thistlebrooke / ytdashfinal / YTdashh1) and replaced it with Micky's branding across page titles, headings, the po-water.html copyright header, README.md, SETUP.md, and package.json.
+
+Files affected:
+
+index.html, pages/main.html, pages/po-water.html, pages/caffeine.html, template/template.html, README.md, SETUP.md, package.json
+
+### Daily Snapshot
+
+Added a Daily Snapshot section to the top of index.html (the home page), above the bento grid.
+
+Shows today's date, a computed status line, main focus, top 3 priorities, a 7-item daily habit checklist, training status, business focus, health/recovery status, and quick notes.
+
+Saves to `localStorage` under the `dailySnapshot` key, following the same 6 AM day-rollover convention already used by the goals list. Reuses the existing `.gm-card` / `.gm-row` / `.gm-check` / `.gm-text` component styling already established in template.html rather than inventing new UI.
+
+Exposes `window.DailySnapshot.get()` as a small public hook so Streaks / Life Stats can read today's snapshot later without reimplementing the load/rollover logic.
+
+Files affected:
+
+index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md
+
+Commit:
+
+Branding cleanup and add Daily Snapshot
+
+---
+
 ## Future Entries
 
 Example

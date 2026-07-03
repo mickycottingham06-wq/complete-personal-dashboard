@@ -46,6 +46,37 @@ Never mix unrelated data.
 
 ---
 
+# Daily Snapshot Data
+
+Implemented. Lives in `localStorage` under the key `dailySnapshot` (inline in index.html — not yet split into a `data/` file, matching how every other page currently stores its state).
+
+Shape:
+
+```
+dailySnapshot: {
+  date: string,               // YYYY-MM-DD, 6 AM rollover — same convention as goals:
+  mainFocus: string,
+  priorities: [
+    { id: string, text: string, completed: boolean },
+    { id: string, text: string, completed: boolean },
+    { id: string, text: string, completed: boolean }
+  ],
+  habits: [
+    { id: string, label: string, completed: boolean }
+  ],
+  trainingStatus: string,
+  businessFocus: string,
+  healthStatus: string,
+  notes: string
+}
+```
+
+Default habits: Drink water after waking, Morning sunlight, Training completed, Steps / movement, Protein target, Sleep routine, No wasted scrolling.
+
+Resets to defaults automatically when `date` no longer matches the active day. `window.DailySnapshot.get()` exposes the current snapshot for future features (Streaks, Life Stats) to read.
+
+---
+
 # Dashboard Data
 
 dashboardData should contain:

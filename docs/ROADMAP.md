@@ -16,7 +16,7 @@ Reusable Components
 
 Daily Dashboard
 
-Daily Snapshot
+Daily Snapshot ✅
 
 Streaks
 

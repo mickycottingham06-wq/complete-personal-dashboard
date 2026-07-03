@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
-<title>Dashboard</title>
+<title>Micky's Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="scripts/sync.js" defer></script>
@@ -18,6 +18,9 @@
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -58,6 +61,58 @@ body::after {
   -webkit-text-fill-color: transparent; color: transparent;
 }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+/* ===== Shared section/card system (same as the rest of the dashboard) ===== */
+.section { margin: 0 0 22px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+.snap-date { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+
+.gm-card {
+  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
+  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+.snap-status { font-size: 13px; color: var(--text-tertiary); margin-bottom: 16px; }
+.snap-status.good { color: var(--success); }
+.snap-status.warn { color: var(--warning); }
+
+.snap-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 18px 0 8px;
+}
+.snap-label:first-child { margin-top: 0; }
+
+.goal-list { list-style: none; margin: 0; padding: 0; }
+.gm-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.gm-row:hover { background: rgba(255,255,255,0.06); }
+.gm-row.gm-row-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
+.gm-row.gm-row-done .gm-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.gm-check {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.gm-check:checked { background: var(--success); border-color: var(--success); box-shadow: 0 0 12px rgba(107,227,164,0.40); }
+.gm-check:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.gm-text { flex: 1; font-size: 14px; color: var(--text-primary); outline: none; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
+.gm-text[contenteditable="true"]:focus { outline: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); }
+.gm-text[contenteditable="true"]:empty::before { content: attr(data-placeholder); color: var(--text-tertiary); }
+
+.snap-grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 18px; }
+@media (max-width: 620px) { .snap-grid3 { grid-template-columns: 1fr; } }
+textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
 
 /* ===== BENTO GRID ===== */
 .bento {
@@ -210,13 +265,52 @@ body::after {
 <div class="page">
 
   <div class="hub-head">
-    <h1 class="dash-title">Rowans Dashboard</h1>
+    <h1 class="dash-title">Micky's Life OS</h1>
     <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     </button>
+  </div>
+
+  <!-- ===== DAILY SNAPSHOT ===== -->
+  <div class="section" id="dailySnapshot">
+    <div class="section-title">Daily Snapshot <span class="snap-date" id="snapDate"></span></div>
+    <div class="gm-card">
+      <div class="snap-status" id="snapStatus">—</div>
+
+      <div class="field">
+        <label class="field-label">Main Focus</label>
+        <input class="set-input" id="snapMainFocus" type="text" placeholder="What matters most today?" autocomplete="off">
+      </div>
+
+      <div class="snap-label">Top 3 Priorities</div>
+      <ul class="goal-list" id="snapPriorities"></ul>
+
+      <div class="snap-label">Today's Habits</div>
+      <ul class="goal-list" id="snapHabits"></ul>
+
+      <div class="snap-grid3">
+        <div class="field">
+          <label class="field-label">Training</label>
+          <input class="set-input" id="snapTraining" type="text" placeholder="e.g. Sparring done" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label">Business Focus</label>
+          <input class="set-input" id="snapBusiness" type="text" placeholder="e.g. Client outreach" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label">Health / Recovery</label>
+          <input class="set-input" id="snapHealth" type="text" placeholder="e.g. Recovered, 8h sleep" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:18px">
+        <label class="field-label">Quick Notes</label>
+        <textarea class="set-input" id="snapNotes" rows="3" placeholder="Anything else on your mind…"></textarea>
+      </div>
+    </div>
   </div>
 
   <div class="bento">
@@ -574,6 +668,154 @@ body::after {
     if (!t || !t.access) { window.location.href = 'pages/health.html'; return; }
     $('whAction').textContent = 'Syncing…'; syncWhoop();
   });
+})();
+</script>
+
+<!-- ===== Daily Snapshot — self-contained so Streaks/Stats can read its data later ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const SNAPSHOT_KEY = 'dailySnapshot';
+
+  const DEFAULT_HABITS = [
+    { id: 'water',    label: 'Drink water after waking' },
+    { id: 'sunlight', label: 'Morning sunlight' },
+    { id: 'training', label: 'Training completed' },
+    { id: 'steps',    label: 'Steps / movement' },
+    { id: 'protein',  label: 'Protein target' },
+    { id: 'sleep',    label: 'Sleep routine' },
+    { id: 'noscroll', label: 'No wasted scrolling' },
+  ];
+
+  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
+  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+  // Same 6 AM rollover convention the goals list (main.html) uses, so "today"
+  // means the same thing everywhere in the dashboard.
+  function activeDateKey() {
+    const now = new Date();
+    const d = new Date(now);
+    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function defaultSnapshot() {
+    return {
+      date: activeDateKey(),
+      mainFocus: '',
+      priorities: [
+        { id: 'p1', text: '', completed: false },
+        { id: 'p2', text: '', completed: false },
+        { id: 'p3', text: '', completed: false },
+      ],
+      habits: DEFAULT_HABITS.map((h) => ({ id: h.id, label: h.label, completed: false })),
+      trainingStatus: '',
+      businessFocus: '',
+      healthStatus: '',
+      notes: '',
+    };
+  }
+
+  // Restore if saved for today; otherwise fall back to a fresh default snapshot.
+  let snap = loadJSON(SNAPSHOT_KEY, null);
+  if (!snap || snap.date !== activeDateKey()) snap = defaultSnapshot();
+  if (!Array.isArray(snap.priorities) || snap.priorities.length !== 3) snap.priorities = defaultSnapshot().priorities;
+  if (!Array.isArray(snap.habits) || snap.habits.length === 0) snap.habits = defaultSnapshot().habits;
+
+  function save() { saveJSON(SNAPSHOT_KEY, snap); }
+  save(); // persist the rollover/default immediately so the key always exists
+
+  /* ---------- render ---------- */
+  function renderDate() {
+    const d = new Date();
+    const dows = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const mons = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    $('snapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function renderStatus() {
+    const habitsDone = snap.habits.filter((h) => h.completed).length;
+    const habitsTotal = snap.habits.length;
+    const pDone = snap.priorities.filter((p) => p.completed).length;
+    const pTotal = snap.priorities.length;
+    const el = $('snapStatus');
+    el.classList.remove('good', 'warn');
+    const ratio = (habitsDone + pDone) / (habitsTotal + pTotal);
+    const summary = habitsDone + '/' + habitsTotal + ' habits · ' + pDone + '/' + pTotal + ' priorities done';
+    if (habitsDone === 0 && pDone === 0) { el.textContent = 'Nothing logged yet — set today\'s focus below.'; return; }
+    if (ratio >= 0.75) { el.classList.add('good'); el.textContent = 'Strong day — ' + summary + '.'; }
+    else if (ratio >= 0.4) { el.classList.add('warn'); el.textContent = 'On pace — ' + summary + '.'; }
+    else { el.textContent = summary + ' — plenty of day left.'; }
+  }
+
+  function renderPriorities() {
+    const wrap = $('snapPriorities');
+    wrap.innerHTML = '';
+    snap.priorities.forEach((p, i) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row' + (p.completed ? ' gm-row-done' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!p.completed;
+      cb.addEventListener('change', () => {
+        p.completed = cb.checked; save(); renderStatus();
+        li.classList.toggle('gm-row-done', p.completed);
+      });
+      const txt = document.createElement('div');
+      txt.className = 'gm-text'; txt.contentEditable = 'true';
+      txt.setAttribute('data-placeholder', 'Priority ' + (i + 1));
+      txt.textContent = p.text;
+      txt.addEventListener('blur', () => { p.text = txt.textContent.trim(); save(); });
+      txt.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); txt.blur(); } });
+      li.append(cb, txt);
+      wrap.appendChild(li);
+    });
+  }
+
+  function renderHabits() {
+    const wrap = $('snapHabits');
+    wrap.innerHTML = '';
+    snap.habits.forEach((h) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row' + (h.completed ? ' gm-row-done' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!h.completed;
+      cb.addEventListener('change', () => {
+        h.completed = cb.checked; save(); renderStatus();
+        li.classList.toggle('gm-row-done', h.completed);
+      });
+      const txt = document.createElement('div');
+      txt.className = 'gm-text'; txt.textContent = h.label;
+      li.append(cb, txt);
+      wrap.appendChild(li);
+    });
+  }
+
+  // Plain text fields, debounced so typing doesn't thrash storage.
+  let fieldTimer = null;
+  function bindField(id, key) {
+    const el = $(id);
+    el.value = snap[key] || '';
+    el.addEventListener('input', () => {
+      snap[key] = el.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 400);
+    });
+  }
+
+  renderDate();
+  renderStatus();
+  renderPriorities();
+  renderHabits();
+  bindField('snapMainFocus', 'mainFocus');
+  bindField('snapTraining', 'trainingStatus');
+  bindField('snapBusiness', 'businessFocus');
+  bindField('snapHealth', 'healthStatus');
+  bindField('snapNotes', 'notes');
+
+  // Small public hook so future Streaks / Life Stats pages can read today's
+  // snapshot without re-implementing the load/rollover logic.
+  window.DailySnapshot = { KEY: SNAPSHOT_KEY, get: () => loadJSON(SNAPSHOT_KEY, null) };
 })();
 </script>
 </body>

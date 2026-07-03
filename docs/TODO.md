@@ -2,8 +2,6 @@
 
 ## High Priority
 
-Build Daily Snapshot
-
 Build Streaks
 
 Build Boxing Dashboard
