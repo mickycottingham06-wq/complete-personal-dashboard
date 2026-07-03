@@ -7,10 +7,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
 <meta name="color-scheme" content="dark">
-<title>Daily Stack — Customizable Template</title>
+<title>Health HQ · Micky's Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/health-data.js"></script>
 <style>
 :root {
   --bg: #050506;
@@ -503,11 +504,379 @@ main {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ====== HEALTH HQ — command centre (sleep, recovery, hydration, nutrition,
+   routines, supplements, notes). Same card/field language as Boxing HQ /
+   Business HQ so the whole dashboard reads as one system. ====== */
+.hhq-title {
+  margin: 0 0 20px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.hhq-section { margin-bottom: 32px; }
+.hhq-field { margin-bottom: 14px; }
+.hhq-field:last-child { margin-bottom: 0; }
+.hhq-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.hhq-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.hhq-input::placeholder { color: var(--text-tertiary); }
+.hhq-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.hhq-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+select.hhq-input { cursor: pointer; }
+select.hhq-input option { background: #16161a; color: var(--text-primary); }
+
+.hhq-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hhq-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.hhq-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 620px) { .hhq-grid2, .hhq-grid3, .hhq-grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .hhq-grid2, .hhq-grid3, .hhq-grid4 { grid-template-columns: 1fr; } }
+
+.hhq-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.hhq-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.hhq-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
+.hhq-prog-track { height: 9px; border-radius: 6px; background: rgba(255,255,255,0.06); overflow: hidden; margin: 12px 0 4px; }
+.hhq-prog-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #7DD3FC, #A8A2FF); transition: width 0.4s cubic-bezier(0.22,1,0.36,1); }
+.hhq-prog-note { font-size: 12px; color: var(--text-tertiary); }
+
+.hhq-slider-row { display: flex; align-items: center; gap: 14px; }
+.hhq-slider-row input[type="range"] { flex: 1; accent-color: #A8A2FF; height: 4px; cursor: pointer; }
+.hhq-slider-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-primary); width: 30px; text-align: right; flex-shrink: 0; }
+
+.hhq-check-list { list-style: none; margin: 0; padding: 0; }
+.hhq-check-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.hhq-check-row:hover { background: rgba(255,255,255,0.06); }
+.hhq-check-row.is-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
+.hhq-check-row.is-done .hhq-check-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.hhq-checkbox {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.hhq-checkbox:checked { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+.hhq-checkbox:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.hhq-check-text { flex: 1; font-size: 14px; color: var(--text-primary); }
+.hhq-check-del {
+  border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 4px 6px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.hhq-check-row:hover .hhq-check-del { opacity: 1; }
+.hhq-check-del:hover { color: #FF6B6B; }
+.hhq-check-add { display: flex; gap: 8px; margin-top: 10px; }
+.hhq-check-add .hhq-input { padding: 9px 11px; font-size: 13px; }
+.hhq-add-btn {
+  padding: 9px 14px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hhq-add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+
+@media (max-width: 480px) {
+  .hhq-title { font-size: 21px; }
+  .stack-card { padding: 18px 16px 14px; }
+}
 </style>
 </head>
 <body>
 
 <main>
+
+  <!-- ===== HEALTH HQ — command centre. Reads/writes through window.Health
+       (scripts/health-data.js) so the preview card on index.html always
+       agrees. Tracking & general wellbeing only — no medical advice. ===== -->
+  <h1 class="hhq-title">Health HQ</h1>
+
+  <div class="hhq-section">
+    <div class="section-title">Sleep</div>
+    <div class="stack-card">
+      <div class="hhq-grid3">
+        <div class="hhq-field">
+          <label class="hhq-label">Sleep Target (hrs)</label>
+          <input class="hhq-input" id="hhqSleepTarget" type="number" min="0" max="14" step="0.5" inputmode="decimal">
+        </div>
+        <div class="hhq-field">
+          <label class="hhq-label">Last Night (hrs)</label>
+          <input class="hhq-input" id="hhqLastNightSleep" type="number" min="0" max="14" step="0.25" inputmode="decimal">
+        </div>
+        <div class="hhq-field">
+          <label class="hhq-label">Sleep Quality</label>
+          <select class="hhq-input" id="hhqSleepQuality">
+            <option>Poor</option>
+            <option>Fair</option>
+            <option>Good</option>
+            <option>Great</option>
+            <option>Excellent</option>
+          </select>
+        </div>
+      </div>
+      <div class="hhq-prog-track"><div class="hhq-prog-fill" id="hhqSleepFill" style="width:0%"></div></div>
+      <div class="hhq-prog-note" id="hhqSleepNote">— of — hrs target</div>
+    </div>
+  </div>
+
+  <div class="hhq-section">
+    <div class="section-title">Recovery &amp; Mind</div>
+    <div class="stack-card">
+      <div class="hhq-field">
+        <label class="hhq-label">Recovery Score <span id="hhqRecoveryVal" style="color:var(--text-primary)">0</span>/100</label>
+        <div class="hhq-slider-row">
+          <input type="range" id="hhqRecoveryScore" min="0" max="100" step="1">
+        </div>
+      </div>
+      <div class="hhq-grid2" style="margin-top:16px">
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Energy Level</label>
+          <div class="hhq-slider-row">
+            <input type="range" id="hhqEnergyLevel" min="1" max="10" step="1">
+            <span class="hhq-slider-val" id="hhqEnergyVal">5</span>
+          </div>
+        </div>
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Stress Level</label>
+          <div class="hhq-slider-row">
+            <input type="range" id="hhqStressLevel" min="1" max="10" step="1">
+            <span class="hhq-slider-val" id="hhqStressVal">5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hhq-section">
+    <div class="section-title">Hydration &amp; Nutrition</div>
+    <div class="stack-card">
+      <div class="hhq-grid2">
+        <div class="hhq-field">
+          <label class="hhq-label">Hydration Target (L)</label>
+          <input class="hhq-input" id="hhqHydrationTarget" type="number" min="0" step="0.1" inputmode="decimal">
+        </div>
+        <div class="hhq-field">
+          <label class="hhq-label">Water Intake (L)</label>
+          <input class="hhq-input" id="hhqWaterIntake" type="number" min="0" step="0.1" inputmode="decimal">
+        </div>
+      </div>
+      <div class="hhq-prog-track"><div class="hhq-prog-fill" id="hhqWaterFill" style="width:0%"></div></div>
+      <div class="hhq-prog-note" id="hhqWaterNote">— of — L today</div>
+      <div class="hhq-grid3" style="margin-top:18px">
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Protein Target (g)</label>
+          <input class="hhq-input" id="hhqProteinTarget" type="number" min="0" inputmode="numeric">
+        </div>
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Calories Target</label>
+          <input class="hhq-input" id="hhqCaloriesTarget" type="number" min="0" inputmode="numeric">
+        </div>
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Current Weight (kg)</label>
+          <input class="hhq-input" id="hhqCurrentWeight" type="number" min="0" step="0.1" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hhq-section">
+    <div class="section-title">Morning Routine</div>
+    <div class="stack-card">
+      <ul class="hhq-check-list" id="hhqMorningList"></ul>
+      <div class="hhq-check-add">
+        <input class="hhq-input" id="hhqMorningAddInput" type="text" placeholder="Add a step…">
+        <button class="hhq-add-btn" id="hhqMorningAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hhq-section">
+    <div class="section-title">Evening Routine</div>
+    <div class="stack-card">
+      <ul class="hhq-check-list" id="hhqEveningList"></ul>
+      <div class="hhq-check-add">
+        <input class="hhq-input" id="hhqEveningAddInput" type="text" placeholder="Add a step…">
+        <button class="hhq-add-btn" id="hhqEveningAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hhq-section">
+    <div class="section-title">Supplements Checklist</div>
+    <div class="stack-card">
+      <ul class="hhq-check-list" id="hhqSupplementsList"></ul>
+      <div class="hhq-check-add">
+        <input class="hhq-input" id="hhqSupplementAddInput" type="text" placeholder="Add a supplement…">
+        <button class="hhq-add-btn" id="hhqSupplementAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hhq-section">
+    <div class="section-title">Notes</div>
+    <div class="stack-card">
+      <div class="hhq-grid2">
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Recovery Notes</label>
+          <textarea class="hhq-input" id="hhqRecoveryNotes" rows="4" placeholder="Soreness, niggles, how the body feels…"></textarea>
+        </div>
+        <div class="hhq-field" style="margin-bottom:0">
+          <label class="hhq-label">Health Notes</label>
+          <textarea class="hhq-input" id="hhqHealthNotes" rows="4" placeholder="General tracking & wellbeing notes — not medical advice…"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+
+    var h = window.Health.load();
+    function save() { window.Health.save(h); }
+
+    var fieldTimer = null;
+    function bindNumber(id, key, onSave) {
+      var el = $(id);
+      el.value = h[key] || '';
+      el.addEventListener('input', function () {
+        h[key] = Number(el.value) || 0;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 300);
+        if (onSave) onSave();
+      });
+    }
+    function bindText(id, key) {
+      var el = $(id);
+      el.value = h[key] || '';
+      el.addEventListener('input', function () {
+        h[key] = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 300);
+      });
+    }
+    function bindSelect(id, key) {
+      var el = $(id);
+      el.value = h[key] || el.options[0].value;
+      el.addEventListener('change', function () { h[key] = el.value; save(); });
+    }
+
+    function renderSleepProgress() {
+      var target = Number(h.sleepTarget) || 0;
+      var actual = Number(h.lastNightSleep) || 0;
+      var pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+      $('hhqSleepFill').style.width = pct + '%';
+      $('hhqSleepNote').textContent = actual + ' of ' + target + ' hrs target';
+    }
+    function renderWaterProgress() {
+      var target = Number(h.hydrationTarget) || 0;
+      var actual = Number(h.waterIntake) || 0;
+      var pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+      $('hhqWaterFill').style.width = pct + '%';
+      $('hhqWaterNote').textContent = actual + ' of ' + target + ' L today';
+    }
+
+    bindNumber('hhqSleepTarget', 'sleepTarget', renderSleepProgress);
+    bindNumber('hhqLastNightSleep', 'lastNightSleep', renderSleepProgress);
+    bindSelect('hhqSleepQuality', 'sleepQuality');
+    bindNumber('hhqHydrationTarget', 'hydrationTarget', renderWaterProgress);
+    bindNumber('hhqWaterIntake', 'waterIntake', renderWaterProgress);
+    bindNumber('hhqProteinTarget', 'proteinTarget');
+    bindNumber('hhqCaloriesTarget', 'caloriesTarget');
+    bindNumber('hhqCurrentWeight', 'currentWeight');
+    bindText('hhqRecoveryNotes', 'recoveryNotes');
+    bindText('hhqHealthNotes', 'healthNotes');
+    renderSleepProgress();
+    renderWaterProgress();
+
+    function bindSlider(id, valId, key) {
+      var el = $(id);
+      el.value = h[key] != null ? h[key] : el.min;
+      $(valId) && ($(valId).textContent = el.value);
+      el.addEventListener('input', function () {
+        h[key] = Number(el.value) || 0;
+        if ($(valId)) $(valId).textContent = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 250);
+      });
+    }
+    bindSlider('hhqRecoveryScore', 'hhqRecoveryVal', 'recoveryScore');
+    bindSlider('hhqEnergyLevel', 'hhqEnergyVal', 'energyLevel');
+    bindSlider('hhqStressLevel', 'hhqStressVal', 'stressLevel');
+
+    // ---- Generic checklist renderer used by Morning / Evening / Supplements ----
+    function renderChecklist(listId, items, labelKey, doneKey, onToggle, onDelete) {
+      var wrap = $(listId);
+      wrap.innerHTML = '';
+      items.forEach(function (item) {
+        var li = document.createElement('li');
+        li.className = 'hhq-check-row' + (item[doneKey] ? ' is-done' : '');
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.className = 'hhq-checkbox'; cb.checked = !!item[doneKey];
+        cb.addEventListener('change', function () { onToggle(item, cb.checked); });
+
+        var text = document.createElement('span');
+        text.className = 'hhq-check-text'; text.textContent = item[labelKey];
+
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'hhq-check-del'; del.textContent = '×';
+        del.addEventListener('click', function () { onDelete(item); });
+
+        li.appendChild(cb); li.appendChild(text); li.appendChild(del);
+        wrap.appendChild(li);
+      });
+    }
+
+    function renderMorning() {
+      renderChecklist('hhqMorningList', h.morningRoutine, 'label', 'completed',
+        function (item, checked) { item.completed = checked; save(); renderMorning(); },
+        function (item) { h.morningRoutine = h.morningRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderMorning(); });
+    }
+    function renderEvening() {
+      renderChecklist('hhqEveningList', h.eveningRoutine, 'label', 'completed',
+        function (item, checked) { item.completed = checked; save(); renderEvening(); },
+        function (item) { h.eveningRoutine = h.eveningRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderEvening(); });
+    }
+    function renderSupplements() {
+      renderChecklist('hhqSupplementsList', h.supplements, 'name', 'taken',
+        function (item, checked) { item.taken = checked; save(); renderSupplements(); },
+        function (item) { h.supplements = h.supplements.filter(function (i) { return i.id !== item.id; }); save(); renderSupplements(); });
+    }
+    renderMorning(); renderEvening(); renderSupplements();
+
+    function wireAdd(inputId, btnId, pushFn, renderFn) {
+      var input = $(inputId);
+      function add() {
+        var v = input.value.trim();
+        if (!v) return;
+        pushFn(v);
+        input.value = '';
+        save(); renderFn();
+      }
+      $(btnId).addEventListener('click', add);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+    }
+    wireAdd('hhqMorningAddInput', 'hhqMorningAddBtn', function (v) { h.morningRoutine.push({ id: window.Health.uid(), label: v, completed: false }); }, renderMorning);
+    wireAdd('hhqEveningAddInput', 'hhqEveningAddBtn', function (v) { h.eveningRoutine.push({ id: window.Health.uid(), label: v, completed: false }); }, renderEvening);
+    wireAdd('hhqSupplementAddInput', 'hhqSupplementAddBtn', function (v) { h.supplements.push({ id: window.Health.uid(), name: v, taken: false }); }, renderSupplements);
+
+    // Re-render if another tab / device changes health data.
+    window.addEventListener('storage', function () {
+      h = window.Health.load();
+      renderSleepProgress(); renderWaterProgress();
+      renderMorning(); renderEvening(); renderSupplements();
+    });
+  })();
+  </script>
 
   <!-- ===== WHOOP card (full) ===== -->
   <style>

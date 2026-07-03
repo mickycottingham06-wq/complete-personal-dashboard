@@ -16,6 +16,7 @@
 <script src="scripts/business-data.js"></script>
 <script src="scripts/ai-ceo-data.js"></script>
 <script src="scripts/boxing-data.js"></script>
+<script src="scripts/health-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -107,6 +108,8 @@ body::after {
 .preview-arrow { font-size: 18px; color: var(--text-tertiary); transition: transform 0.18s ease, color 0.18s ease; flex-shrink: 0; }
 .preview-card:hover .preview-arrow { transform: translateX(4px); color: var(--text-primary); }
 .streak-stats-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 16px; }
+.streak-stats-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 16px; }
+@media (max-width: 480px) { .streak-stats-4 { grid-template-columns: repeat(2,1fr); } }
 .preview-sub { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
 .preview-rev-track { height: 8px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 14px; }
 .preview-rev-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #F2C063, #FDE68A); transition: width 0.3s ease; }
@@ -366,6 +369,24 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== HEALTH HQ PREVIEW — compact entry point, full view lives at
+       pages/health.html ===== -->
+  <div class="section" id="healthPreview">
+    <div class="section-title">Health HQ</div>
+    <a class="gm-card preview-card" href="pages/health.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow">Today</div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats-4" style="margin-top:10px">
+        <div class="streak-stat"><div class="v" id="previewHealthSleep">—</div><div class="l">Sleep</div></div>
+        <div class="streak-stat"><div class="v" id="previewHealthRecovery">—</div><div class="l">Recovery</div></div>
+        <div class="streak-stat"><div class="v" id="previewHealthWater">—</div><div class="l">Water</div></div>
+        <div class="streak-stat"><div class="v" id="previewHealthEnergy">—</div><div class="l">Energy</div></div>
+      </div>
+    </a>
+  </div>
+
   <div class="bento">
 
     <!-- Big tile -->
@@ -405,7 +426,7 @@ body::after {
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Health HQ</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Supplements & vitals</span>
+        <span class="tile-sub">Sleep, recovery & vitals</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -957,7 +978,15 @@ body::after {
     focusEl.textContent = hasFocus ? 'Focus: ' + box.currentFocus.trim() : 'No focus set';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); }
+  function renderHealthPreview() {
+    const health = window.Health.load();
+    $('previewHealthSleep').textContent = (Number(health.lastNightSleep) || 0) + 'h';
+    $('previewHealthRecovery').textContent = (Number(health.recoveryScore) || 0);
+    $('previewHealthWater').textContent = (Number(health.waterIntake) || 0) + 'L';
+    $('previewHealthEnergy').textContent = (Number(health.energyLevel) || 0) + '/10';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

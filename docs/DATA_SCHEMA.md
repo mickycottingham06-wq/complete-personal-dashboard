@@ -197,6 +197,51 @@ Everything related to boxing belongs here. Future features (Whoop/Garmin recover
 
 ---
 
+# Health Data
+
+Implemented. Lives in `localStorage` under the key `health`. The load/save logic lives in `scripts/health-data.js` (shared business logic), used by both the full page at `pages/health.html` and the preview card on index.html.
+
+Shape:
+
+```
+health: {
+  sleepTarget: number,
+  lastNightSleep: number,
+  sleepQuality: string,
+  recoveryScore: number,
+  energyLevel: number,
+  stressLevel: number,
+  hydrationTarget: number,
+  waterIntake: number,
+  proteinTarget: number,
+  caloriesTarget: number,
+  currentWeight: number,
+  morningRoutine: [ { id: string, label: string, completed: boolean } ],
+  eveningRoutine: [ { id: string, label: string, completed: boolean } ],
+  supplements: [ { id: string, name: string, taken: boolean } ],
+  recoveryNotes: string,
+  healthNotes: string
+}
+```
+
+Default morning routine: Drink water after waking, Morning sunlight, Brush teeth, Skincare, Mobility, Protein breakfast.
+
+Default evening routine: No phone before bed, Prepare for tomorrow, Stretch/mobility, Skincare, Sleep on time.
+
+Default supplements checklist: Creatine, Electrolytes, Magnesium, Vitamin D, Omega 3.
+
+`window.Health.load()` returns stored health data, filling in any fields missing against the default shape (upgrades older saved data). `window.Health.save(h)` persists changes. `window.Health.uid()` generates ids for new checklist rows.
+
+This `supplements` checklist is a separate, simpler daily tick-list from the pre-existing "Daily Stack" system further down `pages/health.html` (localStorage keys `stack:items` / `stack:taken:<date>`, with dosing, timing windows, and search) — the two are not merged, since Daily Stack already owns a richer supplement-ordering workflow. WHOOP integration and the water tracker iframe on the same page are also untouched and remain their own systems.
+
+The full interactive UI lives at `pages/health.html`, above the existing WHOOP / Daily Stack / Water Tracker sections. index.html shows a compact preview card (last night's sleep, recovery score, water intake, energy level) that links to it.
+
+Tracking and general wellbeing only — this app never gives medical advice.
+
+Everything related to health command-centre tracking belongs here. Future features (Hormone Optimisation, Appearance/Looks, AI coaching) should read this shape rather than duplicating sleep/recovery/hydration data.
+
+---
+
 # Business Data
 
 Implemented. Lives in `localStorage` under the key `business`. The load/save logic lives in `scripts/business-data.js` (shared business logic), used by both the full page at `pages/business-hq.html` and the preview card on index.html.

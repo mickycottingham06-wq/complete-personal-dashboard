@@ -188,6 +188,28 @@ Commit:
 
 Add Boxing HQ
 
+## 2026-07-03
+
+### Health HQ
+
+Built the full Health HQ command centre on top of the existing `pages/health.html` (previously just WHOOP + Daily Stack + Water Tracker), so the sidebar/bento "Health HQ" entry now leads to a real health, recovery, hydration, nutrition, and routine tracker instead of only supplements.
+
+New shared data layer `scripts/health-data.js` owns the `health` localStorage key: sleep target/last night/quality, recovery score, energy & stress levels, hydration target/water intake, protein/calories targets, current weight, morning routine checklist, evening routine checklist, a separate supplements checklist, and recovery/health notes. Follows the same load-with-defaults / save pattern as `window.Boxing` and `window.Business`.
+
+The new section sits above the pre-existing WHOOP card, Daily Stack, and Water Tracker on `pages/health.html` — none of those were touched, and the new supplements checklist is intentionally kept separate from Daily Stack's richer dosing/timing system rather than merged into it.
+
+Added a compact Health HQ preview card to index.html (last night's sleep, recovery score, water intake, energy level) linking to the full page. The bento tile and sidebar link already existed and needed no changes beyond an updated tile subtitle.
+
+Tracking and general wellbeing only — no medical advice anywhere in the app.
+
+Files affected:
+
+scripts/health-data.js (new), pages/health.html, index.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add Health HQ
+
 ---
 
 ## Future Entries
