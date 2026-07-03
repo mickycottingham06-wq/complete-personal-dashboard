@@ -18,7 +18,7 @@ Daily Dashboard
 
 Daily Snapshot ✅
 
-Streaks
+Streaks ✅
 
 Weather
 

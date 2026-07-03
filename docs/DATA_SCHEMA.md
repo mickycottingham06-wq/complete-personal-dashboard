@@ -77,6 +77,51 @@ Resets to defaults automatically when `date` no longer matches the active day. `
 
 ---
 
+# Streaks Data
+
+Implemented. Lives in `localStorage` under the key `streaks` (inline in index.html, directly below Daily Snapshot — same convention).
+
+Shape:
+
+```
+streaks: {
+  currentStreak: number,
+  bestStreak: number,
+  lastCompletedDate: string,        // YYYY-MM-DD of the most recent day that hit the threshold
+  weeklyCompletions: [              // last 7 days, oldest → newest
+    { date: string, completed: boolean, completionPercentage: number }
+  ],
+  habits: [
+    { id: string, label: string, currentStreak: number, bestStreak: number, completedToday: boolean }
+  ],
+  history: [                        // full day-by-day log, capped at 90 entries, oldest → newest
+    {
+      date: string,
+      completed: boolean,
+      completionPercentage: number,
+      habits: [ { id: string, label: string, completed: boolean } ]
+    }
+  ]
+}
+```
+
+Source of truth for "today": `window.DailySnapshot.get().habits`. Streaks does not own habit completion — it reads it.
+
+Logic:
+
+- A day counts as "completed" once habit completion reaches 70% (`COMPLETION_THRESHOLD`).
+- Every page load, and every time a habit checkbox changes (Daily Snapshot dispatches a `dailySnapshot:habitsChanged` window event), Streaks recomputes and overwrites today's entry in `history`. Past days are never rewritten.
+- `currentStreak` walks backward day-by-day from today. Today is given a grace period: if today isn't at threshold yet, the streak still shows yesterday's count rather than resetting early (the day isn't over). A missing or incomplete day anywhere else in the chain breaks it.
+- `bestStreak` only ever increases (`Math.max(previousBest, currentStreak)`).
+- Individual habit streaks use the same walk-backward logic against that habit's own daily history.
+- `weeklyCompletions` is a derived last-7-days convenience view rebuilt from `history` on every save.
+
+Uses the same 6 AM day-rollover convention as Daily Snapshot / goals.
+
+Exposes `window.Streaks.get()` as a public hook so Life Stats and the future Heatmap can read streak/history data without reimplementing the calculation.
+
+---
+
 # Dashboard Data
 
 dashboardData should contain:

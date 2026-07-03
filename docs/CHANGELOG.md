@@ -106,6 +106,22 @@ Commit:
 
 Branding cleanup and add Daily Snapshot
 
+### Streaks
+
+Added a Streaks section to index.html, directly below Daily Snapshot. Tracks current streak, best streak, today's completion percentage, a 7-day mini progress view, and per-habit streaks — all reusing the existing `.gm-card` / `.gm-row` / `.snap-status` / `whoop-stat`-style components rather than inventing new UI.
+
+Reads today's habits from `window.DailySnapshot.get()`. A day counts as "completed" at 70% habit completion. Recomputes live off a `dailySnapshot:habitsChanged` event dispatched from the Daily Snapshot habit checkboxes, and on every page load. Keeps its own capped day-by-day history in `localStorage` (key `streaks`) so streaks can be calculated correctly across days without a backend.
+
+Exposes `window.Streaks.get()` so Life Stats and the Heatmap can build on the same data later.
+
+Files affected:
+
+index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md
+
+Commit:
+
+Add Streaks
+
 ---
 
 ## Future Entries

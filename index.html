@@ -114,6 +114,25 @@ body::after {
 @media (max-width: 620px) { .snap-grid3 { grid-template-columns: 1fr; } }
 textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
 
+/* ===== Streaks (mirrors the whoop-stat / gm-row patterns above) ===== */
+.streak-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+.streak-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.streak-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.streak-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
+.streak-week { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; margin-bottom: 4px; }
+.streak-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.streak-day .dow { font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+.streak-day.is-today .dow { color: var(--text-primary); }
+.streak-day .box { width: 100%; aspect-ratio: 1; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.streak-day .box.done { background: var(--success); border-color: var(--success); box-shadow: 0 0 10px rgba(107,227,164,0.35); }
+.streak-day .box.partial { background: rgba(242,192,99,0.30); border-color: var(--warning); }
+
+.streak-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.14); flex-shrink: 0; }
+.streak-dot.on { background: var(--success); box-shadow: 0 0 8px rgba(107,227,164,0.6); }
+.streak-flame { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+.streak-flame.on { color: var(--warning); }
+
 /* ===== BENTO GRID ===== */
 .bento {
   display: grid;
@@ -310,6 +329,26 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
         <label class="field-label">Quick Notes</label>
         <textarea class="set-input" id="snapNotes" rows="3" placeholder="Anything else on your mind…"></textarea>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== STREAKS ===== -->
+  <div class="section" id="streaksSection">
+    <div class="section-title">Streaks</div>
+    <div class="gm-card">
+      <div class="snap-status" id="streakStatus">—</div>
+
+      <div class="streak-stats">
+        <div class="streak-stat"><div class="v" id="streakCurrentV">0</div><div class="l">Current Streak</div></div>
+        <div class="streak-stat"><div class="v" id="streakBestV">0</div><div class="l">Best Streak</div></div>
+        <div class="streak-stat"><div class="v" id="streakTodayV">0%</div><div class="l">Today</div></div>
+      </div>
+
+      <div class="snap-label">Last 7 Days</div>
+      <div class="streak-week" id="streakWeek"></div>
+
+      <div class="snap-label">Habit Streaks</div>
+      <ul class="goal-list" id="streakHabits"></ul>
     </div>
   </div>
 
@@ -783,6 +822,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
       cb.addEventListener('change', () => {
         h.completed = cb.checked; save(); renderStatus();
         li.classList.toggle('gm-row-done', h.completed);
+        window.dispatchEvent(new Event('dailySnapshot:habitsChanged'));
       });
       const txt = document.createElement('div');
       txt.className = 'gm-text'; txt.textContent = h.label;
@@ -816,6 +856,189 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   // Small public hook so future Streaks / Life Stats pages can read today's
   // snapshot without re-implementing the load/rollover logic.
   window.DailySnapshot = { KEY: SNAPSHOT_KEY, get: () => loadJSON(SNAPSHOT_KEY, null) };
+})();
+</script>
+
+<!-- ===== Streaks — reads today's habits from Daily Snapshot, owns its own
+     day-by-day history so Life Stats / Heatmap can build on it later ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const STREAKS_KEY = 'streaks';
+  const COMPLETION_THRESHOLD = 0.70; // >=70% of today's habits counts the day as "completed"
+  const HISTORY_LIMIT = 90;          // cap stored history so localStorage never grows unbounded
+
+  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
+  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+  // Same 6 AM rollover convention as Daily Snapshot / the goals list, so "today" means the same day everywhere.
+  function activeDateKey() {
+    const now = new Date();
+    const d = new Date(now);
+    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function parseKey(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); }
+  function keyFromDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function shiftKey(key, delta) { const d = parseKey(key); d.setDate(d.getDate() + delta); return keyFromDate(d); }
+
+  function defaultStreaks() {
+    return { currentStreak: 0, bestStreak: 0, lastCompletedDate: '', weeklyCompletions: [], habits: [], history: [] };
+  }
+
+  // Walks backwards day-by-day from today counting consecutive completed days.
+  // If today isn't completed yet it's given the benefit of the doubt (the day
+  // isn't over), so the streak only breaks once a day is actually missed.
+  function computeStreak(dayMap, todayKey) {
+    let streak = 0;
+    let cursor = todayKey;
+    const todayEntry = dayMap.get(todayKey);
+    if (todayEntry && todayEntry.completed) { streak = 1; cursor = shiftKey(todayKey, -1); }
+    else { cursor = shiftKey(todayKey, -1); }
+    while (true) {
+      const entry = dayMap.get(cursor);
+      if (entry && entry.completed) { streak++; cursor = shiftKey(cursor, -1); }
+      else break;
+    }
+    return streak;
+  }
+
+  function recompute() {
+    const snap = window.DailySnapshot && window.DailySnapshot.get();
+    const habits = (snap && Array.isArray(snap.habits)) ? snap.habits : [];
+    const todayKey = activeDateKey();
+    const total = habits.length;
+    const done = habits.filter((h) => h.completed).length;
+    const pct = total ? done / total : 0;
+    const completedToday = total > 0 && pct >= COMPLETION_THRESHOLD;
+
+    const data = loadJSON(STREAKS_KEY, defaultStreaks());
+    if (!Array.isArray(data.history)) data.history = [];
+    if (!Array.isArray(data.habits)) data.habits = [];
+
+    const todayEntry = {
+      date: todayKey,
+      completed: completedToday,
+      completionPercentage: Math.round(pct * 100),
+      habits: habits.map((h) => ({ id: h.id, label: h.label, completed: !!h.completed })),
+    };
+    const existingIdx = data.history.findIndex((e) => e.date === todayKey);
+    if (existingIdx >= 0) data.history[existingIdx] = todayEntry;
+    else data.history.push(todayEntry);
+    data.history.sort((a, b) => a.date.localeCompare(b.date));
+    if (data.history.length > HISTORY_LIMIT) data.history = data.history.slice(-HISTORY_LIMIT);
+
+    const dayMap = new Map(data.history.map((e) => [e.date, e]));
+    const prevBest = data.bestStreak || 0;
+    const currentStreak = computeStreak(dayMap, todayKey);
+    const bestStreak = Math.max(prevBest, currentStreak);
+
+    let lastCompletedDate = '';
+    for (let i = data.history.length - 1; i >= 0; i--) {
+      if (data.history[i].completed) { lastCompletedDate = data.history[i].date; break; }
+    }
+
+    const weeklyCompletions = [];
+    for (let i = 6; i >= 0; i--) {
+      const key = shiftKey(todayKey, -i);
+      const entry = dayMap.get(key);
+      weeklyCompletions.push({ date: key, completed: !!(entry && entry.completed), completionPercentage: entry ? entry.completionPercentage : 0 });
+    }
+
+    const prevHabitsByI = new Map(data.habits.map((h) => [h.id, h]));
+    const perHabit = habits.map((h) => {
+      const habitDayMap = new Map();
+      data.history.forEach((e) => {
+        const match = Array.isArray(e.habits) ? e.habits.find((x) => x.id === h.id) : null;
+        habitDayMap.set(e.date, { completed: !!(match && match.completed) });
+      });
+      const prev = prevHabitsByI.get(h.id);
+      const hCurrent = computeStreak(habitDayMap, todayKey);
+      const hBest = Math.max(prev ? prev.bestStreak || 0 : 0, hCurrent);
+      return { id: h.id, label: h.label, currentStreak: hCurrent, bestStreak: hBest, completedToday: !!h.completed };
+    });
+
+    data.currentStreak = currentStreak;
+    data.bestStreak = bestStreak;
+    data.lastCompletedDate = lastCompletedDate;
+    data.weeklyCompletions = weeklyCompletions;
+    data.habits = perHabit;
+    saveJSON(STREAKS_KEY, data);
+
+    render(data, pct, completedToday, todayKey, currentStreak > prevBest && currentStreak > 0);
+  }
+
+  function render(data, pct, completedToday, todayKey, isNewBest) {
+    $('streakCurrentV').textContent = String(data.currentStreak);
+    $('streakBestV').textContent = String(data.bestStreak);
+    $('streakTodayV').textContent = Math.round(pct * 100) + '%';
+
+    const statusEl = $('streakStatus');
+    statusEl.classList.remove('good', 'warn');
+    if (isNewBest) {
+      statusEl.classList.add('good');
+      statusEl.textContent = 'New best streak — ' + data.bestStreak + ' days. 🔥';
+    } else if (data.currentStreak === 0 && !completedToday) {
+      const total = data.habits.length;
+      const done = data.habits.filter((h) => h.completedToday).length;
+      statusEl.textContent = total ? ('No active streak — ' + done + '/' + total + ' habits done. Hit ' + Math.ceil(total * COMPLETION_THRESHOLD) + ' to start one.') : 'Log today\'s habits in Daily Snapshot to start a streak.';
+    } else if (data.currentStreak > 0 && completedToday) {
+      statusEl.classList.add('good');
+      statusEl.textContent = '🔥 ' + data.currentStreak + '-day streak — don\'t break the chain.';
+    } else if (data.currentStreak > 0 && !completedToday) {
+      const total = data.habits.length;
+      const done = data.habits.filter((h) => h.completedToday).length;
+      const need = Math.max(0, Math.ceil(total * COMPLETION_THRESHOLD) - done);
+      statusEl.classList.add('warn');
+      statusEl.textContent = data.currentStreak + '-day streak on the line — ' + need + ' more habit' + (need === 1 ? '' : 's') + ' to lock in today.';
+    } else {
+      statusEl.textContent = 'Day 1 — streak started. Keep it going tomorrow.';
+    }
+
+    const weekWrap = $('streakWeek');
+    weekWrap.innerHTML = '';
+    const dowLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    data.weeklyCompletions.forEach((entry) => {
+      const cell = document.createElement('div');
+      cell.className = 'streak-day' + (entry.date === todayKey ? ' is-today' : '');
+      const dow = document.createElement('div');
+      dow.className = 'dow';
+      dow.textContent = dowLabels[parseKey(entry.date).getDay()];
+      const box = document.createElement('div');
+      box.className = 'box' + (entry.completed ? ' done' : (entry.completionPercentage > 0 ? ' partial' : ''));
+      cell.append(dow, box);
+      weekWrap.appendChild(cell);
+    });
+
+    const habitsWrap = $('streakHabits');
+    habitsWrap.innerHTML = '';
+    data.habits.forEach((h) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row';
+      const dot = document.createElement('span');
+      dot.className = 'streak-dot' + (h.completedToday ? ' on' : '');
+      const txt = document.createElement('div');
+      txt.className = 'gm-text';
+      txt.textContent = h.label;
+      const cur = document.createElement('span');
+      cur.className = 'streak-flame' + (h.currentStreak > 0 ? ' on' : '');
+      cur.textContent = '🔥 ' + h.currentStreak;
+      const best = document.createElement('span');
+      best.className = 'streak-flame';
+      best.style.marginLeft = '10px';
+      best.textContent = 'best ' + h.bestStreak;
+      li.append(dot, txt, cur, best);
+      habitsWrap.appendChild(li);
+    });
+  }
+
+  recompute();
+  window.addEventListener('dailySnapshot:habitsChanged', recompute);
+
+  // Small public hook so Life Stats / Heatmap can read streak data later
+  // without reimplementing the streak-calculation logic.
+  window.Streaks = { KEY: STREAKS_KEY, get: () => loadJSON(STREAKS_KEY, null) };
 })();
 </script>
 </body>
