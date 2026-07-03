@@ -200,49 +200,36 @@ Everything related to boxing belongs here.
 
 # Business Data
 
-business.js
+Implemented. Lives in `localStorage` under the key `business`. The load/save logic lives in `scripts/business-data.js` (shared business logic), used by both the full page at `pages/business-hq.html` and the preview card on index.html.
 
-Must support multiple businesses.
+Shape:
 
-Each business should contain:
+```
+business: {
+  currentFocus: string,
+  activeProject: string,
+  todayTask: string,
+  weeklyTarget: string,
+  revenueTarget: number,
+  currentRevenue: number,
+  pipeline: [
+    { id: string, name: string, stage: string, value: number, notes: string }
+  ],
+  projects: [
+    { id: string, name: string, status: string, priority: string }
+  ],
+  notes: string,
+  aiCeoPrompt: string
+}
+```
 
-Name
+Default projects: AI automation agency, Digital products, Reselling / Whatnot, Property sourcing, Content / faceless TikTok.
 
-Description
+`window.Business.load()` returns stored business data, filling in any fields missing against the default shape (upgrades older saved data). `window.Business.save(biz)` persists changes. `window.Business.uid()` generates ids for new pipeline/project rows.
 
-Status
+The full interactive UI lives at `pages/business-hq.html`. index.html shows a compact preview card (current focus, active project, revenue progress, today's task) that links to it.
 
-Priority
-
-Monthly Revenue
-
-Revenue Target
-
-Current Goal
-
-Current Task
-
-Next Action
-
-Progress
-
-Monthly Expenses
-
-Notes
-
-Example Businesses
-
-AI Automation
-
-Amazon FBA
-
-Digital Products
-
-Property
-
-Faceless Content
-
-Future businesses should be easy to add.
+`aiCeoPrompt` is a free-text placeholder field only — no AI request is made from it yet. The full AI CEO is a future feature.
 
 ---
 

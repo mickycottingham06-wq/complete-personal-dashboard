@@ -10,12 +10,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/business-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -55,6 +60,7 @@ body::after {
 }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
+.section { margin-top: 8px; }
 .section-title {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
@@ -67,18 +73,75 @@ body::after {
   margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
 }
-.placeholder-card { text-align: center; padding: 40px 20px; }
-.placeholder-icon { font-size: 40px; margin-bottom: 14px; filter: grayscale(15%); }
-.placeholder-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.placeholder-text { font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); max-width: 420px; margin: 0 auto 22px; }
-.placeholder-back {
-  display: inline-block; padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-primary);
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+
+.snap-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 18px 0 8px;
 }
-.placeholder-back:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+.snap-label:first-child { margin-top: 0; }
+
+.field { margin-bottom: 14px; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.set-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.set-input::placeholder { color: var(--text-tertiary); }
+.set-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+select.set-input { cursor: pointer; }
+select.set-input option { background: #16161a; color: var(--text-primary); }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 620px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* ---- Revenue progress ---- */
+.rev-numbers { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.rev-current { font-size: 26px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.rev-target { font-size: 13px; color: var(--text-tertiary); }
+.rev-track { height: 10px; border-radius: 6px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.rev-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #6BE3A4, #A7F3D0); transition: width 0.3s ease; }
+.rev-pct { margin-top: 8px; font-size: 12px; color: var(--text-tertiary); text-align: right; }
+
+/* ---- Pipeline / project rows ---- */
+.row-list { display: flex; flex-direction: column; gap: 8px; }
+.row-card {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  padding: 12px 14px; display: grid; gap: 8px;
+  grid-template-columns: 1.4fr 1fr 0.8fr 1.4fr auto;
+  align-items: center;
+}
+.row-card.project-row { grid-template-columns: 1.6fr 1fr 1fr auto; }
+@media (max-width: 760px) {
+  .row-card, .row-card.project-row { grid-template-columns: 1fr; }
+}
+.row-input {
+  width: 100%; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 9px;
+  background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 13px; outline: none;
+}
+.row-input:focus { border-color: rgba(255,255,255,0.26); }
+.row-input option { background: #16161a; }
+.row-del {
+  border: 1px solid rgba(255,255,255,0.10); background: transparent; color: var(--text-tertiary);
+  border-radius: 9px; width: 32px; height: 32px; cursor: pointer; font-size: 16px; line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s; justify-self: end;
+}
+.row-del:hover { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); color: var(--danger); }
+.row-empty { font-size: 13px; color: var(--text-tertiary); padding: 10px 2px; }
+.add-btn {
+  margin-top: 10px; padding: 10px 16px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 11px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+
+.ai-ceo-card { border: 1px solid rgba(167,139,250,0.18); }
+.ai-ceo-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #A78BFA; margin-bottom: 10px;
+}
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
@@ -91,14 +154,268 @@ body::after {
 
   <h1 class="dash-title">Business HQ</h1>
 
-  <div class="section-title">Coming Soon</div>
-  <div class="gm-card placeholder-card">
-    <div class="placeholder-icon">💼</div>
-    <div class="placeholder-title">Business HQ isn't built yet</div>
-    <p class="placeholder-text">This will bring every business — revenue, tasks, priorities, and growth — into one command view, supporting unlimited businesses.</p>
-    <a class="placeholder-back" href="/index.html">← Back to Main</a>
+  <!-- Focus -->
+  <div class="section">
+    <div class="section-title">Focus</div>
+    <div class="gm-card">
+      <div class="field">
+        <label class="field-label">Current Business Focus</label>
+        <input class="set-input" id="bizFocus" type="text" placeholder="What's the main push right now?" autocomplete="off">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label class="field-label">Active Income Stream / Project</label>
+          <select class="set-input" id="bizActiveProject"></select>
+        </div>
+        <div class="field">
+          <label class="field-label">Today's Business Task</label>
+          <input class="set-input" id="bizTodayTask" type="text" placeholder="The one task that matters today" autocomplete="off">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label class="field-label">Weekly Business Target</label>
+        <input class="set-input" id="bizWeeklyTarget" type="text" placeholder="What does a win this week look like?" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue -->
+  <div class="section">
+    <div class="section-title">Revenue</div>
+    <div class="gm-card">
+      <div class="rev-numbers">
+        <div><div class="rev-current" id="revCurrentDisplay">£0</div></div>
+        <div class="rev-target" id="revTargetDisplay">Target £0</div>
+      </div>
+      <div class="rev-track"><div class="rev-fill" id="revFill" style="width:0%"></div></div>
+      <div class="rev-pct" id="revPct">0%</div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Current Revenue</label>
+          <input class="set-input" id="bizCurrentRevenue" type="number" min="0" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Revenue Target</label>
+          <input class="set-input" id="bizRevenueTarget" type="number" min="0" inputmode="decimal" placeholder="0">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="section">
+    <div class="section-title">Lead / Client Pipeline</div>
+    <div class="gm-card">
+      <div class="row-list" id="pipelineList"></div>
+      <button class="add-btn" id="addPipelineRow" type="button">+ Add lead / client</button>
+    </div>
+  </div>
+
+  <!-- Projects -->
+  <div class="section">
+    <div class="section-title">Active Projects</div>
+    <div class="gm-card">
+      <div class="row-list" id="projectsList"></div>
+      <button class="add-btn" id="addProjectRow" type="button">+ Add project</button>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="section">
+    <div class="section-title">Quick Notes</div>
+    <div class="gm-card">
+      <textarea class="set-input" id="bizNotes" rows="4" placeholder="Anything worth remembering…"></textarea>
+    </div>
+  </div>
+
+  <!-- AI CEO -->
+  <div class="section">
+    <div class="section-title">AI CEO</div>
+    <div class="gm-card ai-ceo-card">
+      <div class="ai-ceo-badge">🤖 Placeholder — full AI CEO coming later</div>
+      <textarea class="set-input" id="bizAiCeoPrompt" rows="3" placeholder="Draft what you'd ask your AI CEO…"></textarea>
+    </div>
   </div>
 
 </div>
+
+<!-- ===== Business HQ logic — reads/writes through window.Business
+     (scripts/business-data.js) so the preview card on the main dashboard
+     always sees the same data. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  let biz = window.Business.load();
+  function save() { window.Business.save(biz); }
+
+  const STAGES = ['New Lead', 'Contacted', 'Proposal Sent', 'Negotiating', 'Won', 'Lost'];
+  const STATUSES = ['Active', 'Paused', 'Blocked', 'Done'];
+  const PRIORITIES = ['High', 'Medium', 'Low'];
+
+  function fmtMoney(n) {
+    const v = Number(n) || 0;
+    return '£' + v.toLocaleString('en-GB', { maximumFractionDigits: 0 });
+  }
+
+  function renderRevenue() {
+    const target = Number(biz.revenueTarget) || 0;
+    const current = Number(biz.currentRevenue) || 0;
+    const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+    $('revCurrentDisplay').textContent = fmtMoney(current);
+    $('revTargetDisplay').textContent = 'Target ' + fmtMoney(target);
+    $('revFill').style.width = pct + '%';
+    $('revPct').textContent = pct + '% of target';
+  }
+
+  function renderActiveProjectOptions() {
+    const sel = $('bizActiveProject');
+    sel.innerHTML = '';
+    const names = biz.projects.map((p) => p.name).filter(Boolean);
+    if (biz.activeProject && !names.includes(biz.activeProject)) names.unshift(biz.activeProject);
+    names.forEach((n) => {
+      const opt = document.createElement('option');
+      opt.value = n; opt.textContent = n;
+      sel.appendChild(opt);
+    });
+    sel.value = biz.activeProject || (names[0] || '');
+  }
+
+  function selectOptions(list, current) {
+    return list.map((v) => `<option value="${v}"${v === current ? ' selected' : ''}>${v}</option>`).join('');
+  }
+
+  function renderPipeline() {
+    const wrap = $('pipelineList');
+    wrap.innerHTML = '';
+    if (biz.pipeline.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'row-empty';
+      empty.textContent = 'No leads or clients yet — add one below.';
+      wrap.appendChild(empty);
+      return;
+    }
+    biz.pipeline.forEach((row) => {
+      const card = document.createElement('div');
+      card.className = 'row-card';
+
+      const name = document.createElement('input');
+      name.className = 'row-input'; name.type = 'text'; name.placeholder = 'Name'; name.value = row.name || '';
+      name.addEventListener('input', () => { row.name = name.value; save(); });
+
+      const stage = document.createElement('select');
+      stage.className = 'row-input';
+      stage.innerHTML = selectOptions(STAGES, row.stage || STAGES[0]);
+      stage.addEventListener('change', () => { row.stage = stage.value; save(); });
+
+      const value = document.createElement('input');
+      value.className = 'row-input'; value.type = 'number'; value.min = '0'; value.placeholder = 'Value';
+      value.value = row.value || '';
+      value.addEventListener('input', () => { row.value = Number(value.value) || 0; save(); });
+
+      const notes = document.createElement('input');
+      notes.className = 'row-input'; notes.type = 'text'; notes.placeholder = 'Notes'; notes.value = row.notes || '';
+      notes.addEventListener('input', () => { row.notes = notes.value; save(); });
+
+      const del = document.createElement('button');
+      del.className = 'row-del'; del.type = 'button'; del.textContent = '×';
+      del.addEventListener('click', () => {
+        biz.pipeline = biz.pipeline.filter((r) => r.id !== row.id);
+        save(); renderPipeline();
+      });
+
+      card.append(name, stage, value, notes, del);
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderProjects() {
+    const wrap = $('projectsList');
+    wrap.innerHTML = '';
+    if (biz.projects.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'row-empty';
+      empty.textContent = 'No active projects yet — add one below.';
+      wrap.appendChild(empty);
+      return;
+    }
+    biz.projects.forEach((row) => {
+      const card = document.createElement('div');
+      card.className = 'row-card project-row';
+
+      const name = document.createElement('input');
+      name.className = 'row-input'; name.type = 'text'; name.placeholder = 'Project name'; name.value = row.name || '';
+      name.addEventListener('input', () => {
+        row.name = name.value; save();
+        renderActiveProjectOptions();
+      });
+
+      const status = document.createElement('select');
+      status.className = 'row-input';
+      status.innerHTML = selectOptions(STATUSES, row.status || STATUSES[0]);
+      status.addEventListener('change', () => { row.status = status.value; save(); });
+
+      const priority = document.createElement('select');
+      priority.className = 'row-input';
+      priority.innerHTML = selectOptions(PRIORITIES, row.priority || PRIORITIES[1]);
+      priority.addEventListener('change', () => { row.priority = priority.value; save(); });
+
+      const del = document.createElement('button');
+      del.className = 'row-del'; del.type = 'button'; del.textContent = '×';
+      del.addEventListener('click', () => {
+        biz.projects = biz.projects.filter((r) => r.id !== row.id);
+        save(); renderProjects(); renderActiveProjectOptions();
+      });
+
+      card.append(name, status, priority, del);
+      wrap.appendChild(card);
+    });
+  }
+
+  // Plain text/number fields, debounced so typing doesn't thrash storage.
+  let fieldTimer = null;
+  function bindField(id, key, isNumber) {
+    const el = $(id);
+    el.value = biz[key] || (isNumber ? 0 : '');
+    el.addEventListener('input', () => {
+      biz[key] = isNumber ? (Number(el.value) || 0) : el.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(() => { save(); if (isNumber) renderRevenue(); }, 350);
+      if (isNumber) renderRevenue();
+    });
+  }
+
+  renderRevenue();
+  renderActiveProjectOptions();
+  renderPipeline();
+  renderProjects();
+
+  bindField('bizFocus', 'currentFocus');
+  bindField('bizTodayTask', 'todayTask');
+  bindField('bizWeeklyTarget', 'weeklyTarget');
+  bindField('bizNotes', 'notes');
+  bindField('bizAiCeoPrompt', 'aiCeoPrompt');
+  bindField('bizCurrentRevenue', 'currentRevenue', true);
+  bindField('bizRevenueTarget', 'revenueTarget', true);
+
+  $('bizActiveProject').addEventListener('change', (e) => { biz.activeProject = e.target.value; save(); });
+
+  $('addPipelineRow').addEventListener('click', () => {
+    biz.pipeline.push({ id: window.Business.uid(), name: '', stage: STAGES[0], value: 0, notes: '' });
+    save(); renderPipeline();
+  });
+  $('addProjectRow').addEventListener('click', () => {
+    biz.projects.push({ id: window.Business.uid(), name: '', status: STATUSES[0], priority: PRIORITIES[1] });
+    save(); renderProjects(); renderActiveProjectOptions();
+  });
+
+  // Re-render if another tab / device changes business data.
+  window.addEventListener('storage', () => {
+    biz = window.Business.load();
+    renderRevenue(); renderActiveProjectOptions(); renderPipeline(); renderProjects();
+  });
+})();
+</script>
 </body>
 </html>

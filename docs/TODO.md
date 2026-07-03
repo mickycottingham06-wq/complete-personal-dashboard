@@ -4,8 +4,6 @@
 
 Build Boxing Dashboard (placeholder page exists at pages/boxing-hq.html)
 
-Build Business HQ (placeholder page exists at pages/business-hq.html)
-
 Build AI Assistant
 
 Build Goals (placeholder page exists at pages/goals.html)
