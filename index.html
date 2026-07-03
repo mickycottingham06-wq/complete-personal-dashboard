@@ -17,6 +17,7 @@
 <script src="scripts/ai-ceo-data.js"></script>
 <script src="scripts/boxing-data.js"></script>
 <script src="scripts/health-data.js"></script>
+<script src="scripts/hormone-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -387,6 +388,24 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== HORMONE OPTIMISATION PREVIEW — compact entry point, full view lives
+       at pages/hormone-optimisation.html ===== -->
+  <div class="section" id="hormonePreview">
+    <div class="section-title">Hormone Optimisation</div>
+    <a class="gm-card preview-card" href="pages/hormone-optimisation.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow">Today</div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats-4" style="margin-top:10px">
+        <div class="streak-stat"><div class="v" id="previewHormoneScore">—</div><div class="l">Hor. Score</div></div>
+        <div class="streak-stat"><div class="v" id="previewHormoneEnergy">—</div><div class="l">Energy</div></div>
+        <div class="streak-stat"><div class="v" id="previewHormoneSleep">—</div><div class="l">Sleep</div></div>
+        <div class="streak-stat"><div class="v" id="previewHormoneStress">—</div><div class="l">Stress</div></div>
+      </div>
+    </a>
+  </div>
+
   <div class="bento">
 
     <!-- Big tile -->
@@ -524,7 +543,7 @@ body::after {
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Hormone Optimisation</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Panels & protocols</span>
+        <span class="tile-sub">Energy, recovery & lifestyle</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -986,7 +1005,15 @@ body::after {
     $('previewHealthEnergy').textContent = (Number(health.energyLevel) || 0) + '/10';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); }
+  function renderHormonePreview() {
+    const hor = window.Hormones.load();
+    $('previewHormoneScore').textContent = (Number(hor.hormoneScore) || 0) + '/10';
+    $('previewHormoneEnergy').textContent = (Number(hor.energyLevel) || 0) + '/10';
+    $('previewHormoneSleep').textContent = (Number(hor.sleepConsistency) || 0) + '/10';
+    $('previewHormoneStress').textContent = (Number(hor.stressLevel) || 0) + '/10';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

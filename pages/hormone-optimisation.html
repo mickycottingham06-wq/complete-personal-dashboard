@@ -6,99 +6,559 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
 <title>Hormone Optimisation · Micky's Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/hormone-data.js"></script>
 <style>
 :root {
+  --bg: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-secondary: rgba(255, 255, 255, 0.035);
+  --bg-input: rgba(0, 0, 0, 0.28);
+  --bg-input-focus: rgba(0, 0, 0, 0.36);
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+
+  --accent: #7DD3FC;
+  --accent-glow: rgba(125, 211, 252, 0.35);
+  --warning: #FF8A4D;
+  --warning-bg: rgba(163, 45, 45, 0.10);
+
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: var(--bg);
   color: var(--text-secondary);
   font-family: var(--font);
+  font-size: 15px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
 }
-body {
-  min-height: 100vh; position: relative; overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
-}
+body { min-height: 100vh; position: relative; overflow-x: hidden; }
+
 body::before {
   content: ''; position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
+    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
+    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
+  filter: blur(40px);
+  pointer-events: none; z-index: 0;
   animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: ''; position: fixed; inset: 0;
   background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
+  background-size: 3px 3px;
+  pointer-events: none; z-index: 1;
 }
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
 
-.page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 14px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+main {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: 56px 20px 80px;
+  padding-top: max(56px, env(safe-area-inset-top, 56px));
+}
+
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 4px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: '≡'; font-size: 14px; opacity: 0.5; }
+
+.stack-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+
+::selection { background: rgba(224, 118, 88, 0.3); color: var(--text-primary); }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ====== HORMONE OPTIMISATION — same card/field language as Health HQ /
+   Boxing HQ / Business HQ so the whole dashboard reads as one system. ====== */
+.hor-title {
+  margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
   background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.hor-subtitle {
+  font-size: 12.5px; color: var(--text-tertiary); margin: 0 4px 24px; line-height: 1.6; max-width: 520px;
+}
+.hor-section { margin-bottom: 32px; }
+.hor-field { margin-bottom: 14px; }
+.hor-field:last-child { margin-bottom: 0; }
+.hor-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.hor-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.hor-input::placeholder { color: var(--text-tertiary); }
+.hor-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.hor-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+select.hor-input { cursor: pointer; }
+select.hor-input option { background: #16161a; color: var(--text-primary); }
 
-.section-title {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-}
-.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
-.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+.hor-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hor-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 620px) { .hor-grid2, .hor-grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .hor-grid2, .hor-grid4 { grid-template-columns: 1fr; } }
 
-.gm-card {
-  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
-  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+.hor-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.hor-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.hor-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
+.hor-slider-row { display: flex; align-items: center; gap: 14px; }
+.hor-slider-row input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
+.hor-slider-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-primary); width: 30px; text-align: right; flex-shrink: 0; }
+
+.hor-score-card { text-align: center; padding: 26px 20px; }
+.hor-score-val { font-size: 52px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.hor-score-max { font-size: 16px; color: var(--text-tertiary); font-weight: 500; }
+.hor-score-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 8px; }
+.hor-score-card .hor-slider-row { margin-top: 18px; }
+
+.hor-toggle-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s;
 }
-.placeholder-card { text-align: center; padding: 40px 20px; }
-.placeholder-icon { font-size: 40px; margin-bottom: 14px; filter: grayscale(15%); }
-.placeholder-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.placeholder-text { font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); max-width: 420px; margin: 0 auto 22px; }
-.placeholder-back {
-  display: inline-block; padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-primary);
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+.hor-toggle-row:last-child { margin-bottom: 0; }
+.hor-toggle-row:hover { background: rgba(255,255,255,0.06); }
+.hor-toggle-row.is-on { background: rgba(107,227,164,0.06); }
+.hor-toggle-text { flex: 1; font-size: 14px; color: var(--text-primary); }
+.hor-checkbox {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
 }
-.placeholder-back:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+.hor-checkbox:checked { background: #6BE3A4; border-color: #6BE3A4; box-shadow: 0 0 12px rgba(107,227,164,0.35); }
+.hor-checkbox:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+
+.hor-check-list { list-style: none; margin: 0; padding: 0; }
+.hor-check-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.hor-check-row:hover { background: rgba(255,255,255,0.06); }
+.hor-check-row.is-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
+.hor-check-row.is-done .hor-check-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.hor-check-text { flex: 1; font-size: 14px; color: var(--text-primary); }
+.hor-check-del {
+  border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 4px 6px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.hor-check-row:hover .hor-check-del { opacity: 1; }
+.hor-check-del:hover { color: #FF6B6B; }
+.hor-check-add { display: flex; gap: 8px; margin-top: 10px; }
+.hor-check-add .hor-input { padding: 9px 11px; font-size: 13px; }
+.hor-add-btn {
+  padding: 9px 14px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hor-add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+
+.hor-bw-row {
+  padding: 14px 15px; margin-bottom: 8px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+}
+.hor-bw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
+.hor-bw-marker { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.hor-bw-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+@media (max-width: 480px) { .hor-bw-grid { grid-template-columns: 1fr 1fr; } }
+.hor-bw-notes { width: 100%; }
+
+.hor-flag-card { border: 1px solid rgba(255,138,77,0.20); }
+.hor-flag-note {
+  font-size: 12px; color: var(--text-tertiary); line-height: 1.6; margin: 0 0 14px;
+  padding: 12px 14px; background: rgba(163,45,45,0.08); border-left: 2px solid var(--warning); border-radius: 0 10px 10px 0;
+}
 
 @media (max-width: 480px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .gm-card { padding: 16px; }
+  .hor-title { font-size: 21px; }
+  .stack-card { padding: 18px 16px 14px; }
+  .hor-score-val { font-size: 42px; }
 }
 </style>
 </head>
 <body>
-<div class="page">
 
-  <h1 class="dash-title">Hormone Optimisation</h1>
+<main>
 
-  <div class="section-title">Coming Soon</div>
-  <div class="gm-card placeholder-card">
-    <div class="placeholder-icon">🧬</div>
-    <div class="placeholder-title">Hormone Optimisation isn't built yet</div>
-    <p class="placeholder-text">A dedicated space to track hormone panels, protocols, and trends over time as part of the wider Health system.</p>
-    <a class="placeholder-back" href="/index.html">← Back to Main</a>
+  <!-- ===== HORMONE OPTIMISATION — lifestyle tracking for testosterone-supportive
+       habits: energy, mood, recovery, sleep, stress, nutrition. Reads/writes
+       through window.Hormones (scripts/hormone-data.js) so the preview card on
+       index.html always agrees. Tracking & general wellbeing support only —
+       not medical advice, diagnosis, or treatment. ===== -->
+  <h1 class="hor-title">Hormone Optimisation</h1>
+  <p class="hor-subtitle">Lifestyle tracking for energy, recovery, mood and general wellbeing. This is a tracking &amp; optimisation tool, not medical advice — see a professional for anything hormone-related that concerns you.</p>
+
+  <div class="hor-section">
+    <div class="section-title">Overall Score</div>
+    <div class="stack-card hor-score-card">
+      <div><span class="hor-score-val" id="horScoreVal">5</span><span class="hor-score-max">/10</span></div>
+      <div class="hor-score-label">Hormone Score (manual rating)</div>
+      <div class="hor-slider-row">
+        <input type="range" id="horHormoneScore" min="1" max="10" step="1">
+      </div>
+    </div>
   </div>
 
-</div>
+  <div class="hor-section">
+    <div class="section-title">Energy, Mood &amp; Vitality</div>
+    <div class="stack-card">
+      <div class="hor-grid2">
+        <div class="hor-field">
+          <label class="hor-label">Energy Level</label>
+          <div class="hor-slider-row">
+            <input type="range" id="horEnergyLevel" min="1" max="10" step="1">
+            <span class="hor-slider-val" id="horEnergyVal">5</span>
+          </div>
+        </div>
+        <div class="hor-field">
+          <label class="hor-label">Vitality / Libido Rating</label>
+          <div class="hor-slider-row">
+            <input type="range" id="horVitalityRating" min="1" max="10" step="1">
+            <span class="hor-slider-val" id="horVitalityVal">5</span>
+          </div>
+        </div>
+      </div>
+      <div class="hor-field" style="margin-top:16px; margin-bottom:0">
+        <label class="hor-label">Mood</label>
+        <select class="hor-input" id="horMood">
+          <option>Low</option>
+          <option>Flat</option>
+          <option>Neutral</option>
+          <option>Good</option>
+          <option>Great</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Sleep, Stress &amp; Recovery</div>
+    <div class="stack-card">
+      <div class="hor-grid2">
+        <div class="hor-field">
+          <label class="hor-label">Sleep Consistency</label>
+          <div class="hor-slider-row">
+            <input type="range" id="horSleepConsistency" min="1" max="10" step="1">
+            <span class="hor-slider-val" id="horSleepVal">5</span>
+          </div>
+        </div>
+        <div class="hor-field">
+          <label class="hor-label">Stress Level</label>
+          <div class="hor-slider-row">
+            <input type="range" id="horStressLevel" min="1" max="10" step="1">
+            <span class="hor-slider-val" id="horStressVal">5</span>
+          </div>
+        </div>
+      </div>
+      <div class="hor-field" style="margin-top:16px; margin-bottom:0">
+        <label class="hor-label">Training Recovery</label>
+        <div class="hor-slider-row">
+          <input type="range" id="horTrainingRecovery" min="1" max="10" step="1">
+          <span class="hor-slider-val" id="horRecoveryVal">5</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Nutrition &amp; Habits</div>
+    <div class="stack-card">
+      <div class="hor-field">
+        <label class="hor-label">Nutrition Quality</label>
+        <select class="hor-input" id="horNutritionQuality">
+          <option>Poor</option>
+          <option>Fair</option>
+          <option>Good</option>
+          <option>Great</option>
+          <option>Excellent</option>
+        </select>
+      </div>
+      <div class="hor-field" style="margin-top:16px; margin-bottom:0">
+        <div class="hor-toggle-row" id="horSunlightRow">
+          <input type="checkbox" class="hor-checkbox" id="horSunlightExposure">
+          <span class="hor-toggle-text">Got morning sunlight exposure</span>
+        </div>
+        <div class="hor-toggle-row" id="horProcessedRow">
+          <input type="checkbox" class="hor-checkbox" id="horAvoidedProcessedFood">
+          <span class="hor-toggle-text">Avoided processed food</span>
+        </div>
+        <div class="hor-toggle-row" id="horAlcoholRow">
+          <input type="checkbox" class="hor-checkbox" id="horAvoidedAlcohol">
+          <span class="hor-toggle-text">Avoided alcohol</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Lifestyle Foundations</div>
+    <div class="stack-card">
+      <ul class="hor-check-list" id="horFoundationsList"></ul>
+      <div class="hor-check-add">
+        <input class="hor-input" id="horFoundationAddInput" type="text" placeholder="Add a foundation…">
+        <button class="hor-add-btn" id="horFoundationAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Supplements Checklist</div>
+    <div class="stack-card">
+      <ul class="hor-check-list" id="horSupplementsList"></ul>
+      <div class="hor-check-add">
+        <input class="hor-input" id="horSupplementAddInput" type="text" placeholder="Add a supplement…">
+        <button class="hor-add-btn" id="horSupplementAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Bloodwork / Lab Markers</div>
+    <div class="stack-card">
+      <p class="hor-flag-note" style="margin-top:0">Placeholders only — enter results from your own bloodwork if/when you get it done. This app does not interpret or diagnose results.</p>
+      <div id="horBloodworkList"></div>
+      <div class="hor-check-add">
+        <input class="hor-input" id="horBloodworkAddInput" type="text" placeholder="Add a marker…">
+        <button class="hor-add-btn" id="horBloodworkAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Weekly Optimisation Notes</div>
+    <div class="stack-card">
+      <textarea class="hor-input" id="horWeeklyNotes" rows="4" placeholder="What's working, what to adjust next week…"></textarea>
+    </div>
+  </div>
+
+  <div class="hor-section">
+    <div class="section-title">Red Flags &amp; Reminders</div>
+    <div class="stack-card hor-flag-card">
+      <p class="hor-flag-note">Persistent low energy, low mood, low libido, poor sleep, or other symptoms that don't improve with lifestyle changes are worth raising with a doctor. This is a personal tracking tool, not a diagnostic or medical service.</p>
+      <textarea class="hor-input" id="horRedFlagNotes" rows="3" placeholder="Symptoms to keep an eye on, reminders to book a check-up…"></textarea>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+
+    var h = window.Hormones.load();
+    function save() { window.Hormones.save(h); }
+
+    var fieldTimer = null;
+    function bindText(id, key) {
+      var el = $(id);
+      el.value = h[key] || '';
+      el.addEventListener('input', function () {
+        h[key] = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 300);
+      });
+    }
+    function bindSelect(id, key) {
+      var el = $(id);
+      el.value = h[key] || el.options[0].value;
+      el.addEventListener('change', function () { h[key] = el.value; save(); });
+    }
+    function bindSlider(id, valId, key, onSave) {
+      var el = $(id);
+      el.value = h[key] != null ? h[key] : el.min;
+      if ($(valId)) $(valId).textContent = el.value;
+      el.addEventListener('input', function () {
+        h[key] = Number(el.value) || 0;
+        if ($(valId)) $(valId).textContent = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 250);
+        if (onSave) onSave();
+      });
+    }
+    function bindToggle(id, rowId, key) {
+      var el = $(id);
+      var row = $(rowId);
+      el.checked = !!h[key];
+      row.classList.toggle('is-on', el.checked);
+      el.addEventListener('change', function () {
+        h[key] = el.checked;
+        row.classList.toggle('is-on', el.checked);
+        save();
+      });
+    }
+
+    function renderScore() {
+      $('horScoreVal').textContent = h.hormoneScore;
+    }
+    bindSlider('horHormoneScore', null, 'hormoneScore', renderScore);
+    renderScore();
+
+    bindSlider('horEnergyLevel', 'horEnergyVal', 'energyLevel');
+    bindSlider('horVitalityRating', 'horVitalityVal', 'vitalityRating');
+    bindSelect('horMood', 'mood');
+    bindSlider('horSleepConsistency', 'horSleepVal', 'sleepConsistency');
+    bindSlider('horStressLevel', 'horStressVal', 'stressLevel');
+    bindSlider('horTrainingRecovery', 'horRecoveryVal', 'trainingRecovery');
+    bindSelect('horNutritionQuality', 'nutritionQuality');
+    bindToggle('horSunlightExposure', 'horSunlightRow', 'sunlightExposure');
+    bindToggle('horAvoidedProcessedFood', 'horProcessedRow', 'avoidedProcessedFood');
+    bindToggle('horAvoidedAlcohol', 'horAlcoholRow', 'avoidedAlcohol');
+    bindText('horWeeklyNotes', 'weeklyNotes');
+    bindText('horRedFlagNotes', 'redFlagNotes');
+
+    // ---- Generic checklist renderer used by Lifestyle Foundations / Supplements ----
+    function renderChecklist(listId, items, labelKey, doneKey, onToggle, onDelete) {
+      var wrap = $(listId);
+      wrap.innerHTML = '';
+      items.forEach(function (item) {
+        var li = document.createElement('li');
+        li.className = 'hor-check-row' + (item[doneKey] ? ' is-done' : '');
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.className = 'hor-checkbox'; cb.checked = !!item[doneKey];
+        cb.addEventListener('change', function () { onToggle(item, cb.checked); });
+
+        var text = document.createElement('span');
+        text.className = 'hor-check-text'; text.textContent = item[labelKey];
+
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'hor-check-del'; del.textContent = '×';
+        del.addEventListener('click', function () { onDelete(item); });
+
+        li.appendChild(cb); li.appendChild(text); li.appendChild(del);
+        wrap.appendChild(li);
+      });
+    }
+
+    function renderFoundations() {
+      renderChecklist('horFoundationsList', h.lifestyleFoundations, 'label', 'completed',
+        function (item, checked) { item.completed = checked; save(); renderFoundations(); },
+        function (item) { h.lifestyleFoundations = h.lifestyleFoundations.filter(function (i) { return i.id !== item.id; }); save(); renderFoundations(); });
+    }
+    function renderSupplements() {
+      renderChecklist('horSupplementsList', h.supplements, 'name', 'taken',
+        function (item, checked) { item.taken = checked; save(); renderSupplements(); },
+        function (item) { h.supplements = h.supplements.filter(function (i) { return i.id !== item.id; }); save(); renderSupplements(); });
+    }
+    renderFoundations(); renderSupplements();
+
+    function wireAdd(inputId, btnId, pushFn, renderFn) {
+      var input = $(inputId);
+      function add() {
+        var v = input.value.trim();
+        if (!v) return;
+        pushFn(v);
+        input.value = '';
+        save(); renderFn();
+      }
+      $(btnId).addEventListener('click', add);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+    }
+    wireAdd('horFoundationAddInput', 'horFoundationAddBtn', function (v) { h.lifestyleFoundations.push({ id: window.Hormones.uid(), label: v, completed: false }); }, renderFoundations);
+    wireAdd('horSupplementAddInput', 'horSupplementAddBtn', function (v) { h.supplements.push({ id: window.Hormones.uid(), name: v, taken: false }); }, renderSupplements);
+
+    // ---- Bloodwork / lab marker placeholders ----
+    var bwTimer = null;
+    function renderBloodwork() {
+      var wrap = $('horBloodworkList');
+      wrap.innerHTML = '';
+      h.bloodwork.forEach(function (entry) {
+        var row = document.createElement('div');
+        row.className = 'hor-bw-row';
+
+        var head = document.createElement('div');
+        head.className = 'hor-bw-head';
+        var marker = document.createElement('span');
+        marker.className = 'hor-bw-marker'; marker.textContent = entry.marker;
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'hor-check-del'; del.textContent = '×';
+        del.addEventListener('click', function () {
+          h.bloodwork = h.bloodwork.filter(function (e) { return e.id !== entry.id; });
+          save(); renderBloodwork();
+        });
+        head.appendChild(marker); head.appendChild(del);
+
+        var grid = document.createElement('div');
+        grid.className = 'hor-bw-grid';
+
+        function makeInput(placeholder, key, type) {
+          var input = document.createElement('input');
+          input.className = 'hor-input'; input.type = type || 'text';
+          input.placeholder = placeholder; input.value = entry[key] || '';
+          input.addEventListener('input', function () {
+            entry[key] = input.value;
+            clearTimeout(bwTimer);
+            bwTimer = setTimeout(save, 300);
+          });
+          return input;
+        }
+        grid.appendChild(makeInput('Value', 'value'));
+        grid.appendChild(makeInput('Unit', 'unit'));
+        grid.appendChild(makeInput('Date', 'date', 'date'));
+
+        var notes = document.createElement('input');
+        notes.className = 'hor-input hor-bw-notes'; notes.type = 'text';
+        notes.placeholder = 'Notes…'; notes.value = entry.notes || '';
+        notes.addEventListener('input', function () {
+          entry.notes = notes.value;
+          clearTimeout(bwTimer);
+          bwTimer = setTimeout(save, 300);
+        });
+
+        row.appendChild(head); row.appendChild(grid); row.appendChild(notes);
+        wrap.appendChild(row);
+      });
+    }
+    renderBloodwork();
+    wireAdd('horBloodworkAddInput', 'horBloodworkAddBtn', function (v) {
+      h.bloodwork.push({ id: window.Hormones.uid(), marker: v, value: '', unit: '', date: '', notes: '' });
+    }, renderBloodwork);
+
+    // Re-render if another tab / device changes hormone data.
+    window.addEventListener('storage', function () {
+      h = window.Hormones.load();
+      renderScore();
+      renderFoundations(); renderSupplements(); renderBloodwork();
+    });
+  })();
+  </script>
+
+</main>
 </body>
 </html>

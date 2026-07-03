@@ -242,6 +242,49 @@ Everything related to health command-centre tracking belongs here. Future featur
 
 ---
 
+# Hormone Optimisation Data
+
+Implemented. Lives in `localStorage` under the key `hormones`. The load/save logic lives in `scripts/hormone-data.js` (shared business logic), used by both the full page at `pages/hormone-optimisation.html` and the preview card on index.html.
+
+Shape:
+
+```
+hormones: {
+  hormoneScore: number,          // 1-10 manual overall rating
+  energyLevel: number,           // 1-10
+  mood: string,
+  vitalityRating: number,        // 1-10, libido/vitality
+  sleepConsistency: number,      // 1-10
+  stressLevel: number,           // 1-10
+  trainingRecovery: number,      // 1-10
+  sunlightExposure: boolean,
+  nutritionQuality: string,
+  avoidedProcessedFood: boolean,
+  avoidedAlcohol: boolean,
+  lifestyleFoundations: [ { id: string, label: string, completed: boolean } ],
+  supplements: [ { id: string, name: string, taken: boolean } ],
+  bloodwork: [ { id: string, marker: string, value: string, unit: string, date: string, notes: string } ],
+  weeklyNotes: string,
+  redFlagNotes: string
+}
+```
+
+Default lifestyle foundations: 7-9 hours sleep, Morning sunlight, Strength training, Boxing/conditioning balanced with recovery, Whole foods, Enough calories/protein, Hydration/electrolytes, Low alcohol, Low processed food, Manage stress.
+
+Default supplements checklist: Vitamin D, Magnesium, Zinc, Omega 3, Creatine, Electrolytes. This is a separate checklist from Health HQ's supplements list — the two are not merged, since Hormone Optimisation's stack is specifically testosterone/lifestyle-support focused.
+
+Default bloodwork markers (placeholders only, values left blank for the user to fill in from their own labs): Total Testosterone, Free Testosterone, SHBG, LH, FSH, Oestradiol, Prolactin, Vitamin D, Thyroid Markers, Cortisol.
+
+`window.Hormones.load()` returns stored hormone data, filling in any fields missing against the default shape (upgrades older saved data). `window.Hormones.save(h)` persists changes. `window.Hormones.uid()` generates ids for new checklist/bloodwork rows.
+
+The full interactive UI lives at `pages/hormone-optimisation.html`. index.html shows a compact preview card (hormone score, energy level, sleep consistency, stress level) that links to it.
+
+Tracking and general wellbeing support only — this app never diagnoses, treats, or prescribes anything, and gives no dosage advice. The Red Flags section is a personal notes field reminding the user to speak to a professional; it is not a symptom checker.
+
+Everything related to hormone-optimisation lifestyle tracking belongs here. Future features (Appearance/Looks, Life Stats, AI coaching) should read this shape rather than duplicating energy/sleep/recovery data.
+
+---
+
 # Business Data
 
 Implemented. Lives in `localStorage` under the key `business`. The load/save logic lives in `scripts/business-data.js` (shared business logic), used by both the full page at `pages/business-hq.html` and the preview card on index.html.
