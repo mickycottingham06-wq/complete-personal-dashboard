@@ -20,6 +20,10 @@ Daily Snapshot ✅
 
 Streaks ✅
 
+Sidebar Navigation ✅
+
+Compact Dashboard Layout ✅
+
 Weather
 
 Calendar

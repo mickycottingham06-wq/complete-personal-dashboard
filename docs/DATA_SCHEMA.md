@@ -48,7 +48,7 @@ Never mix unrelated data.
 
 # Daily Snapshot Data
 
-Implemented. Lives in `localStorage` under the key `dailySnapshot` (inline in index.html — not yet split into a `data/` file, matching how every other page currently stores its state).
+Implemented. Lives in `localStorage` under the key `dailySnapshot`. The read/rollover/save logic lives in `scripts/daily-snapshot-data.js` (shared business logic, not yet split into a `data/` file) so every reader — the full page at `pages/daily-snapshot.html`, the preview card on index.html, and Streaks — sees the same rolled-over data instead of re-implementing the rollover.
 
 Shape:
 
@@ -73,13 +73,15 @@ dailySnapshot: {
 
 Default habits: Drink water after waking, Morning sunlight, Training completed, Steps / movement, Protein target, Sleep routine, No wasted scrolling.
 
-Resets to defaults automatically when `date` no longer matches the active day. `window.DailySnapshot.get()` exposes the current snapshot for future features (Streaks, Life Stats) to read.
+Resets to defaults automatically when `date` no longer matches the active day. `window.DailySnapshot.get()` returns the raw stored value (may be null or stale); `window.DailySnapshot.loadOrInit()` reads, rolls over if needed, persists, and returns today's snapshot — this is what pages should call. `window.DailySnapshot.save(snap)` persists changes.
+
+The full interactive UI lives at `pages/daily-snapshot.html`. index.html shows a compact preview card (main focus, habit completion %, priority completion %) that links to it.
 
 ---
 
 # Streaks Data
 
-Implemented. Lives in `localStorage` under the key `streaks` (inline in index.html, directly below Daily Snapshot — same convention).
+Implemented. Lives in `localStorage` under the key `streaks`. The recompute logic lives in `scripts/streaks-data.js` (shared business logic, depends on `scripts/daily-snapshot-data.js`), used by both the full page at `pages/streaks.html` and the preview card on index.html.
 
 Shape:
 
@@ -118,7 +120,9 @@ Logic:
 
 Uses the same 6 AM day-rollover convention as Daily Snapshot / goals.
 
-Exposes `window.Streaks.get()` as a public hook so Life Stats and the future Heatmap can read streak/history data without reimplementing the calculation.
+`window.Streaks.get()` returns the raw stored value. `window.Streaks.recompute()` reruns the calculation against today's habits and persists it, returning `{ data, pct, completedToday, todayKey, isNewBest }` — this is what pages should call. Both are public hooks so Life Stats and the future Heatmap can read streak/history data without reimplementing the calculation.
+
+The full interactive UI lives at `pages/streaks.html`. index.html shows a compact preview card (current streak, best streak, today's %) that links to it.
 
 ---
 

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Streaks · Micky's Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/sync.js" defer></script>
+<script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/streaks-data.js"></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 1100px; margin: 0 auto; }
+.dash-title {
+  margin: 0 0 14px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.gm-card {
+  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
+  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+.snap-status { font-size: 13px; color: var(--text-tertiary); margin-bottom: 16px; }
+.snap-status.good { color: var(--success); }
+.snap-status.warn { color: var(--warning); }
+.snap-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 18px 0 8px;
+}
+.snap-label:first-child { margin-top: 0; }
+
+.goal-list { list-style: none; margin: 0; padding: 0; }
+.gm-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.gm-row:hover { background: rgba(255,255,255,0.06); }
+.gm-text { flex: 1; font-size: 14px; color: var(--text-primary); }
+
+/* ===== Streaks ===== */
+.streak-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+.streak-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.streak-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.streak-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
+.streak-week { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; margin-bottom: 4px; }
+.streak-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.streak-day .dow { font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+.streak-day.is-today .dow { color: var(--text-primary); }
+.streak-day .box { width: 100%; aspect-ratio: 1; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.streak-day .box.done { background: var(--success); border-color: var(--success); box-shadow: 0 0 10px rgba(107,227,164,0.35); }
+.streak-day .box.partial { background: rgba(242,192,99,0.30); border-color: var(--warning); }
+
+.streak-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.14); flex-shrink: 0; }
+.streak-dot.on { background: var(--success); box-shadow: 0 0 8px rgba(107,227,164,0.6); }
+.streak-flame { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+.streak-flame.on { color: var(--warning); }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Streaks</h1>
+
+  <div class="section" id="streaksSection">
+    <div class="section-title">Consistency</div>
+    <div class="gm-card">
+      <div class="snap-status" id="streakStatus">—</div>
+
+      <div class="streak-stats">
+        <div class="streak-stat"><div class="v" id="streakCurrentV">0</div><div class="l">Current Streak</div></div>
+        <div class="streak-stat"><div class="v" id="streakBestV">0</div><div class="l">Best Streak</div></div>
+        <div class="streak-stat"><div class="v" id="streakTodayV">0%</div><div class="l">Today</div></div>
+      </div>
+
+      <div class="snap-label">Last 7 Days</div>
+      <div class="streak-week" id="streakWeek"></div>
+
+      <div class="snap-label">Habit Streaks</div>
+      <ul class="goal-list" id="streakHabits"></ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== Streaks logic — reads today's habits through window.DailySnapshot
+     and computes/persists streak history through window.Streaks
+     (scripts/daily-snapshot-data.js + scripts/streaks-data.js), so this
+     page and the preview card on the main dashboard always agree. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  function parseKey(key) { const p = key.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+
+  function render() {
+    const result = window.Streaks.recompute();
+    const data = result.data, pct = result.pct, completedToday = result.completedToday, todayKey = result.todayKey, isNewBest = result.isNewBest;
+
+    $('streakCurrentV').textContent = String(data.currentStreak);
+    $('streakBestV').textContent = String(data.bestStreak);
+    $('streakTodayV').textContent = Math.round(pct * 100) + '%';
+
+    const statusEl = $('streakStatus');
+    statusEl.classList.remove('good', 'warn');
+    if (isNewBest) {
+      statusEl.classList.add('good');
+      statusEl.textContent = 'New best streak — ' + data.bestStreak + ' days. 🔥';
+    } else if (data.currentStreak === 0 && !completedToday) {
+      const total = data.habits.length;
+      const done = data.habits.filter((h) => h.completedToday).length;
+      statusEl.textContent = total ? ('No active streak — ' + done + '/' + total + ' habits done. Hit ' + Math.ceil(total * window.Streaks.COMPLETION_THRESHOLD) + ' to start one.') : 'Log today\'s habits in Daily Snapshot to start a streak.';
+    } else if (data.currentStreak > 0 && completedToday) {
+      statusEl.classList.add('good');
+      statusEl.textContent = '🔥 ' + data.currentStreak + '-day streak — don\'t break the chain.';
+    } else if (data.currentStreak > 0 && !completedToday) {
+      const total = data.habits.length;
+      const done = data.habits.filter((h) => h.completedToday).length;
+      const need = Math.max(0, Math.ceil(total * window.Streaks.COMPLETION_THRESHOLD) - done);
+      statusEl.classList.add('warn');
+      statusEl.textContent = data.currentStreak + '-day streak on the line — ' + need + ' more habit' + (need === 1 ? '' : 's') + ' to lock in today.';
+    } else {
+      statusEl.textContent = 'Day 1 — streak started. Keep it going tomorrow.';
+    }
+
+    const weekWrap = $('streakWeek');
+    weekWrap.innerHTML = '';
+    const dowLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    data.weeklyCompletions.forEach((entry) => {
+      const cell = document.createElement('div');
+      cell.className = 'streak-day' + (entry.date === todayKey ? ' is-today' : '');
+      const dow = document.createElement('div');
+      dow.className = 'dow';
+      dow.textContent = dowLabels[parseKey(entry.date).getDay()];
+      const box = document.createElement('div');
+      box.className = 'box' + (entry.completed ? ' done' : (entry.completionPercentage > 0 ? ' partial' : ''));
+      cell.append(dow, box);
+      weekWrap.appendChild(cell);
+    });
+
+    const habitsWrap = $('streakHabits');
+    habitsWrap.innerHTML = '';
+    data.habits.forEach((h) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row';
+      const dot = document.createElement('span');
+      dot.className = 'streak-dot' + (h.completedToday ? ' on' : '');
+      const txt = document.createElement('div');
+      txt.className = 'gm-text';
+      txt.textContent = h.label;
+      const cur = document.createElement('span');
+      cur.className = 'streak-flame' + (h.currentStreak > 0 ? ' on' : '');
+      cur.textContent = '🔥 ' + h.currentStreak;
+      const best = document.createElement('span');
+      best.className = 'streak-flame';
+      best.style.marginLeft = '10px';
+      best.textContent = 'best ' + h.bestStreak;
+      li.append(dot, txt, cur, best);
+      habitsWrap.appendChild(li);
+    });
+  }
+
+  render();
+  window.addEventListener('dailySnapshot:habitsChanged', render);
+  window.addEventListener('storage', render);
+})();
+</script>
+</body>
+</html>

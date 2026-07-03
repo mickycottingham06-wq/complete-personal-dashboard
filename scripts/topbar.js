@@ -23,13 +23,86 @@
   const css = `
 .topbar {
   position: sticky; top: 0; z-index: 40;
-  display: flex; justify-content: flex-end; align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
   gap: 8px;
   padding: max(10px, env(safe-area-inset-top)) 14px 8px;
   background: #0a0a0b;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
 }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
+/* ===== Hamburger menu button ===== */
+.sidebar-toggle {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px;
+  width: 42px; height: 42px; flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.sidebar-toggle:hover { background: rgba(255, 255, 255, 0.08); }
+.sidebar-toggle span {
+  display: block; width: 18px; height: 2px; border-radius: 2px;
+  background: var(--text-primary, #FAFAFA);
+  transition: transform 0.22s ease, opacity 0.18s ease;
+}
+.sidebar-toggle.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.sidebar-toggle.is-open span:nth-child(2) { opacity: 0; }
+.sidebar-toggle.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ===== Sidebar navigation drawer ===== */
+.sidebar-overlay {
+  position: fixed; inset: 0; z-index: 200; display: none;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.sidebar-overlay.show { display: block; }
+.sidebar-nav {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 201;
+  width: min(280px, 82vw);
+  background: #0e0e10;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 24px 0 70px rgba(0, 0, 0, 0.5);
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex; flex-direction: column;
+  padding: max(20px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.sidebar-nav.is-open { transform: translateX(0); }
+.sidebar-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.sidebar-title {
+  font-size: 15px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--text-primary, #FAFAFA);
+}
+.sidebar-close {
+  border: 0; background: transparent; color: var(--text-tertiary, #76746E);
+  font-size: 24px; line-height: 1; cursor: pointer; padding: 2px 6px;
+}
+.sidebar-close:hover { color: var(--text-primary, #FAFAFA); }
+.sidebar-links { display: flex; flex-direction: column; padding: 8px 10px; gap: 2px; }
+.sidebar-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  text-decoration: none;
+  color: var(--text-secondary, #B8B6B0);
+  font-size: 14px; font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sidebar-link-icon { font-size: 17px; line-height: 1; width: 20px; text-align: center; flex-shrink: 0; }
+.sidebar-link:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary, #FAFAFA); }
+.sidebar-link.active { background: rgba(255, 255, 255, 0.07); color: var(--text-primary, #FAFAFA); }
 .topbar-water-wrap {
   display: flex; align-items: stretch;
 }
@@ -197,17 +270,51 @@ body.topbar-modal-open {
   // -------- HTML --------
   const topbarHtml = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick actions">
-  <div class="topbar-water-wrap">
-    <a href="/pages/health.html#water" class="topbar-water-pill" id="topbarWater" aria-label="Water progress">
-      <span class="topbar-pill-dot"></span>
-      <span class="topbar-pill-count" id="topbarWaterCount">0/0</span>
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open menu" aria-expanded="false" type="button">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="topbar-right">
+    <div class="topbar-water-wrap">
+      <a href="/pages/health.html#water" class="topbar-water-pill" id="topbarWater" aria-label="Water progress">
+        <span class="topbar-pill-dot"></span>
+        <span class="topbar-pill-count" id="topbarWaterCount">0/0</span>
+      </a>
+      <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
+    </div>
+    <a href="/pages/finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
+      <span class="topbar-finance-icon">📊</span>
     </a>
-    <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
   </div>
-  <a href="/pages/finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
-    <span class="topbar-finance-icon">📊</span>
-  </a>
 </header>
+`;
+
+  // Full navigation list — same set on every page, opened by the hamburger.
+  const SIDEBAR_LINKS = [
+    { key: 'main',        icon: '🏠', label: 'Main',                  href: '/pages/main.html' },
+    { key: 'snapshot',    icon: '📋', label: 'Daily Snapshot',        href: '/pages/daily-snapshot.html' },
+    { key: 'streaks',     icon: '🔥', label: 'Streaks',               href: '/pages/streaks.html' },
+    { key: 'business',    icon: '💼', label: 'Business HQ',          href: '/pages/business-hq.html' },
+    { key: 'boxing',      icon: '🥊', label: 'Boxing HQ',            href: '/pages/boxing-hq.html' },
+    { key: 'health',      icon: '💊', label: 'Health HQ',            href: '/pages/health.html' },
+    { key: 'hormone',     icon: '🧬', label: 'Hormone Optimisation', href: '/pages/hormone-optimisation.html' },
+    { key: 'appearance',  icon: '✨', label: 'Appearance / Looks',   href: '/pages/appearance.html' },
+    { key: 'goals',       icon: '🎯', label: 'Goals',                href: '/pages/goals.html' },
+    { key: 'life-stats',  icon: '📈', label: 'Life Stats',           href: '/pages/life-stats.html' },
+    { key: 'heatmap',     icon: '🗓️', label: 'Heatmap',              href: '/pages/heatmap.html' },
+    { key: 'settings',    icon: '⚙️', label: 'Settings',             href: '/index.html?openSettings=1', id: 'sidebarSettingsLink' },
+  ];
+
+  const sidebarHtml = `
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<nav class="sidebar-nav" id="sidebarNav" aria-label="Dashboard navigation">
+  <div class="sidebar-head">
+    <span class="sidebar-title">Micky's Life OS</span>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu" type="button">&times;</button>
+  </div>
+  <div class="sidebar-links">
+    ${SIDEBAR_LINKS.map((l) => `<a class="sidebar-link" data-page="${l.key}" href="${l.href}"${l.id ? ` id="${l.id}"` : ''}><span class="sidebar-link-icon">${l.icon}</span>${l.label}</a>`).join('\n    ')}
+  </div>
+</nav>
 `;
 
   const bottombarHtml = `
@@ -248,6 +355,25 @@ body.topbar-modal-open {
     return 'main'; // index.html, /, or anything else falls back to main
   }
 
+  // Maps the current URL to a sidebar data-page key so the matching link
+  // can be highlighted. Broader than currentPageKey() since the sidebar
+  // covers every section, not just the 3 bottom tabs.
+  function sidebarPageKey() {
+    const p = (window.location.pathname || '').toLowerCase();
+    if (p.endsWith('main.html')) return 'main';
+    if (p.endsWith('daily-snapshot.html')) return 'snapshot';
+    if (p.endsWith('streaks.html')) return 'streaks';
+    if (p.endsWith('business-hq.html')) return 'business';
+    if (p.endsWith('boxing-hq.html')) return 'boxing';
+    if (p.endsWith('health.html')) return 'health';
+    if (p.endsWith('hormone-optimisation.html')) return 'hormone';
+    if (p.endsWith('appearance.html')) return 'appearance';
+    if (p.endsWith('goals.html')) return 'goals';
+    if (p.endsWith('life-stats.html')) return 'life-stats';
+    if (p.endsWith('heatmap.html')) return 'heatmap';
+    return ''; // index.html hub and anything else — no single nav item owns it
+  }
+
   function injectStyleAndHTML() {
     if (document.getElementById('topbar') || document.getElementById('bottombar')) return;
     if (!shouldShowChrome()) return;
@@ -261,6 +387,10 @@ body.topbar-modal-open {
     topWrap.innerHTML = topbarHtml.trim();
     document.body.insertBefore(topWrap.firstChild, document.body.firstChild);
 
+    const sideWrap = document.createElement('div');
+    sideWrap.innerHTML = sidebarHtml.trim();
+    Array.from(sideWrap.childNodes).forEach((node) => document.body.appendChild(node));
+
     const bottomWrap = document.createElement('div');
     bottomWrap.innerHTML = bottombarHtml.trim();
     document.body.appendChild(bottomWrap.firstChild);
@@ -271,9 +401,74 @@ body.topbar-modal-open {
       t.classList.toggle('active', t.getAttribute('data-page') === active);
     });
 
+    // Highlight the active sidebar link.
+    const activeSidebar = sidebarPageKey();
+    document.querySelectorAll('.sidebar-link').forEach((l) => {
+      l.classList.toggle('active', !!activeSidebar && l.getAttribute('data-page') === activeSidebar);
+    });
+
     // Reserve room above the fixed bottom bar so page content can scroll
     // past it without being hidden.
     document.body.classList.add('has-bottombar');
+  }
+
+  // -------- Sidebar open/close --------
+  function openSidebar() {
+    const nav = document.getElementById('sidebarNav');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('sidebarToggle');
+    if (!nav || !overlay || !toggle) return;
+    nav.classList.add('is-open');
+    overlay.classList.add('show');
+    toggle.classList.add('is-open');
+    toggle.setAttribute('aria-expanded', 'true');
+  }
+  function closeSidebar() {
+    const nav = document.getElementById('sidebarNav');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('sidebarToggle');
+    if (!nav || !overlay || !toggle) return;
+    nav.classList.remove('is-open');
+    overlay.classList.remove('show');
+    toggle.classList.remove('is-open');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+  function wireSidebar() {
+    const toggle = document.getElementById('sidebarToggle');
+    const overlay = document.getElementById('sidebarOverlay');
+    const closeBtn = document.getElementById('sidebarClose');
+    const settingsLink = document.getElementById('sidebarSettingsLink');
+    if (!toggle) return;
+
+    toggle.addEventListener('click', () => {
+      const nav = document.getElementById('sidebarNav');
+      if (nav && nav.classList.contains('is-open')) closeSidebar();
+      else openSidebar();
+    });
+    if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+    if (overlay) overlay.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSidebar(); });
+
+    // Settings deep-links to the modal on the hub page. If we're already
+    // there, open it in place instead of doing a full reload.
+    if (settingsLink) {
+      settingsLink.addEventListener('click', (e) => {
+        const onIndex = /(^|\/)index\.html$/.test(window.location.pathname) || window.location.pathname === '/';
+        const opener = document.getElementById('settingsOpen');
+        if (onIndex && opener) {
+          e.preventDefault();
+          closeSidebar();
+          opener.click();
+        } else {
+          closeSidebar();
+        }
+      });
+    }
+
+    // Any other link just closes the drawer before the browser navigates.
+    document.querySelectorAll('.sidebar-link:not(#sidebarSettingsLink)').forEach((l) => {
+      l.addEventListener('click', closeSidebar);
+    });
   }
 
   // -------- Active-date helpers (match the goals page 6 AM rollover) --------
@@ -437,7 +632,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.sidebar-overlay'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
@@ -467,6 +662,7 @@ body.topbar-modal-open {
     injectStyleAndHTML();
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); addWater(); });
+    wireSidebar();
     render();
     lockGestures();
     startModalLock();

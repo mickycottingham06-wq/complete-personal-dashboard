@@ -11,6 +11,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="scripts/sync.js" defer></script>
 <script src="scripts/topbar.js" defer></script>
+<script src="scripts/daily-snapshot-data.js"></script>
+<script src="scripts/streaks-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -77,61 +79,31 @@ body::after {
   margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
 }
-.snap-status { font-size: 13px; color: var(--text-tertiary); margin-bottom: 16px; }
-.snap-status.good { color: var(--success); }
-.snap-status.warn { color: var(--warning); }
 
-.snap-label {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
-  color: var(--text-tertiary); margin: 18px 0 8px;
-}
-.snap-label:first-child { margin-top: 0; }
-
-.goal-list { list-style: none; margin: 0; padding: 0; }
-.gm-row {
-  display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 6px;
-  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
-  transition: background 0.2s, opacity 0.3s;
-}
-.gm-row:hover { background: rgba(255,255,255,0.06); }
-.gm-row.gm-row-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
-.gm-row.gm-row-done .gm-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
-.gm-check {
-  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex-shrink: 0; margin: 0;
-  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
-  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
-}
-.gm-check:checked { background: var(--success); border-color: var(--success); box-shadow: 0 0 12px rgba(107,227,164,0.40); }
-.gm-check:checked::after {
-  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
-  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
-}
-.gm-text { flex: 1; font-size: 14px; color: var(--text-primary); outline: none; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
-.gm-text[contenteditable="true"]:focus { outline: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); }
-.gm-text[contenteditable="true"]:empty::before { content: attr(data-placeholder); color: var(--text-tertiary); }
-
-.snap-grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 18px; }
-@media (max-width: 620px) { .snap-grid3 { grid-template-columns: 1fr; } }
-textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
-
-/* ===== Streaks (mirrors the whoop-stat / gm-row patterns above) ===== */
-.streak-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+/* Compact stat tiles reused by both preview cards below. */
+.streak-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
 .streak-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
 .streak-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
 .streak-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
 
-.streak-week { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; margin-bottom: 4px; }
-.streak-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.streak-day .dow { font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
-.streak-day.is-today .dow { color: var(--text-primary); }
-.streak-day .box { width: 100%; aspect-ratio: 1; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
-.streak-day .box.done { background: var(--success); border-color: var(--success); box-shadow: 0 0 10px rgba(107,227,164,0.35); }
-.streak-day .box.partial { background: rgba(242,192,99,0.30); border-color: var(--warning); }
+.gm-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 6px;
+}
 
-.streak-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.14); flex-shrink: 0; }
-.streak-dot.on { background: var(--success); box-shadow: 0 0 8px rgba(107,227,164,0.6); }
-.streak-flame { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
-.streak-flame.on { color: var(--warning); }
+/* ===== Preview cards (compact Daily Snapshot / Streaks entry points) ===== */
+.preview-card {
+  display: block; text-decoration: none; color: inherit; cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.preview-card:hover { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(0,0,0,0.55); border-color: rgba(255,255,255,0.14); }
+.preview-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.preview-focus { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
+.preview-focus.is-empty { color: var(--text-tertiary); font-weight: 500; font-style: italic; }
+.preview-arrow { font-size: 18px; color: var(--text-tertiary); transition: transform 0.18s ease, color 0.18s ease; flex-shrink: 0; }
+.preview-card:hover .preview-arrow { transform: translateX(4px); color: var(--text-primary); }
+.streak-stats-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 16px; }
 
 /* ===== BENTO GRID ===== */
 .bento {
@@ -293,63 +265,40 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
     </button>
   </div>
 
-  <!-- ===== DAILY SNAPSHOT ===== -->
-  <div class="section" id="dailySnapshot">
-    <div class="section-title">Daily Snapshot <span class="snap-date" id="snapDate"></span></div>
-    <div class="gm-card">
-      <div class="snap-status" id="snapStatus">—</div>
-
-      <div class="field">
-        <label class="field-label">Main Focus</label>
-        <input class="set-input" id="snapMainFocus" type="text" placeholder="What matters most today?" autocomplete="off">
-      </div>
-
-      <div class="snap-label">Top 3 Priorities</div>
-      <ul class="goal-list" id="snapPriorities"></ul>
-
-      <div class="snap-label">Today's Habits</div>
-      <ul class="goal-list" id="snapHabits"></ul>
-
-      <div class="snap-grid3">
-        <div class="field">
-          <label class="field-label">Training</label>
-          <input class="set-input" id="snapTraining" type="text" placeholder="e.g. Sparring done" autocomplete="off">
+  <!-- ===== DAILY SNAPSHOT PREVIEW — compact entry point, full view lives at
+       pages/daily-snapshot.html so it no longer dominates the main page ===== -->
+  <div class="section" id="dailySnapshotPreview">
+    <div class="section-title">Daily Snapshot <span class="snap-date" id="previewSnapDate"></span></div>
+    <a class="gm-card preview-card" href="pages/daily-snapshot.html">
+      <div class="preview-top">
+        <div>
+          <div class="gm-eyebrow" style="margin-bottom:4px">Main Focus</div>
+          <div class="preview-focus" id="previewMainFocus">—</div>
         </div>
-        <div class="field">
-          <label class="field-label">Business Focus</label>
-          <input class="set-input" id="snapBusiness" type="text" placeholder="e.g. Client outreach" autocomplete="off">
-        </div>
-        <div class="field">
-          <label class="field-label">Health / Recovery</label>
-          <input class="set-input" id="snapHealth" type="text" placeholder="e.g. Recovered, 8h sleep" autocomplete="off">
-        </div>
+        <span class="preview-arrow">→</span>
       </div>
-
-      <div class="field" style="margin-top:18px">
-        <label class="field-label">Quick Notes</label>
-        <textarea class="set-input" id="snapNotes" rows="3" placeholder="Anything else on your mind…"></textarea>
+      <div class="streak-stats-2">
+        <div class="streak-stat"><div class="v" id="previewHabitsPct">0%</div><div class="l">Habits Done</div></div>
+        <div class="streak-stat"><div class="v" id="previewPrioritiesPct">0%</div><div class="l">Priorities Done</div></div>
       </div>
-    </div>
+    </a>
   </div>
 
-  <!-- ===== STREAKS ===== -->
-  <div class="section" id="streaksSection">
+  <!-- ===== STREAKS PREVIEW — compact entry point, full view lives at
+       pages/streaks.html ===== -->
+  <div class="section" id="streaksPreview">
     <div class="section-title">Streaks</div>
-    <div class="gm-card">
-      <div class="snap-status" id="streakStatus">—</div>
-
-      <div class="streak-stats">
-        <div class="streak-stat"><div class="v" id="streakCurrentV">0</div><div class="l">Current Streak</div></div>
-        <div class="streak-stat"><div class="v" id="streakBestV">0</div><div class="l">Best Streak</div></div>
-        <div class="streak-stat"><div class="v" id="streakTodayV">0%</div><div class="l">Today</div></div>
+    <a class="gm-card preview-card" href="pages/streaks.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow">Consistency</div>
+        <span class="preview-arrow">→</span>
       </div>
-
-      <div class="snap-label">Last 7 Days</div>
-      <div class="streak-week" id="streakWeek"></div>
-
-      <div class="snap-label">Habit Streaks</div>
-      <ul class="goal-list" id="streakHabits"></ul>
-    </div>
+      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+        <div class="streak-stat"><div class="v" id="previewStreakCurrent">0</div><div class="l">Current</div></div>
+        <div class="streak-stat"><div class="v" id="previewStreakBest">0</div><div class="l">Best</div></div>
+        <div class="streak-stat"><div class="v" id="previewStreakToday">0%</div><div class="l">Today</div></div>
+      </div>
+    </a>
   </div>
 
   <div class="bento">
@@ -389,7 +338,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
         <span class="tile-emoji">💊</span>
       </div>
       <div class="tile-spacer"></div>
-      <h2 class="tile-title">Health</h2>
+      <h2 class="tile-title">Health HQ</h2>
       <div class="tile-foot">
         <span class="tile-sub">Supplements & vitals</span>
         <span class="tile-arrow">→</span>
@@ -448,6 +397,118 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
       <h2 class="tile-title">Nova</h2>
       <div class="tile-foot">
         <span class="tile-sub">Your AI mentor</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/business-hq.html" style="--accent:#F2C063">
+      <div class="tile-top">
+        <span class="tile-num">·08</span>
+        <span class="tile-emoji">💼</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Business HQ</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Revenue & growth</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/boxing-hq.html" style="--accent:#FF6B6B">
+      <div class="tile-top">
+        <span class="tile-num">·09</span>
+        <span class="tile-emoji">🥊</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Boxing HQ</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Fight camp</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/hormone-optimisation.html" style="--accent:#7DD3FC">
+      <div class="tile-top">
+        <span class="tile-num">·10</span>
+        <span class="tile-emoji">🧬</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Hormone Optimisation</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Panels & protocols</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/appearance.html" style="--accent:#A78BFA">
+      <div class="tile-top">
+        <span class="tile-num">·11</span>
+        <span class="tile-emoji">✨</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Appearance / Looks</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Physique & style</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/goals.html" style="--accent:#6BE3A4">
+      <div class="tile-top">
+        <span class="tile-num">·12</span>
+        <span class="tile-emoji">🎯</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Goals</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Long-term targets</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/life-stats.html" style="--accent:#60A5FA">
+      <div class="tile-top">
+        <span class="tile-num">·13</span>
+        <span class="tile-emoji">📈</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Life Stats</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Lifetime numbers</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/heatmap.html" style="--accent:#C9A36B">
+      <div class="tile-top">
+        <span class="tile-num">·14</span>
+        <span class="tile-emoji">🗓️</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Heatmap</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Consistency grid</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile — opens the Settings modal in place instead of navigating -->
+    <a class="tile" href="#" id="bentoSettingsTile" style="--accent:#B8B6B0">
+      <div class="tile-top">
+        <span class="tile-num">·15</span>
+        <span class="tile-emoji">⚙️</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Settings</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Profile & WHOOP</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -616,6 +677,14 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   function open() { populate(); renderWhoop(); $('settingsBg').classList.add('show'); syncWhoop(); }
   function close() { $('settingsBg').classList.remove('show'); }
   $('settingsOpen').addEventListener('click', open);
+  $('bentoSettingsTile').addEventListener('click', (e) => { e.preventDefault(); open(); });
+
+  // Deep-link from the sidebar "Settings" item: /index.html?openSettings=1
+  // opens this modal directly, then cleans the URL.
+  if (new URLSearchParams(window.location.search).get('openSettings') === '1') {
+    open();
+    history.replaceState(null, '', window.location.pathname);
+  }
   $('settingsClose').addEventListener('click', close);
   $('settingsBg').addEventListener('click', (e) => { if (e.target === $('settingsBg')) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
@@ -710,335 +779,48 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
 })();
 </script>
 
-<!-- ===== Daily Snapshot — self-contained so Streaks/Stats can read its data later ===== -->
+<!-- ===== Daily Snapshot / Streaks preview cards — reads through
+     window.DailySnapshot + window.Streaks (scripts/daily-snapshot-data.js,
+     scripts/streaks-data.js). The full interactive views live at
+     pages/daily-snapshot.html and pages/streaks.html. ===== -->
 <script>
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const SNAPSHOT_KEY = 'dailySnapshot';
 
-  const DEFAULT_HABITS = [
-    { id: 'water',    label: 'Drink water after waking' },
-    { id: 'sunlight', label: 'Morning sunlight' },
-    { id: 'training', label: 'Training completed' },
-    { id: 'steps',    label: 'Steps / movement' },
-    { id: 'protein',  label: 'Protein target' },
-    { id: 'sleep',    label: 'Sleep routine' },
-    { id: 'noscroll', label: 'No wasted scrolling' },
-  ];
+  function renderSnapshotPreview() {
+    const snap = window.DailySnapshot.loadOrInit();
 
-  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
-  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
-
-  // Same 6 AM rollover convention the goals list (main.html) uses, so "today"
-  // means the same thing everywhere in the dashboard.
-  function activeDateKey() {
-    const now = new Date();
-    const d = new Date(now);
-    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-
-  function defaultSnapshot() {
-    return {
-      date: activeDateKey(),
-      mainFocus: '',
-      priorities: [
-        { id: 'p1', text: '', completed: false },
-        { id: 'p2', text: '', completed: false },
-        { id: 'p3', text: '', completed: false },
-      ],
-      habits: DEFAULT_HABITS.map((h) => ({ id: h.id, label: h.label, completed: false })),
-      trainingStatus: '',
-      businessFocus: '',
-      healthStatus: '',
-      notes: '',
-    };
-  }
-
-  // Restore if saved for today; otherwise fall back to a fresh default snapshot.
-  let snap = loadJSON(SNAPSHOT_KEY, null);
-  if (!snap || snap.date !== activeDateKey()) snap = defaultSnapshot();
-  if (!Array.isArray(snap.priorities) || snap.priorities.length !== 3) snap.priorities = defaultSnapshot().priorities;
-  if (!Array.isArray(snap.habits) || snap.habits.length === 0) snap.habits = defaultSnapshot().habits;
-
-  function save() { saveJSON(SNAPSHOT_KEY, snap); }
-  save(); // persist the rollover/default immediately so the key always exists
-
-  /* ---------- render ---------- */
-  function renderDate() {
     const d = new Date();
-    const dows = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const mons = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    $('snapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
-  }
+    const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    $('previewSnapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
 
-  function renderStatus() {
-    const habitsDone = snap.habits.filter((h) => h.completed).length;
+    const focusEl = $('previewMainFocus');
+    const hasFocus = !!(snap.mainFocus && snap.mainFocus.trim());
+    focusEl.textContent = hasFocus ? snap.mainFocus.trim() : 'Set today’s focus →';
+    focusEl.classList.toggle('is-empty', !hasFocus);
+
     const habitsTotal = snap.habits.length;
-    const pDone = snap.priorities.filter((p) => p.completed).length;
-    const pTotal = snap.priorities.length;
-    const el = $('snapStatus');
-    el.classList.remove('good', 'warn');
-    const ratio = (habitsDone + pDone) / (habitsTotal + pTotal);
-    const summary = habitsDone + '/' + habitsTotal + ' habits · ' + pDone + '/' + pTotal + ' priorities done';
-    if (habitsDone === 0 && pDone === 0) { el.textContent = 'Nothing logged yet — set today\'s focus below.'; return; }
-    if (ratio >= 0.75) { el.classList.add('good'); el.textContent = 'Strong day — ' + summary + '.'; }
-    else if (ratio >= 0.4) { el.classList.add('warn'); el.textContent = 'On pace — ' + summary + '.'; }
-    else { el.textContent = summary + ' — plenty of day left.'; }
+    const habitsDone = snap.habits.filter((h) => h.completed).length;
+    const prioritiesTotal = snap.priorities.length;
+    const prioritiesDone = snap.priorities.filter((p) => p.completed).length;
+    $('previewHabitsPct').textContent = habitsTotal ? Math.round(habitsDone / habitsTotal * 100) + '%' : '—';
+    $('previewPrioritiesPct').textContent = prioritiesTotal ? Math.round(prioritiesDone / prioritiesTotal * 100) + '%' : '—';
   }
 
-  function renderPriorities() {
-    const wrap = $('snapPriorities');
-    wrap.innerHTML = '';
-    snap.priorities.forEach((p, i) => {
-      const li = document.createElement('li');
-      li.className = 'gm-row' + (p.completed ? ' gm-row-done' : '');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!p.completed;
-      cb.addEventListener('change', () => {
-        p.completed = cb.checked; save(); renderStatus();
-        li.classList.toggle('gm-row-done', p.completed);
-      });
-      const txt = document.createElement('div');
-      txt.className = 'gm-text'; txt.contentEditable = 'true';
-      txt.setAttribute('data-placeholder', 'Priority ' + (i + 1));
-      txt.textContent = p.text;
-      txt.addEventListener('blur', () => { p.text = txt.textContent.trim(); save(); });
-      txt.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); txt.blur(); } });
-      li.append(cb, txt);
-      wrap.appendChild(li);
-    });
+  function renderStreaksPreview() {
+    const result = window.Streaks.recompute();
+    $('previewStreakCurrent').textContent = String(result.data.currentStreak);
+    $('previewStreakBest').textContent = String(result.data.bestStreak);
+    $('previewStreakToday').textContent = Math.round(result.pct * 100) + '%';
   }
 
-  function renderHabits() {
-    const wrap = $('snapHabits');
-    wrap.innerHTML = '';
-    snap.habits.forEach((h) => {
-      const li = document.createElement('li');
-      li.className = 'gm-row' + (h.completed ? ' gm-row-done' : '');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!h.completed;
-      cb.addEventListener('change', () => {
-        h.completed = cb.checked; save(); renderStatus();
-        li.classList.toggle('gm-row-done', h.completed);
-        window.dispatchEvent(new Event('dailySnapshot:habitsChanged'));
-      });
-      const txt = document.createElement('div');
-      txt.className = 'gm-text'; txt.textContent = h.label;
-      li.append(cb, txt);
-      wrap.appendChild(li);
-    });
-  }
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); }
 
-  // Plain text fields, debounced so typing doesn't thrash storage.
-  let fieldTimer = null;
-  function bindField(id, key) {
-    const el = $(id);
-    el.value = snap[key] || '';
-    el.addEventListener('input', () => {
-      snap[key] = el.value;
-      clearTimeout(fieldTimer);
-      fieldTimer = setTimeout(save, 400);
-    });
-  }
-
-  renderDate();
-  renderStatus();
-  renderPriorities();
-  renderHabits();
-  bindField('snapMainFocus', 'mainFocus');
-  bindField('snapTraining', 'trainingStatus');
-  bindField('snapBusiness', 'businessFocus');
-  bindField('snapHealth', 'healthStatus');
-  bindField('snapNotes', 'notes');
-
-  // Small public hook so future Streaks / Life Stats pages can read today's
-  // snapshot without re-implementing the load/rollover logic.
-  window.DailySnapshot = { KEY: SNAPSHOT_KEY, get: () => loadJSON(SNAPSHOT_KEY, null) };
-})();
-</script>
-
-<!-- ===== Streaks — reads today's habits from Daily Snapshot, owns its own
-     day-by-day history so Life Stats / Heatmap can build on it later ===== -->
-<script>
-(function () {
-  'use strict';
-  const $ = (id) => document.getElementById(id);
-  const STREAKS_KEY = 'streaks';
-  const COMPLETION_THRESHOLD = 0.70; // >=70% of today's habits counts the day as "completed"
-  const HISTORY_LIMIT = 90;          // cap stored history so localStorage never grows unbounded
-
-  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
-  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
-
-  // Same 6 AM rollover convention as Daily Snapshot / the goals list, so "today" means the same day everywhere.
-  function activeDateKey() {
-    const now = new Date();
-    const d = new Date(now);
-    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-  function parseKey(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); }
-  function keyFromDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-  function shiftKey(key, delta) { const d = parseKey(key); d.setDate(d.getDate() + delta); return keyFromDate(d); }
-
-  function defaultStreaks() {
-    return { currentStreak: 0, bestStreak: 0, lastCompletedDate: '', weeklyCompletions: [], habits: [], history: [] };
-  }
-
-  // Walks backwards day-by-day from today counting consecutive completed days.
-  // If today isn't completed yet it's given the benefit of the doubt (the day
-  // isn't over), so the streak only breaks once a day is actually missed.
-  function computeStreak(dayMap, todayKey) {
-    let streak = 0;
-    let cursor = todayKey;
-    const todayEntry = dayMap.get(todayKey);
-    if (todayEntry && todayEntry.completed) { streak = 1; cursor = shiftKey(todayKey, -1); }
-    else { cursor = shiftKey(todayKey, -1); }
-    while (true) {
-      const entry = dayMap.get(cursor);
-      if (entry && entry.completed) { streak++; cursor = shiftKey(cursor, -1); }
-      else break;
-    }
-    return streak;
-  }
-
-  function recompute() {
-    const snap = window.DailySnapshot && window.DailySnapshot.get();
-    const habits = (snap && Array.isArray(snap.habits)) ? snap.habits : [];
-    const todayKey = activeDateKey();
-    const total = habits.length;
-    const done = habits.filter((h) => h.completed).length;
-    const pct = total ? done / total : 0;
-    const completedToday = total > 0 && pct >= COMPLETION_THRESHOLD;
-
-    const data = loadJSON(STREAKS_KEY, defaultStreaks());
-    if (!Array.isArray(data.history)) data.history = [];
-    if (!Array.isArray(data.habits)) data.habits = [];
-
-    const todayEntry = {
-      date: todayKey,
-      completed: completedToday,
-      completionPercentage: Math.round(pct * 100),
-      habits: habits.map((h) => ({ id: h.id, label: h.label, completed: !!h.completed })),
-    };
-    const existingIdx = data.history.findIndex((e) => e.date === todayKey);
-    if (existingIdx >= 0) data.history[existingIdx] = todayEntry;
-    else data.history.push(todayEntry);
-    data.history.sort((a, b) => a.date.localeCompare(b.date));
-    if (data.history.length > HISTORY_LIMIT) data.history = data.history.slice(-HISTORY_LIMIT);
-
-    const dayMap = new Map(data.history.map((e) => [e.date, e]));
-    const prevBest = data.bestStreak || 0;
-    const currentStreak = computeStreak(dayMap, todayKey);
-    const bestStreak = Math.max(prevBest, currentStreak);
-
-    let lastCompletedDate = '';
-    for (let i = data.history.length - 1; i >= 0; i--) {
-      if (data.history[i].completed) { lastCompletedDate = data.history[i].date; break; }
-    }
-
-    const weeklyCompletions = [];
-    for (let i = 6; i >= 0; i--) {
-      const key = shiftKey(todayKey, -i);
-      const entry = dayMap.get(key);
-      weeklyCompletions.push({ date: key, completed: !!(entry && entry.completed), completionPercentage: entry ? entry.completionPercentage : 0 });
-    }
-
-    const prevHabitsByI = new Map(data.habits.map((h) => [h.id, h]));
-    const perHabit = habits.map((h) => {
-      const habitDayMap = new Map();
-      data.history.forEach((e) => {
-        const match = Array.isArray(e.habits) ? e.habits.find((x) => x.id === h.id) : null;
-        habitDayMap.set(e.date, { completed: !!(match && match.completed) });
-      });
-      const prev = prevHabitsByI.get(h.id);
-      const hCurrent = computeStreak(habitDayMap, todayKey);
-      const hBest = Math.max(prev ? prev.bestStreak || 0 : 0, hCurrent);
-      return { id: h.id, label: h.label, currentStreak: hCurrent, bestStreak: hBest, completedToday: !!h.completed };
-    });
-
-    data.currentStreak = currentStreak;
-    data.bestStreak = bestStreak;
-    data.lastCompletedDate = lastCompletedDate;
-    data.weeklyCompletions = weeklyCompletions;
-    data.habits = perHabit;
-    saveJSON(STREAKS_KEY, data);
-
-    render(data, pct, completedToday, todayKey, currentStreak > prevBest && currentStreak > 0);
-  }
-
-  function render(data, pct, completedToday, todayKey, isNewBest) {
-    $('streakCurrentV').textContent = String(data.currentStreak);
-    $('streakBestV').textContent = String(data.bestStreak);
-    $('streakTodayV').textContent = Math.round(pct * 100) + '%';
-
-    const statusEl = $('streakStatus');
-    statusEl.classList.remove('good', 'warn');
-    if (isNewBest) {
-      statusEl.classList.add('good');
-      statusEl.textContent = 'New best streak — ' + data.bestStreak + ' days. 🔥';
-    } else if (data.currentStreak === 0 && !completedToday) {
-      const total = data.habits.length;
-      const done = data.habits.filter((h) => h.completedToday).length;
-      statusEl.textContent = total ? ('No active streak — ' + done + '/' + total + ' habits done. Hit ' + Math.ceil(total * COMPLETION_THRESHOLD) + ' to start one.') : 'Log today\'s habits in Daily Snapshot to start a streak.';
-    } else if (data.currentStreak > 0 && completedToday) {
-      statusEl.classList.add('good');
-      statusEl.textContent = '🔥 ' + data.currentStreak + '-day streak — don\'t break the chain.';
-    } else if (data.currentStreak > 0 && !completedToday) {
-      const total = data.habits.length;
-      const done = data.habits.filter((h) => h.completedToday).length;
-      const need = Math.max(0, Math.ceil(total * COMPLETION_THRESHOLD) - done);
-      statusEl.classList.add('warn');
-      statusEl.textContent = data.currentStreak + '-day streak on the line — ' + need + ' more habit' + (need === 1 ? '' : 's') + ' to lock in today.';
-    } else {
-      statusEl.textContent = 'Day 1 — streak started. Keep it going tomorrow.';
-    }
-
-    const weekWrap = $('streakWeek');
-    weekWrap.innerHTML = '';
-    const dowLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    data.weeklyCompletions.forEach((entry) => {
-      const cell = document.createElement('div');
-      cell.className = 'streak-day' + (entry.date === todayKey ? ' is-today' : '');
-      const dow = document.createElement('div');
-      dow.className = 'dow';
-      dow.textContent = dowLabels[parseKey(entry.date).getDay()];
-      const box = document.createElement('div');
-      box.className = 'box' + (entry.completed ? ' done' : (entry.completionPercentage > 0 ? ' partial' : ''));
-      cell.append(dow, box);
-      weekWrap.appendChild(cell);
-    });
-
-    const habitsWrap = $('streakHabits');
-    habitsWrap.innerHTML = '';
-    data.habits.forEach((h) => {
-      const li = document.createElement('li');
-      li.className = 'gm-row';
-      const dot = document.createElement('span');
-      dot.className = 'streak-dot' + (h.completedToday ? ' on' : '');
-      const txt = document.createElement('div');
-      txt.className = 'gm-text';
-      txt.textContent = h.label;
-      const cur = document.createElement('span');
-      cur.className = 'streak-flame' + (h.currentStreak > 0 ? ' on' : '');
-      cur.textContent = '🔥 ' + h.currentStreak;
-      const best = document.createElement('span');
-      best.className = 'streak-flame';
-      best.style.marginLeft = '10px';
-      best.textContent = 'best ' + h.bestStreak;
-      li.append(dot, txt, cur, best);
-      habitsWrap.appendChild(li);
-    });
-  }
-
-  recompute();
-  window.addEventListener('dailySnapshot:habitsChanged', recompute);
-
-  // Small public hook so Life Stats / Heatmap can read streak data later
-  // without reimplementing the streak-calculation logic.
-  window.Streaks = { KEY: STREAKS_KEY, get: () => loadJSON(STREAKS_KEY, null) };
+  renderPreviews();
+  window.addEventListener('storage', renderPreviews);
+  window.addEventListener('focus', renderPreviews);
 })();
 </script>
 </body>

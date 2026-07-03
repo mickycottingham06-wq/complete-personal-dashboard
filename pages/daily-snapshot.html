@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Daily Snapshot · Micky's Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/sync.js" defer></script>
+<script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 1100px; margin: 0 auto; }
+.dash-title {
+  margin: 0 0 14px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+.snap-date { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+
+.gm-card {
+  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
+  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+.snap-status { font-size: 13px; color: var(--text-tertiary); margin-bottom: 16px; }
+.snap-status.good { color: var(--success); }
+.snap-status.warn { color: var(--warning); }
+
+.snap-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 18px 0 8px;
+}
+.snap-label:first-child { margin-top: 0; }
+
+.field { margin-bottom: 14px; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.set-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.set-input::placeholder { color: var(--text-tertiary); }
+.set-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+
+.goal-list { list-style: none; margin: 0; padding: 0; }
+.gm-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.gm-row:hover { background: rgba(255,255,255,0.06); }
+.gm-row.gm-row-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
+.gm-row.gm-row-done .gm-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.gm-check {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.gm-check:checked { background: var(--success); border-color: var(--success); box-shadow: 0 0 12px rgba(107,227,164,0.40); }
+.gm-check:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.gm-text { flex: 1; font-size: 14px; color: var(--text-primary); outline: none; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
+.gm-text[contenteditable="true"]:focus { outline: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); }
+.gm-text[contenteditable="true"]:empty::before { content: attr(data-placeholder); color: var(--text-tertiary); }
+
+.snap-grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 18px; }
+@media (max-width: 620px) { .snap-grid3 { grid-template-columns: 1fr; } }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Daily Snapshot</h1>
+
+  <div class="section" id="dailySnapshot">
+    <div class="section-title">Today <span class="snap-date" id="snapDate"></span></div>
+    <div class="gm-card">
+      <div class="snap-status" id="snapStatus">—</div>
+
+      <div class="field">
+        <label class="field-label">Main Focus</label>
+        <input class="set-input" id="snapMainFocus" type="text" placeholder="What matters most today?" autocomplete="off">
+      </div>
+
+      <div class="snap-label">Top 3 Priorities</div>
+      <ul class="goal-list" id="snapPriorities"></ul>
+
+      <div class="snap-label">Today's Habits</div>
+      <ul class="goal-list" id="snapHabits"></ul>
+
+      <div class="snap-grid3">
+        <div class="field">
+          <label class="field-label">Training</label>
+          <input class="set-input" id="snapTraining" type="text" placeholder="e.g. Sparring done" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label">Business Focus</label>
+          <input class="set-input" id="snapBusiness" type="text" placeholder="e.g. Client outreach" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label">Health / Recovery</label>
+          <input class="set-input" id="snapHealth" type="text" placeholder="e.g. Recovered, 8h sleep" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:18px">
+        <label class="field-label">Quick Notes</label>
+        <textarea class="set-input" id="snapNotes" rows="3" placeholder="Anything else on your mind…"></textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== Daily Snapshot logic — reads/writes through window.DailySnapshot
+     (scripts/daily-snapshot-data.js) so Streaks and the preview card on the
+     main dashboard always see the same data. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  let snap = window.DailySnapshot.loadOrInit();
+  function save() { window.DailySnapshot.save(snap); }
+
+  function renderDate() {
+    const d = new Date();
+    const dows = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const mons = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    $('snapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function renderStatus() {
+    const habitsDone = snap.habits.filter((h) => h.completed).length;
+    const habitsTotal = snap.habits.length;
+    const pDone = snap.priorities.filter((p) => p.completed).length;
+    const pTotal = snap.priorities.length;
+    const el = $('snapStatus');
+    el.classList.remove('good', 'warn');
+    const ratio = (habitsDone + pDone) / (habitsTotal + pTotal);
+    const summary = habitsDone + '/' + habitsTotal + ' habits · ' + pDone + '/' + pTotal + ' priorities done';
+    if (habitsDone === 0 && pDone === 0) { el.textContent = 'Nothing logged yet — set today\'s focus below.'; return; }
+    if (ratio >= 0.75) { el.classList.add('good'); el.textContent = 'Strong day — ' + summary + '.'; }
+    else if (ratio >= 0.4) { el.classList.add('warn'); el.textContent = 'On pace — ' + summary + '.'; }
+    else { el.textContent = summary + ' — plenty of day left.'; }
+  }
+
+  function renderPriorities() {
+    const wrap = $('snapPriorities');
+    wrap.innerHTML = '';
+    snap.priorities.forEach((p, i) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row' + (p.completed ? ' gm-row-done' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!p.completed;
+      cb.addEventListener('change', () => {
+        p.completed = cb.checked; save(); renderStatus();
+        li.classList.toggle('gm-row-done', p.completed);
+      });
+      const txt = document.createElement('div');
+      txt.className = 'gm-text'; txt.contentEditable = 'true';
+      txt.setAttribute('data-placeholder', 'Priority ' + (i + 1));
+      txt.textContent = p.text;
+      txt.addEventListener('blur', () => { p.text = txt.textContent.trim(); save(); });
+      txt.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); txt.blur(); } });
+      li.append(cb, txt);
+      wrap.appendChild(li);
+    });
+  }
+
+  function renderHabits() {
+    const wrap = $('snapHabits');
+    wrap.innerHTML = '';
+    snap.habits.forEach((h) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row' + (h.completed ? ' gm-row-done' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!h.completed;
+      cb.addEventListener('change', () => {
+        h.completed = cb.checked; save(); renderStatus();
+        li.classList.toggle('gm-row-done', h.completed);
+        window.dispatchEvent(new Event('dailySnapshot:habitsChanged'));
+      });
+      const txt = document.createElement('div');
+      txt.className = 'gm-text'; txt.textContent = h.label;
+      li.append(cb, txt);
+      wrap.appendChild(li);
+    });
+  }
+
+  // Plain text fields, debounced so typing doesn't thrash storage.
+  let fieldTimer = null;
+  function bindField(id, key) {
+    const el = $(id);
+    el.value = snap[key] || '';
+    el.addEventListener('input', () => {
+      snap[key] = el.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 400);
+    });
+  }
+
+  renderDate();
+  renderStatus();
+  renderPriorities();
+  renderHabits();
+  bindField('snapMainFocus', 'mainFocus');
+  bindField('snapTraining', 'trainingStatus');
+  bindField('snapBusiness', 'businessFocus');
+  bindField('snapHealth', 'healthStatus');
+  bindField('snapNotes', 'notes');
+
+  // Re-render if another tab / device changes today's snapshot.
+  window.addEventListener('storage', () => {
+    snap = window.DailySnapshot.loadOrInit();
+    renderStatus(); renderPriorities(); renderHabits();
+  });
+})();
+</script>
+</body>
+</html>

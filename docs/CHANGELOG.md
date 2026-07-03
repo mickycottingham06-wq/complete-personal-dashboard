@@ -122,6 +122,32 @@ Commit:
 
 Add Streaks
 
+## 2026-07-03
+
+### Navigation & Layout — Sidebar, Preview Cards, Section Pages
+
+Daily Snapshot and Streaks had grown into two full-height sections at the top of index.html, pushing the bento grid below the fold. Restructured the hub into a compact command centre without touching the premium dark glassmorphism design.
+
+Extracted the Daily Snapshot and Streaks data logic out of index.html's inline scripts into two shared, reusable files: `scripts/daily-snapshot-data.js` (owns the `dailySnapshot` key, defaults, and the 6 AM rollover) and `scripts/streaks-data.js` (owns the `streaks` key and the streak-computation logic, reading habits through `window.DailySnapshot`). Both expose the same public hooks documented in DATA_SCHEMA.md (`window.DailySnapshot`, `window.Streaks`) plus new `loadOrInit()` / `recompute()` helpers so any page can read consistent, rolled-over data without re-implementing the logic.
+
+Built full standalone pages — `pages/daily-snapshot.html` and `pages/streaks.html` — carrying the exact same interactive UI (habit checklist, priorities, notes, streak history, per-habit flames) that used to live inline on index.html. Same `.gm-card` / `.gm-row` / `.streak-*` components, same localStorage keys, so nothing about how data saves changed — only where the UI lives.
+
+On index.html, replaced both full sections with compact clickable preview cards (`.preview-card`, a thin new class reusing `.gm-card` + the existing `.tile-arrow` hover pattern): the Daily Snapshot preview shows main focus, habit completion %, and priority completion %; the Streaks preview shows current streak, best streak, and today's %. Both link straight to their full page.
+
+Added a collapsible sidebar navigation drawer, opened by a three-line hamburger button, built into `scripts/topbar.js` (the script every page already includes for the top/bottom chrome) so it appears everywhere the existing top bar does, with no new script tag needed on already-wired pages. Lists all 12 sections: Main, Daily Snapshot, Streaks, Business HQ, Boxing HQ, Health HQ, Hormone Optimisation, Appearance / Looks, Goals, Life Stats, Heatmap, Settings. Highlights the active page, closes on overlay click / Escape / link click, and reuses the existing modal-lock system (`body.topbar-modal-open`) so body scroll locks the same way any other modal on the dashboard already does.
+
+Added 7 lightweight "coming soon" placeholder pages for sections that don't exist yet (Business HQ, Boxing HQ, Hormone Optimisation, Appearance / Looks, Goals, Life Stats, Heatmap) so every sidebar link and bento tile resolves to a real page instead of a dead link, without building any of their real functionality. Health HQ and Main link to the existing pages/health.html and pages/main.html — not rebuilt.
+
+Added matching bento tiles for all of the above (plus a Settings tile that opens the existing settings modal in place via a small deep-link, `?openSettings=1`, instead of navigating away). Renamed the existing "Health" tile label to "Health HQ" to match the new navigation naming — no change to its href or functionality. Existing tiles (Fitness, Water, Finance, Caffeine, Nova) were left untouched.
+
+Files affected:
+
+index.html, scripts/topbar.js, scripts/daily-snapshot-data.js (new), scripts/streaks-data.js (new), pages/daily-snapshot.html (new), pages/streaks.html (new), pages/business-hq.html (new), pages/boxing-hq.html (new), pages/hormone-optimisation.html (new), pages/appearance.html (new), pages/goals.html (new), pages/life-stats.html (new), pages/heatmap.html (new), docs/DATA_SCHEMA.md, docs/COMPONENT_LIBRARY.md, docs/ROADMAP.md, docs/TODO.md, docs/PROJECT.md
+
+Commit:
+
+Add sidebar navigation and compact dashboard layout
+
 ---
 
 ## Future Entries

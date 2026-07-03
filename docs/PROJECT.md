@@ -138,11 +138,17 @@ Pages should display data rather than hardcoding values.
 
 Current and planned pages include:
 
-Home
+Home (index.html — compact hub: preview cards + bento grid)
+
+Main (pages/main.html — goals & daily plan)
+
+Daily Snapshot (pages/daily-snapshot.html)
+
+Streaks (pages/streaks.html)
 
 Finance
 
-Health
+Health HQ
 
 Gym
 
@@ -150,13 +156,19 @@ Water
 
 Caffeine
 
-Boxing
+Boxing HQ (placeholder)
 
-Business HQ
+Business HQ (placeholder)
 
-Goals
+Hormone Optimisation (placeholder)
 
-Life Stats
+Appearance / Looks (placeholder)
+
+Goals (placeholder)
+
+Life Stats (placeholder)
+
+Heatmap (placeholder)
 
 AI Assistant
 
@@ -177,6 +189,8 @@ Navigation should remain simple.
 Users should always know where they are.
 
 Do not redesign navigation unless specifically requested.
+
+A collapsible sidebar (three-line hamburger button) lists every page above and lives in `scripts/topbar.js`, so any page that already includes the top/bottom chrome gets it automatically. See COMPONENT_LIBRARY.md for the Sidebar Navigation and Preview Card components.
 
 ---
 
