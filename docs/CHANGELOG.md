@@ -168,6 +168,26 @@ Commit:
 
 Add AI CEO / Business Assistant
 
+## 2026-07-03
+
+### Boxing HQ
+
+Built the full Boxing HQ fight camp command centre, replacing the "coming soon" placeholder page.
+
+New shared data layer `scripts/boxing-data.js` owns the `boxing` localStorage key: training phase, fight date, current/target weight, weekly targets and completions for boxing sessions/roadwork/strength, current focus, weaknesses list, next session plan, sparring notes, coach notes, and a training log array. Follows the same load-with-defaults / save pattern as `window.Business`.
+
+Built the full page `pages/boxing-hq.html` using the same `.gm-card` / `.section-title` / `.set-input` / `.row-card` components as Business HQ: fight camp phase + date with a live countdown, weight readout with an on-target/kg-to-go badge, three weekly training progress bars (boxing, roadwork, strength), toggleable focus/weakness chips built from a shared default list (Footwork, Defence, Head Movement, Jab, Combinations, Conditioning, Power, Speed, Ring IQ, Mobility), sparring/coach notes, and a quick training log with add/delete rows.
+
+Added a compact Boxing HQ preview card to index.html (training phase, current vs target weight, weekly boxing session progress, current focus) linking to the full page. The bento tile and sidebar link already existed and needed no changes.
+
+Files affected:
+
+scripts/boxing-data.js (new), pages/boxing-hq.html, index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md
+
+Commit:
+
+Add Boxing HQ
+
 ---
 
 ## Future Entries

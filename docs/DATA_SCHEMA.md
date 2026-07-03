@@ -158,43 +158,42 @@ Current Focus
 
 # Boxing Data
 
-boxing.js
+Implemented. Lives in `localStorage` under the key `boxing`. The load/save logic lives in `scripts/boxing-data.js` (shared business logic), used by both the full page at `pages/boxing-hq.html` and the preview card on index.html.
 
-Should contain:
+Shape:
 
-Current Weight
+```
+boxing: {
+  trainingPhase: string,
+  fightDate: string,               // YYYY-MM-DD
+  currentWeight: number,
+  targetWeight: number,
+  weeklyBoxingTarget: number,
+  completedBoxingSessions: number,
+  weeklyRunTarget: number,
+  completedRuns: number,
+  weeklyStrengthTarget: number,
+  completedStrengthSessions: number,
+  currentFocus: string,
+  weaknesses: string[],
+  nextSessionPlan: string,
+  sparringNotes: string,
+  coachNotes: string,
+  trainingLog: [
+    { id: string, date: string, type: string, duration: string, intensity: string, notes: string }
+  ]
+}
+```
 
-Fight Weight
+Default training phases: Base Building, Strength & Power, Fight Camp, Peak Week, Fight Week, Recovery, Off Season.
 
-Weight Difference
+Default focuses (`window.Boxing.DEFAULT_FOCUSES`, used for both `currentFocus` and `weaknesses`): Footwork, Defence, Head Movement, Jab, Combinations, Conditioning, Power, Speed, Ring IQ, Mobility.
 
-Weeks Until Fight
+`window.Boxing.load()` returns stored boxing data, filling in any fields missing against the default shape (upgrades older saved data). `window.Boxing.save(box)` persists changes. `window.Boxing.uid()` generates ids for new training log rows.
 
-Current Camp Phase
+The full interactive UI lives at `pages/boxing-hq.html`. index.html shows a compact preview card (training phase, current vs target weight, weekly boxing session progress, current focus) that links to it.
 
-Today's Session
-
-Running Pace
-
-Recovery Score
-
-Conditioning Score
-
-Coach Notes
-
-Sparring Notes
-
-Strength Numbers
-
-Training Volume
-
-Weekly Sessions
-
-Monthly Sessions
-
-Fight Countdown
-
-Everything related to boxing belongs here.
+Everything related to boxing belongs here. Future features (Whoop/Garmin recovery data, punch analytics, weight trend graphs) should extend this shape rather than creating a second boxing data source.
 
 ---
 

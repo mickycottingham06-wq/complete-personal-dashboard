@@ -36,17 +36,17 @@ Search
 
 ## Phase 3
 
-Boxing HQ
+Boxing HQ ✅
 
-Fight Camp
+Fight Camp ✅
 
-Weight Tracking
+Weight Tracking ✅
 
 Recovery
 
-Running
+Running ✅
 
-Coach Notes
+Coach Notes ✅
 
 Analytics
 

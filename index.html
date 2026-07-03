@@ -15,6 +15,7 @@
 <script src="scripts/streaks-data.js"></script>
 <script src="scripts/business-data.js"></script>
 <script src="scripts/ai-ceo-data.js"></script>
+<script src="scripts/boxing-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -343,6 +344,25 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewCeoOpenActions">0</div><div class="l">Open Actions</div></div>
       </div>
       <div class="preview-sub" id="previewCeoNextAction" style="margin-top:12px">—</div>
+    </a>
+  </div>
+
+  <!-- ===== BOXING HQ PREVIEW — compact entry point, full view lives at
+       pages/boxing-hq.html ===== -->
+  <div class="section" id="boxingPreview">
+    <div class="section-title">Boxing HQ</div>
+    <a class="gm-card preview-card" href="pages/boxing-hq.html">
+      <div class="preview-top">
+        <div>
+          <div class="gm-eyebrow" style="margin-bottom:4px">Training Phase</div>
+          <div class="preview-focus" id="previewBoxPhase">—</div>
+          <div class="preview-sub" id="previewBoxWeight">—</div>
+        </div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBoxSessFill" style="width:0%"></div></div>
+      <div class="preview-rev-pct" id="previewBoxSessPct">0 / 0 sessions this week</div>
+      <div class="preview-sub" id="previewBoxFocus" style="margin-top:12px">—</div>
     </a>
   </div>
 
@@ -917,7 +937,27 @@ body::after {
     nextEl.textContent = hasNext ? 'Next: ' + ceo.nextBestAction.trim() : 'No next action set →';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); }
+  function renderBoxingPreview() {
+    const box = window.Boxing.load();
+
+    $('previewBoxPhase').textContent = box.trainingPhase || '—';
+
+    const cur = Number(box.currentWeight) || 0;
+    const tgt = Number(box.targetWeight) || 0;
+    $('previewBoxWeight').textContent = (cur || tgt) ? (cur || '—') + 'kg → ' + (tgt || '—') + 'kg target' : 'Set current & target weight';
+
+    const target = Number(box.weeklyBoxingTarget) || 0;
+    const completed = Number(box.completedBoxingSessions) || 0;
+    const pct = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
+    $('previewBoxSessFill').style.width = pct + '%';
+    $('previewBoxSessPct').textContent = completed + ' / ' + target + ' boxing sessions this week';
+
+    const focusEl = $('previewBoxFocus');
+    const hasFocus = !!(box.currentFocus && box.currentFocus.trim());
+    focusEl.textContent = hasFocus ? 'Focus: ' + box.currentFocus.trim() : 'No focus set';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);
