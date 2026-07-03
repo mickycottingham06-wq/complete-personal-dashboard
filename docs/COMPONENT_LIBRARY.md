@@ -328,7 +328,7 @@ Lives in
 
 Behaviour
 
-Slide-in drawer from the left, dark overlay behind it, closes on overlay click / Escape / link click. Highlights the active page. Lists every section: Main, Daily Snapshot, Streaks, Business HQ, Boxing HQ, Health HQ, Hormone Optimisation, Appearance / Looks, Goals, Life Stats, Heatmap, Settings.
+Slide-in drawer from the left, dark overlay behind it, closes on overlay click / Escape / link click. Highlights the active page. Lists every section: Main, Daily Snapshot, Streaks, Business HQ, AI CEO, Boxing HQ, Health HQ, Hormone Optimisation, Appearance / Looks, Goals, Life Stats, Heatmap, Settings.
 
 Never build a second nav drawer elsewhere — extend `SIDEBAR_LINKS` in topbar.js instead.
 

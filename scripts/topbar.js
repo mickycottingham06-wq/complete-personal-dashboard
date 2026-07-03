@@ -294,6 +294,7 @@ body.topbar-modal-open {
     { key: 'snapshot',    icon: '📋', label: 'Daily Snapshot',        href: '/pages/daily-snapshot.html' },
     { key: 'streaks',     icon: '🔥', label: 'Streaks',               href: '/pages/streaks.html' },
     { key: 'business',    icon: '💼', label: 'Business HQ',          href: '/pages/business-hq.html' },
+    { key: 'ai-ceo',      icon: '🤖', label: 'AI CEO',               href: '/pages/ai-ceo.html' },
     { key: 'boxing',      icon: '🥊', label: 'Boxing HQ',            href: '/pages/boxing-hq.html' },
     { key: 'health',      icon: '💊', label: 'Health HQ',            href: '/pages/health.html' },
     { key: 'hormone',     icon: '🧬', label: 'Hormone Optimisation', href: '/pages/hormone-optimisation.html' },
@@ -364,6 +365,7 @@ body.topbar-modal-open {
     if (p.endsWith('daily-snapshot.html')) return 'snapshot';
     if (p.endsWith('streaks.html')) return 'streaks';
     if (p.endsWith('business-hq.html')) return 'business';
+    if (p.endsWith('ai-ceo.html')) return 'ai-ceo';
     if (p.endsWith('boxing-hq.html')) return 'boxing';
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('hormone-optimisation.html')) return 'hormone';

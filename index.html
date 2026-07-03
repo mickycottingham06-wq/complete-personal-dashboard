@@ -14,6 +14,7 @@
 <script src="scripts/daily-snapshot-data.js"></script>
 <script src="scripts/streaks-data.js"></script>
 <script src="scripts/business-data.js"></script>
+<script src="scripts/ai-ceo-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -325,6 +326,26 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== AI CEO PREVIEW — compact entry point, full view lives at
+       pages/ai-ceo.html ===== -->
+  <div class="section" id="aiCeoPreview">
+    <div class="section-title">AI CEO</div>
+    <a class="gm-card preview-card" href="pages/ai-ceo.html">
+      <div class="preview-top">
+        <div>
+          <div class="gm-eyebrow" style="margin-bottom:4px">Mode</div>
+          <div class="preview-focus" id="previewCeoMode">—</div>
+          <div class="preview-sub" id="previewCeoBlocker">—</div>
+        </div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats" style="margin-top:10px;margin-bottom:0;grid-template-columns:1fr">
+        <div class="streak-stat"><div class="v" id="previewCeoOpenActions">0</div><div class="l">Open Actions</div></div>
+      </div>
+      <div class="preview-sub" id="previewCeoNextAction" style="margin-top:12px">—</div>
+    </a>
+  </div>
+
   <div class="bento">
 
     <!-- Big tile -->
@@ -533,6 +554,20 @@ body::after {
       <h2 class="tile-title">Settings</h2>
       <div class="tile-foot">
         <span class="tile-sub">Profile & WHOOP</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/ai-ceo.html" style="--accent:#A78BFA">
+      <div class="tile-top">
+        <span class="tile-num">·16</span>
+        <span class="tile-emoji">🤖</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">AI CEO</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Business advisor prompts</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -866,7 +901,23 @@ body::after {
     taskEl.textContent = hasTask ? 'Today: ' + biz.todayTask.trim() : 'No task set for today';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); }
+  function renderAiCeoPreview() {
+    const ceo = window.AiCeo.load();
+    const mode = window.AiCeo.modeById(ceo.activeMode);
+    $('previewCeoMode').textContent = mode.icon + ' ' + mode.label;
+
+    const hasBlocker = !!(ceo.currentBlocker && ceo.currentBlocker.trim());
+    $('previewCeoBlocker').textContent = hasBlocker ? 'Blocker: ' + ceo.currentBlocker.trim() : 'No blocker logged';
+
+    const openActions = ceo.actionPlan.filter((a) => a.status !== 'Done').length;
+    $('previewCeoOpenActions').textContent = String(openActions);
+
+    const nextEl = $('previewCeoNextAction');
+    const hasNext = !!(ceo.nextBestAction && ceo.nextBestAction.trim());
+    nextEl.textContent = hasNext ? 'Next: ' + ceo.nextBestAction.trim() : 'No next action set →';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

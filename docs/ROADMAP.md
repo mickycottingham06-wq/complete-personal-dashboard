@@ -64,7 +64,7 @@ Leads ✅
 
 Tasks ✅
 
-AI Business Assistant
+AI Business Assistant ✅ (prompt-powered — no live API yet)
 
 ---
 

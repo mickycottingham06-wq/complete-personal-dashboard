@@ -229,7 +229,40 @@ Default projects: AI automation agency, Digital products, Reselling / Whatnot, P
 
 The full interactive UI lives at `pages/business-hq.html`. index.html shows a compact preview card (current focus, active project, revenue progress, today's task) that links to it.
 
-`aiCeoPrompt` is a free-text placeholder field only — no AI request is made from it yet. The full AI CEO is a future feature.
+`aiCeoPrompt` is a legacy free-text placeholder field, kept for backwards compatibility. The full AI CEO (below) supersedes it.
+
+---
+
+# AI CEO / Business Assistant Data
+
+Implemented. Lives in `localStorage` under the key `aiCeo`. The load/save/prompt-generation logic lives in `scripts/ai-ceo-data.js` (shared business logic), used by both the full page at `pages/ai-ceo.html` and the preview card on index.html. It reads (never duplicates) context from `window.Business`, `window.DailySnapshot` and `window.Streaks` — it owns none of that data itself.
+
+Shape:
+
+```
+aiCeo: {
+  activeMode: string,          // one of MODES ids — see below
+  currentQuestion: string,
+  currentBlocker: string,
+  nextBestAction: string,
+  generatedPrompt: string,
+  savedAdvice: [
+    { id: string, title: string, summary: string, decision: string, nextAction: string, dueDate: string, status: string, createdAt: string }
+  ],
+  actionPlan: [
+    { id: string, task: string, priority: string, status: string, linkedProject: string, notes: string }
+  ],
+  settings: { tone: string, adviceStyle: string }
+}
+```
+
+Assistant modes (`window.AiCeo.MODES`): Daily CEO Brief, Business Strategy, Offer / Product Ideas, Sales & Outreach, Content Ideas, Weekly Review, Decision Coach, Problem Solver. Each carries an `instruction` line folded into the generated prompt.
+
+`window.AiCeo.load()` / `.save()` follow the same upgrade-on-load pattern as `window.Business`. `window.AiCeo.buildContext()` re-reads Business HQ / Daily Snapshot / Streaks live (never cached) so a generated prompt always reflects current state. `window.AiCeo.generatePrompt(ceo)` is a pure function that returns the copy-paste prompt text — no network request is made anywhere in this file.
+
+No AI API is called. This is a prompt-generation and advice/action tracking tool only — the user copies the generated prompt into Claude/ChatGPT by hand. Wiring a real API later means adding a `fetch` call in `pages/ai-ceo.html` that sends `window.AiCeo.generatePrompt(ceo)`'s output; the data shape does not need to change.
+
+The full interactive UI lives at `pages/ai-ceo.html`. index.html shows a compact preview card (active mode, current blocker, next best action, count of open action items) that links to it.
 
 ---
 

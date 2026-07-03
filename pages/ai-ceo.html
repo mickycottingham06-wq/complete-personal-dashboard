@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>AI CEO · Micky's Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/sync.js" defer></script>
+<script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/business-data.js"></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/streaks-data.js"></script>
+<script src="../scripts/ai-ceo-data.js"></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 1100px; margin: 0 auto; }
+.dash-title {
+  margin: 0 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.ai-ceo-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #A78BFA; margin-bottom: 16px;
+}
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.gm-card {
+  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
+  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+.gm-card.ai-ceo-card { border: 1px solid rgba(167,139,250,0.18); }
+
+.field { margin-bottom: 14px; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.set-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.set-input::placeholder { color: var(--text-tertiary); }
+.set-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+select.set-input { cursor: pointer; }
+select.set-input option { background: #16161a; color: var(--text-primary); }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 620px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+/* ---- CEO Dashboard readout ---- */
+.ceo-readout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-bottom: 4px; }
+@media (max-width: 620px) { .ceo-readout { grid-template-columns: 1fr; } }
+.ceo-item .l { font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 5px; }
+.ceo-item .v { font-size: 14px; color: var(--text-primary); font-weight: 600; }
+.ceo-item .v.is-empty { color: var(--text-tertiary); font-weight: 500; font-style: italic; }
+
+.rev-numbers { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.rev-current { font-size: 24px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.rev-target { font-size: 13px; color: var(--text-tertiary); }
+.rev-track { height: 10px; border-radius: 6px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.rev-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #6BE3A4, #A7F3D0); transition: width 0.3s ease; }
+.rev-pct { margin-top: 8px; font-size: 12px; color: var(--text-tertiary); text-align: right; }
+
+/* ---- Assistant modes ---- */
+.mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.mode-btn {
+  text-align: left; padding: 12px 14px; border-radius: 12px; cursor: pointer; font-family: inherit;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); color: var(--text-secondary);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.mode-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.mode-btn.active { background: rgba(167,139,250,0.14); border-color: rgba(167,139,250,0.45); color: var(--text-primary); }
+.mode-btn .mode-icon { font-size: 15px; margin-right: 6px; }
+.mode-btn .mode-label { font-size: 12.5px; font-weight: 600; }
+.mode-desc { margin-top: 12px; font-size: 12.5px; color: var(--text-tertiary); line-height: 1.5; }
+
+/* ---- Prompt output + copy ---- */
+.btn-primary {
+  padding: 11px 20px; border: none; border-radius: 11px; cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: #0A0A0B;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 16px rgba(0,0,0,0.3);
+  transition: transform 0.15s, filter 0.15s;
+}
+.btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.btn-ghost {
+  padding: 11px 20px; border: 1px solid rgba(255,255,255,0.14); border-radius: 11px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); background: rgba(255,255,255,0.04);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.28); color: var(--text-primary); }
+.prompt-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 12px; }
+.prompt-status { font-size: 11.5px; color: var(--success); }
+.prompt-output {
+  width: 100%; min-height: 220px; padding: 14px; border-radius: 12px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-primary); font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6;
+  white-space: pre-wrap; outline: none; resize: vertical;
+}
+.prompt-output::placeholder { color: var(--text-tertiary); font-family: var(--font); }
+
+/* ---- Status badges ---- */
+.status-badge {
+  display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+}
+.status-badge.st-open, .status-badge.st-todo { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+.status-badge.st-progress { background: rgba(242,192,99,0.14); color: var(--warning); }
+.status-badge.st-done { background: rgba(107,227,164,0.14); color: var(--success); }
+.status-badge.st-dropped { background: rgba(255,107,107,0.12); color: var(--danger); }
+
+/* ---- Saved advice ---- */
+.advice-card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.advice-top { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.advice-top .advice-title { flex: 1; min-width: 140px; }
+.row-input {
+  padding: 8px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 9px;
+  background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 13px; outline: none;
+}
+.row-input:focus { border-color: rgba(255,255,255,0.26); }
+.row-input option { background: #16161a; }
+.row-del {
+  border: 1px solid rgba(255,255,255,0.10); background: transparent; color: var(--text-tertiary);
+  border-radius: 9px; width: 32px; height: 32px; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.row-del:hover { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); color: var(--danger); }
+.row-empty { font-size: 13px; color: var(--text-tertiary); padding: 10px 2px; }
+.add-btn {
+  margin-top: 10px; padding: 10px 16px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 11px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+
+/* ---- Action plan rows ---- */
+.row-list { display: flex; flex-direction: column; gap: 8px; }
+.action-row {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  padding: 12px 14px; display: grid; gap: 8px;
+  grid-template-columns: 1.6fr 0.8fr 0.9fr 1.2fr 1.4fr auto; align-items: center;
+}
+@media (max-width: 860px) { .action-row { grid-template-columns: 1fr; } }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">AI CEO</h1>
+  <div class="ai-ceo-badge">🤖 Prompt-powered assistant — no live AI connected yet</div>
+
+  <!-- CEO Dashboard -->
+  <div class="section">
+    <div class="section-title">CEO Dashboard</div>
+    <div class="gm-card">
+      <div class="ceo-readout">
+        <div class="ceo-item">
+          <div class="l">Current Business Focus</div>
+          <div class="v" id="ceoFocus">—</div>
+        </div>
+        <div class="ceo-item">
+          <div class="l">Active Project</div>
+          <div class="v" id="ceoProject">—</div>
+        </div>
+        <div class="ceo-item">
+          <div class="l">Today's Business Task</div>
+          <div class="v" id="ceoTask">—</div>
+        </div>
+        <div class="ceo-item">
+          <div class="l">Revenue Progress</div>
+          <div class="v" id="ceoRevSub">—</div>
+        </div>
+      </div>
+
+      <div class="rev-track" style="margin-top:6px"><div class="rev-fill" id="ceoRevFill" style="width:0%"></div></div>
+
+      <div class="grid2" style="margin-top:16px">
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Current Problem / Blocker</label>
+          <input class="set-input" id="ceoBlocker" type="text" placeholder="What's actually in the way right now?" autocomplete="off">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Next Best Action</label>
+          <input class="set-input" id="ceoNextAction" type="text" placeholder="The single next move" autocomplete="off">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assistant Modes -->
+  <div class="section">
+    <div class="section-title">Assistant Mode</div>
+    <div class="gm-card">
+      <div class="mode-grid" id="modeGrid"></div>
+      <div class="mode-desc" id="modeDesc"></div>
+    </div>
+  </div>
+
+  <!-- Prompt Builder -->
+  <div class="section">
+    <div class="section-title">Prompt Builder</div>
+    <div class="gm-card ai-ceo-card">
+      <div class="field">
+        <label class="field-label">Your Question / Problem</label>
+        <textarea class="set-input" id="ceoQuestion" rows="3" placeholder="What do you want your AI CEO's advice on?"></textarea>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label class="field-label">Tone</label>
+          <select class="set-input" id="ceoTone"></select>
+        </div>
+        <div class="field">
+          <label class="field-label">Advice Style</label>
+          <select class="set-input" id="ceoAdviceStyle"></select>
+        </div>
+      </div>
+
+      <div class="prompt-actions">
+        <button class="btn-primary" id="genPromptBtn" type="button">✨ Generate Prompt</button>
+        <button class="btn-ghost" id="copyPromptBtn" type="button">📋 Copy Prompt</button>
+        <span class="prompt-status" id="promptStatus"></span>
+      </div>
+      <textarea class="prompt-output" id="promptOutput" readonly placeholder="Generate a prompt above, then copy it into Claude or ChatGPT."></textarea>
+    </div>
+  </div>
+
+  <!-- Saved Advice / Decision Log -->
+  <div class="section">
+    <div class="section-title">Saved Advice / Decision Log</div>
+    <div class="gm-card">
+      <div class="field">
+        <label class="field-label">Title</label>
+        <input class="set-input" id="newAdviceTitle" type="text" placeholder="e.g. Pricing for the new offer">
+      </div>
+      <div class="field">
+        <label class="field-label">Advice Summary</label>
+        <textarea class="set-input" id="newAdviceSummary" rows="2" placeholder="What the AI CEO / you concluded"></textarea>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label class="field-label">Decision Made</label>
+          <input class="set-input" id="newAdviceDecision" type="text" placeholder="What you decided to do">
+        </div>
+        <div class="field">
+          <label class="field-label">Next Action</label>
+          <input class="set-input" id="newAdviceNextAction" type="text" placeholder="Immediate next step">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Due Date</label>
+          <input class="set-input" id="newAdviceDue" type="date">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label class="field-label">Status</label>
+          <select class="set-input" id="newAdviceStatus"></select>
+        </div>
+      </div>
+      <button class="add-btn" id="addAdviceBtn" type="button" style="margin-top:14px">+ Save advice</button>
+
+      <div style="margin-top:18px" id="adviceList"></div>
+    </div>
+  </div>
+
+  <!-- Action Plan -->
+  <div class="section">
+    <div class="section-title">Action Plan</div>
+    <div class="gm-card">
+      <div class="row-list" id="actionList"></div>
+      <button class="add-btn" id="addActionBtn" type="button">+ Add action item</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== AI CEO logic — reads/writes through window.AiCeo
+     (scripts/ai-ceo-data.js), which itself reads context from
+     window.Business / window.DailySnapshot / window.Streaks, so
+     every source of truth stays in exactly one place. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  let ceo = window.AiCeo.load();
+  function save() { window.AiCeo.save(ceo); }
+
+  function fmtMoney(n) {
+    const v = Number(n) || 0;
+    return '£' + v.toLocaleString('en-GB', { maximumFractionDigits: 0 });
+  }
+
+  function selectOptions(list, current) {
+    return list.map((v) => `<option value="${v}"${v === current ? ' selected' : ''}>${v}</option>`).join('');
+  }
+
+  function setText(id, val, emptyText) {
+    const el = $(id);
+    const has = !!(val && String(val).trim());
+    el.textContent = has ? val : (emptyText || '—');
+    el.classList.toggle('is-empty', !has);
+  }
+
+  // -------- CEO Dashboard readout (reads Business HQ, never owns it) --------
+  function renderDashboard() {
+    const biz = window.Business.load();
+    setText('ceoFocus', biz.currentFocus, 'Not set in Business HQ');
+    setText('ceoProject', biz.activeProject, 'Not set');
+    setText('ceoTask', biz.todayTask, 'Not set');
+
+    const target = Number(biz.revenueTarget) || 0;
+    const current = Number(biz.currentRevenue) || 0;
+    const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+    $('ceoRevFill').style.width = pct + '%';
+    $('ceoRevSub').textContent = fmtMoney(current) + ' / ' + fmtMoney(target) + ' (' + pct + '%)';
+  }
+
+  // -------- Assistant modes --------
+  function renderModes() {
+    const grid = $('modeGrid');
+    grid.innerHTML = '';
+    window.AiCeo.MODES.forEach((m) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mode-btn' + (m.id === ceo.activeMode ? ' active' : '');
+      btn.innerHTML = `<span class="mode-icon">${m.icon}</span><span class="mode-label">${m.label}</span>`;
+      btn.addEventListener('click', () => {
+        ceo.activeMode = m.id;
+        save();
+        renderModes();
+      });
+      grid.appendChild(btn);
+    });
+    $('modeDesc').textContent = window.AiCeo.modeById(ceo.activeMode).instruction;
+  }
+
+  // -------- Prompt builder --------
+  function renderPromptSettings() {
+    $('ceoTone').innerHTML = selectOptions(window.AiCeo.TONES, ceo.settings.tone);
+    $('ceoAdviceStyle').innerHTML = selectOptions(window.AiCeo.ADVICE_STYLES, ceo.settings.adviceStyle);
+  }
+
+  function renderPromptOutput() {
+    $('promptOutput').value = ceo.generatedPrompt || '';
+  }
+
+  // -------- Saved advice --------
+  function renderAdviceList() {
+    const wrap = $('adviceList');
+    wrap.innerHTML = '';
+    if (ceo.savedAdvice.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'row-empty';
+      empty.textContent = 'No saved advice yet — save your first decision above.';
+      wrap.appendChild(empty);
+      return;
+    }
+    // Newest first.
+    ceo.savedAdvice.slice().reverse().forEach((row) => {
+      const card = document.createElement('div');
+      card.className = 'advice-card';
+
+      const top = document.createElement('div');
+      top.className = 'advice-top';
+
+      const badge = document.createElement('span');
+      badge.className = 'status-badge ' + statusClass(row.status);
+      badge.textContent = row.status || 'Open';
+
+      const title = document.createElement('div');
+      title.className = 'advice-title';
+      title.style.cssText = 'font-size:14px;font-weight:700;color:var(--text-primary)';
+      title.textContent = row.title || '(untitled)';
+
+      const due = document.createElement('span');
+      due.style.cssText = 'font-size:11.5px;color:var(--text-tertiary)';
+      due.textContent = row.dueDate ? ('Due ' + row.dueDate) : '';
+
+      const del = document.createElement('button');
+      del.className = 'row-del'; del.type = 'button'; del.textContent = '×';
+      del.addEventListener('click', () => {
+        ceo.savedAdvice = ceo.savedAdvice.filter((r) => r.id !== row.id);
+        save(); renderAdviceList();
+      });
+
+      top.append(badge, title, due, del);
+
+      const body = document.createElement('div');
+      body.style.cssText = 'font-size:13px;color:var(--text-secondary);line-height:1.5';
+      const parts = [];
+      if (row.summary) parts.push(row.summary);
+      if (row.decision) parts.push('Decision: ' + row.decision);
+      if (row.nextAction) parts.push('Next: ' + row.nextAction);
+      body.textContent = parts.join(' — ');
+
+      card.append(top);
+      if (parts.length) card.append(body);
+      wrap.appendChild(card);
+    });
+  }
+
+  function statusClass(status) {
+    if (status === 'In Progress') return 'st-progress';
+    if (status === 'Done') return 'st-done';
+    if (status === 'Dropped') return 'st-dropped';
+    return 'st-open';
+  }
+
+  // -------- Action plan --------
+  function renderActionPlan() {
+    const wrap = $('actionList');
+    wrap.innerHTML = '';
+    if (ceo.actionPlan.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'row-empty';
+      empty.textContent = 'No action items yet — add one below.';
+      wrap.appendChild(empty);
+      return;
+    }
+    const biz = window.Business.load();
+    const projectNames = biz.projects.map((p) => p.name).filter(Boolean);
+
+    ceo.actionPlan.forEach((row) => {
+      const card = document.createElement('div');
+      card.className = 'action-row';
+
+      const task = document.createElement('input');
+      task.className = 'row-input'; task.type = 'text'; task.placeholder = 'Task'; task.value = row.task || '';
+      task.addEventListener('input', () => { row.task = task.value; save(); });
+
+      const priority = document.createElement('select');
+      priority.className = 'row-input';
+      priority.innerHTML = selectOptions(window.AiCeo.ACTION_PRIORITIES, row.priority || 'Medium');
+      priority.addEventListener('change', () => { row.priority = priority.value; save(); });
+
+      const status = document.createElement('select');
+      status.className = 'row-input';
+      status.innerHTML = selectOptions(window.AiCeo.ACTION_STATUSES, row.status || 'To Do');
+      status.addEventListener('change', () => { row.status = status.value; save(); renderPreviewCount(); });
+
+      const linked = document.createElement('select');
+      linked.className = 'row-input';
+      const opts = ['(none)'].concat(projectNames);
+      linked.innerHTML = selectOptions(opts, row.linkedProject || '(none)');
+      linked.addEventListener('change', () => { row.linkedProject = linked.value === '(none)' ? '' : linked.value; save(); });
+
+      const notes = document.createElement('input');
+      notes.className = 'row-input'; notes.type = 'text'; notes.placeholder = 'Notes'; notes.value = row.notes || '';
+      notes.addEventListener('input', () => { row.notes = notes.value; save(); });
+
+      const del = document.createElement('button');
+      del.className = 'row-del'; del.type = 'button'; del.textContent = '×';
+      del.addEventListener('click', () => {
+        ceo.actionPlan = ceo.actionPlan.filter((r) => r.id !== row.id);
+        save(); renderActionPlan();
+      });
+
+      card.append(task, priority, status, linked, notes, del);
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderPreviewCount() { /* no-op here — preview lives on index.html and reads storage directly */ }
+
+  function renderAll() {
+    renderDashboard();
+    renderModes();
+    renderPromptSettings();
+    renderPromptOutput();
+    renderAdviceList();
+    renderActionPlan();
+  }
+
+  // Debounced plain-field binding, same pattern as Business HQ.
+  let fieldTimer = null;
+  function bindField(id, key) {
+    const el = $(id);
+    el.value = ceo[key] || '';
+    el.addEventListener('input', () => {
+      ceo[key] = el.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 350);
+    });
+  }
+  bindField('ceoBlocker', 'currentBlocker');
+  bindField('ceoNextAction', 'nextBestAction');
+  bindField('ceoQuestion', 'currentQuestion');
+
+  $('ceoTone').addEventListener('change', (e) => { ceo.settings.tone = e.target.value; save(); });
+  $('ceoAdviceStyle').addEventListener('change', (e) => { ceo.settings.adviceStyle = e.target.value; save(); });
+
+  $('genPromptBtn').addEventListener('click', () => {
+    ceo.generatedPrompt = window.AiCeo.generatePrompt(ceo);
+    save();
+    renderPromptOutput();
+    $('promptStatus').textContent = 'Prompt generated.';
+    setTimeout(() => { $('promptStatus').textContent = ''; }, 2500);
+  });
+
+  $('copyPromptBtn').addEventListener('click', async () => {
+    const text = $('promptOutput').value;
+    if (!text) { $('promptStatus').textContent = 'Generate a prompt first.'; setTimeout(() => { $('promptStatus').textContent = ''; }, 2500); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      $('promptStatus').textContent = 'Copied to clipboard.';
+    } catch (e) {
+      $('promptOutput').select();
+      document.execCommand('copy');
+      $('promptStatus').textContent = 'Copied to clipboard.';
+    }
+    setTimeout(() => { $('promptStatus').textContent = ''; }, 2500);
+  });
+
+  $('addAdviceBtn').addEventListener('click', () => {
+    const title = $('newAdviceTitle').value.trim();
+    const summary = $('newAdviceSummary').value.trim();
+    if (!title && !summary) return;
+    ceo.savedAdvice.push({
+      id: window.AiCeo.uid(),
+      title: title,
+      summary: summary,
+      decision: $('newAdviceDecision').value.trim(),
+      nextAction: $('newAdviceNextAction').value.trim(),
+      dueDate: $('newAdviceDue').value,
+      status: $('newAdviceStatus').value || 'Open',
+      createdAt: new Date().toISOString(),
+    });
+    save();
+    $('newAdviceTitle').value = '';
+    $('newAdviceSummary').value = '';
+    $('newAdviceDecision').value = '';
+    $('newAdviceNextAction').value = '';
+    $('newAdviceDue').value = '';
+    renderAdviceList();
+  });
+  $('newAdviceStatus').innerHTML = selectOptions(window.AiCeo.ADVICE_STATUSES, 'Open');
+
+  $('addActionBtn').addEventListener('click', () => {
+    ceo.actionPlan.push({ id: window.AiCeo.uid(), task: '', priority: 'Medium', status: 'To Do', linkedProject: '', notes: '' });
+    save(); renderActionPlan();
+  });
+
+  renderAll();
+
+  // Re-render if another tab / device changes business or AI CEO data.
+  window.addEventListener('storage', () => {
+    ceo = window.AiCeo.load();
+    renderAll();
+  });
+})();
+</script>
+</body>
+</html>
