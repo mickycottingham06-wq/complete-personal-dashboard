@@ -6,10 +6,6 @@ Build AI Assistant (AI CEO / Business Assistant done — prompt-powered, pages/a
 
 Build Heatmap (placeholder page exists at pages/heatmap.html)
 
-Build Life Stats (placeholder page exists at pages/life-stats.html)
-
-Build Hormone Optimisation (placeholder page exists at pages/hormone-optimisation.html)
-
 ---
 
 ## Medium Priority

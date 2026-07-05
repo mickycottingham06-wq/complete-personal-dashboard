@@ -20,6 +20,7 @@
 <script src="scripts/hormone-data.js"></script>
 <script src="scripts/appearance-data.js"></script>
 <script src="scripts/goals-data.js"></script>
+<script src="scripts/life-stats-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -445,6 +446,24 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== LIFE STATS PREVIEW — compact entry point, full view lives at
+       pages/life-stats.html ===== -->
+  <div class="section" id="lifeStatsPreview">
+    <div class="section-title">Life Stats</div>
+    <a class="gm-card preview-card" href="pages/life-stats.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow">Life OS Overview</div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+        <div class="streak-stat"><div class="v" id="previewLifeStatsOverall">—</div><div class="l">Overall</div></div>
+        <div class="streak-stat"><div class="v" id="previewLifeStatsStreak">—</div><div class="l">Streak</div></div>
+        <div class="streak-stat"><div class="v" id="previewLifeStatsGoals">—</div><div class="l">Goals</div></div>
+      </div>
+      <div class="preview-sub" id="previewLifeStatsAttention" style="margin-top:12px">No areas flagged</div>
+    </a>
+  </div>
+
   <div class="bento">
 
     <!-- Big tile -->
@@ -624,7 +643,7 @@ body::after {
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Life Stats</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Lifetime numbers</span>
+        <span class="tile-sub">Life OS overview</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -1086,7 +1105,19 @@ body::after {
     $('previewGoalCount').textContent = count + (count === 1 ? ' active goal' : ' active goals');
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); }
+  function renderLifeStatsPreview() {
+    var ls = window.LifeStats.load();
+    var c = window.LifeStats.computeStats();
+
+    $('previewLifeStatsOverall').textContent = (Number(ls.overallScore) || 0) + '/10';
+    $('previewLifeStatsStreak').textContent = String(c.currentStreak);
+    $('previewLifeStatsGoals').textContent = c.goalsAvgProgress + '%';
+
+    var attention = ls.areasNeedingAttention || [];
+    $('previewLifeStatsAttention').textContent = attention.length ? attention[0].text : 'No areas flagged';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

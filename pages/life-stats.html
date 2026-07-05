@@ -6,99 +6,490 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
 <title>Life Stats · Micky's Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/streaks-data.js"></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/goals-data.js"></script>
+<script src="../scripts/business-data.js"></script>
+<script src="../scripts/boxing-data.js"></script>
+<script src="../scripts/health-data.js"></script>
+<script src="../scripts/appearance-data.js"></script>
+<script src="../scripts/life-stats-data.js"></script>
 <style>
 :root {
+  --bg: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-input: rgba(0, 0, 0, 0.28);
+
+  --border: rgba(255, 255, 255, 0.06);
+
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+
+  --accent: #60A5FA;
+  --success: #6BE3A4;
+  --warning: #FF8A4D;
+
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: var(--bg);
   color: var(--text-secondary);
   font-family: var(--font);
+  font-size: 15px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
 }
-body {
-  min-height: 100vh; position: relative; overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
-}
+body { min-height: 100vh; position: relative; overflow-x: hidden; }
+
 body::before {
   content: ''; position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
+    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
+    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
+  filter: blur(40px);
+  pointer-events: none; z-index: 0;
   animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: ''; position: fixed; inset: 0;
   background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
+  background-size: 3px 3px;
+  pointer-events: none; z-index: 1;
 }
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
 
-.page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 14px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+main {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: 56px 20px 80px;
+  padding-top: max(56px, env(safe-area-inset-top, 56px));
+}
+
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 4px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: '≡'; font-size: 14px; opacity: 0.5; }
+
+.stack-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+
+::selection { background: rgba(224, 118, 88, 0.3); color: var(--text-primary); }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ====== LIFE STATS — same card/field language as Appearance /
+   Hormone Optimisation / Health HQ so the whole dashboard reads as
+   one system. ====== */
+.ls-title {
+  margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
   background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.ls-subtitle {
+  font-size: 12.5px; color: var(--text-tertiary); margin: 0 4px 24px; line-height: 1.6; max-width: 520px;
+}
+.ls-section { margin-bottom: 32px; }
+.ls-field { margin-bottom: 14px; }
+.ls-field:last-child { margin-bottom: 0; }
+.ls-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.ls-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.ls-input::placeholder { color: var(--text-tertiary); }
+.ls-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
 
-.section-title {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-}
-.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
-.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+.ls-score-card { text-align: center; padding: 26px 20px; }
+.ls-score-val { font-size: 52px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.ls-score-max { font-size: 16px; color: var(--text-tertiary); font-weight: 500; }
+.ls-score-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 8px; }
+.ls-score-card .ls-slider-row { margin-top: 18px; }
 
-.gm-card {
-  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
-  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+.ls-slider-row { display: flex; align-items: center; gap: 14px; }
+.ls-slider-row input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
+.ls-slider-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-primary); width: 30px; text-align: right; flex-shrink: 0; }
+
+.ls-category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .ls-category-grid { grid-template-columns: 1fr; } }
+.ls-category-card { padding: 16px 16px 14px; }
+.ls-category-name { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+.ls-category-card .ls-slider-row { gap: 10px; }
+
+.ls-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 560px) { .ls-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.ls-stat-tile {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  padding: 14px 12px; text-align: center;
 }
-.placeholder-card { text-align: center; padding: 40px 20px; }
-.placeholder-icon { font-size: 40px; margin-bottom: 14px; filter: grayscale(15%); }
-.placeholder-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.placeholder-text { font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); max-width: 420px; margin: 0 auto 22px; }
-.placeholder-back {
-  display: inline-block; padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-primary);
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+.ls-stat-val { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.ls-stat-label { font-size: 10.5px; color: var(--text-tertiary); margin-top: 4px; letter-spacing: 0.04em; }
+
+.ls-progress-row { margin-bottom: 16px; }
+.ls-progress-row:last-child { margin-bottom: 0; }
+.ls-progress-head { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 7px; }
+.ls-progress-head .ls-p-label { color: var(--text-secondary); font-weight: 600; }
+.ls-progress-head .ls-p-val { color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 700; }
+.ls-progress-track { height: 7px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.ls-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #93C5FD); transition: width 0.4s ease; }
+.ls-progress-fill.is-warm { background: linear-gradient(90deg, #E07658, #FFB088); }
+.ls-progress-fill.is-good { background: linear-gradient(90deg, var(--success), #A7F3D0); }
+
+.ls-badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ls-badge {
+  font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: var(--text-secondary);
 }
-.placeholder-back:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+
+.ls-list { list-style: none; margin: 0; padding: 0; }
+.ls-list-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s;
+}
+.ls-list-row:hover { background: rgba(255,255,255,0.06); }
+.ls-list-bullet { flex-shrink: 0; font-size: 13px; opacity: 0.7; }
+.ls-list-text { flex: 1; font-size: 14px; color: var(--text-primary); word-break: break-word; }
+.ls-list-del {
+  border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 4px 6px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.ls-list-row:hover .ls-list-del { opacity: 1; }
+.ls-list-del:hover { color: #FF6B6B; }
+.ls-list-add { display: flex; gap: 8px; margin-top: 10px; }
+.ls-list-add .ls-input { padding: 9px 11px; font-size: 13px; }
+.ls-add-btn {
+  padding: 9px 14px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.ls-add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+.ls-empty-note { font-size: 12.5px; color: var(--text-quaternary); padding: 4px 2px 8px; }
+
+.ls-attention .ls-list-row { border-color: rgba(255,138,77,0.16); }
+.ls-attention .ls-list-bullet { color: var(--warning); }
 
 @media (max-width: 480px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .gm-card { padding: 16px; }
+  .ls-title { font-size: 21px; }
+  .stack-card { padding: 18px 16px 14px; }
+  .ls-score-val { font-size: 42px; }
+  .ls-stat-grid { gap: 8px; }
 }
 </style>
 </head>
 <body>
-<div class="page">
 
-  <h1 class="dash-title">Life Stats</h1>
+<main>
 
-  <div class="section-title">Coming Soon</div>
-  <div class="gm-card placeholder-card">
-    <div class="placeholder-icon">📈</div>
-    <div class="placeholder-title">Life Stats isn't built yet</div>
-    <p class="placeholder-text">Lifetime numbers in one place — days trained, sessions completed, books read, money saved, and more.</p>
-    <a class="placeholder-back" href="/index.html">← Back to Main</a>
+  <!-- ===== LIFE STATS — Life OS analytics command centre. Manual
+       overall + category scores, a live computed snapshot pulled from
+       Streaks / Goals / Business HQ / Boxing HQ / Health HQ /
+       Appearance (never duplicated, always read live), and weekly
+       wins / lessons / areas needing attention. Reads/writes through
+       window.LifeStats (scripts/life-stats-data.js) so the preview
+       card on index.html always agrees. ===== -->
+  <h1 class="ls-title">Life Stats</h1>
+  <p class="ls-subtitle">A calm overview of the whole Life OS — manual scores plus a live snapshot pulled from the sections you already track.</p>
+
+  <div class="ls-section">
+    <div class="section-title">Overall Life OS Score</div>
+    <div class="stack-card ls-score-card">
+      <div><span class="ls-score-val" id="lsOverallVal">5</span><span class="ls-score-max">/10</span></div>
+      <div class="ls-score-label">Manual overall rating</div>
+      <div class="ls-slider-row">
+        <input type="range" id="lsOverallScore" min="1" max="10" step="1">
+      </div>
+    </div>
   </div>
 
-</div>
+  <div class="ls-section">
+    <div class="section-title">Category Scores</div>
+    <div class="ls-category-grid" id="lsCategoryGrid"></div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Streaks &amp; Habits</div>
+    <div class="stack-card">
+      <div class="ls-stat-grid">
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsCurrentStreak">0</div><div class="ls-stat-label">Current Streak</div></div>
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsBestStreak">0</div><div class="ls-stat-label">Best Streak</div></div>
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsHabitPct">0%</div><div class="ls-stat-label">Habit Completion</div></div>
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsGoalsCount">0</div><div class="ls-stat-label">Active Goals</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Goals &amp; Business</div>
+    <div class="stack-card">
+      <div class="ls-progress-row">
+        <div class="ls-progress-head"><span class="ls-p-label">Goals Average Progress</span><span class="ls-p-val" id="lsGoalsPct">0%</span></div>
+        <div class="ls-progress-track"><div class="ls-progress-fill is-good" id="lsGoalsFill" style="width:0%"></div></div>
+      </div>
+      <div class="ls-progress-row">
+        <div class="ls-progress-head"><span class="ls-p-label">Revenue Progress</span><span class="ls-p-val" id="lsRevenuePct">0%</span></div>
+        <div class="ls-progress-track"><div class="ls-progress-fill" id="lsRevenueFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Boxing &amp; Health</div>
+    <div class="stack-card">
+      <div class="ls-progress-row">
+        <div class="ls-progress-head"><span class="ls-p-label">Boxing Weekly Completion</span><span class="ls-p-val" id="lsBoxingPct">0%</span></div>
+        <div class="ls-progress-track"><div class="ls-progress-fill is-warm" id="lsBoxingFill" style="width:0%"></div></div>
+      </div>
+      <div class="ls-stat-grid" style="margin-top:16px">
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsSleep">0h</div><div class="ls-stat-label">Sleep</div></div>
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsRecovery">0</div><div class="ls-stat-label">Recovery</div></div>
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsHydration">0L</div><div class="ls-stat-label">Hydration</div></div>
+        <div class="ls-stat-tile"><div class="ls-stat-val" id="lsEnergy">0/10</div><div class="ls-stat-label">Energy</div></div>
+      </div>
+      <div class="ls-badge-row" style="margin-top:14px">
+        <span class="ls-badge" id="lsWeightBadge">Weight —</span>
+        <span class="ls-badge" id="lsLooksBadge">Looks —</span>
+        <span class="ls-badge" id="lsSkinBadge">Skin —</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Weekly Wins</div>
+    <div class="stack-card">
+      <ul class="ls-list" id="lsWinsList"></ul>
+      <div class="ls-list-add">
+        <input class="ls-input" id="lsWinsAddInput" type="text" placeholder="Add a win from this week…">
+        <button class="ls-add-btn" id="lsWinsAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Weekly Lessons</div>
+    <div class="stack-card">
+      <ul class="ls-list" id="lsLessonsList"></ul>
+      <div class="ls-list-add">
+        <input class="ls-input" id="lsLessonsAddInput" type="text" placeholder="Add a lesson from this week…">
+        <button class="ls-add-btn" id="lsLessonsAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Areas Needing Attention</div>
+    <div class="stack-card ls-attention">
+      <ul class="ls-list" id="lsAttentionList"></ul>
+      <div class="ls-list-add">
+        <input class="ls-input" id="lsAttentionAddInput" type="text" placeholder="Add an area that needs focus…">
+        <button class="ls-add-btn" id="lsAttentionAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ls-section">
+    <div class="section-title">Notes</div>
+    <div class="stack-card">
+      <textarea class="ls-input" id="lsNotes" rows="4" placeholder="Anything else worth remembering about how the Life OS is running…"></textarea>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+
+    var ls = window.LifeStats.load();
+    function save() { window.LifeStats.save(ls); }
+
+    var fieldTimer = null;
+    function bindText(id, key) {
+      var el = $(id);
+      el.value = ls[key] || '';
+      el.addEventListener('input', function () {
+        ls[key] = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 300);
+      });
+    }
+
+    function renderOverall() { $('lsOverallVal').textContent = ls.overallScore; }
+    (function bindOverall() {
+      var el = $('lsOverallScore');
+      el.value = ls.overallScore;
+      el.addEventListener('input', function () {
+        ls.overallScore = Number(el.value) || 0;
+        renderOverall();
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 250);
+      });
+      renderOverall();
+    })();
+
+    // ---- Category score sliders (Productivity, Health, Boxing, Business, Goals, Appearance) ----
+    var CATEGORIES = [
+      { key: 'productivityScore', label: 'Productivity' },
+      { key: 'healthScore', label: 'Health' },
+      { key: 'boxingScore', label: 'Boxing' },
+      { key: 'businessScore', label: 'Business' },
+      { key: 'goalsScore', label: 'Goals' },
+      { key: 'appearanceScore', label: 'Appearance' },
+    ];
+    var grid = $('lsCategoryGrid');
+    CATEGORIES.forEach(function (cat) {
+      var card = document.createElement('div');
+      card.className = 'stack-card ls-category-card';
+      var valId = 'lsVal_' + cat.key;
+      var sliderId = 'lsSlider_' + cat.key;
+      card.innerHTML =
+        '<div class="ls-category-name">' + cat.label + '</div>' +
+        '<div class="ls-slider-row">' +
+          '<input type="range" min="1" max="10" step="1" id="' + sliderId + '">' +
+          '<span class="ls-slider-val" id="' + valId + '">5</span>' +
+        '</div>';
+      grid.appendChild(card);
+
+      var slider = card.querySelector('#' + sliderId);
+      var valEl = card.querySelector('#' + valId);
+      slider.value = ls[cat.key];
+      valEl.textContent = ls[cat.key];
+      slider.addEventListener('input', function () {
+        ls[cat.key] = Number(slider.value) || 0;
+        valEl.textContent = slider.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 250);
+      });
+    });
+
+    bindText('lsNotes', 'notes');
+
+    // ---- Computed live snapshot, read from other Life OS sections ----
+    function renderComputed() {
+      var c = window.LifeStats.computeStats();
+
+      $('lsCurrentStreak').textContent = c.currentStreak;
+      $('lsBestStreak').textContent = c.bestStreak;
+      $('lsHabitPct').textContent = c.habitPct + '%';
+      $('lsGoalsCount').textContent = c.goalsCount;
+
+      $('lsGoalsPct').textContent = c.goalsAvgProgress + '%';
+      $('lsGoalsFill').style.width = c.goalsAvgProgress + '%';
+
+      $('lsRevenuePct').textContent = c.revenuePct + '%';
+      $('lsRevenueFill').style.width = c.revenuePct + '%';
+
+      $('lsBoxingPct').textContent = c.boxingPct + '%';
+      $('lsBoxingFill').style.width = c.boxingPct + '%';
+
+      $('lsSleep').textContent = c.sleepHours + 'h';
+      $('lsRecovery').textContent = c.recoveryScore;
+      $('lsHydration').textContent = c.hydrationLiters + 'L';
+      $('lsEnergy').textContent = c.energyLevel + '/10';
+
+      $('lsWeightBadge').textContent = (c.weightCurrent || c.weightTarget)
+        ? 'Weight ' + (c.weightCurrent || '—') + 'kg → ' + (c.weightTarget || '—') + 'kg'
+        : 'Weight —';
+      $('lsLooksBadge').textContent = 'Looks ' + (c.looksScore || '—') + '/10';
+      $('lsSkinBadge').textContent = 'Skin ' + (c.skinScore || '—') + '/10';
+    }
+    renderComputed();
+
+    // ---- Generic text-list renderer used by Wins / Lessons / Attention ----
+    function renderList(listId, items, emptyText, onDelete) {
+      var wrap = $(listId);
+      wrap.innerHTML = '';
+      if (!items.length) {
+        var empty = document.createElement('div');
+        empty.className = 'ls-empty-note';
+        empty.textContent = emptyText;
+        wrap.appendChild(empty);
+        return;
+      }
+      items.forEach(function (item) {
+        var li = document.createElement('li');
+        li.className = 'ls-list-row';
+
+        var bullet = document.createElement('span');
+        bullet.className = 'ls-list-bullet'; bullet.textContent = '●';
+
+        var text = document.createElement('span');
+        text.className = 'ls-list-text'; text.textContent = item.text;
+
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'ls-list-del'; del.textContent = '×';
+        del.addEventListener('click', function () { onDelete(item); });
+
+        li.appendChild(bullet); li.appendChild(text); li.appendChild(del);
+        wrap.appendChild(li);
+      });
+    }
+
+    function renderWins() {
+      renderList('lsWinsList', ls.weeklyWins, 'No wins added yet.',
+        function (item) { ls.weeklyWins = ls.weeklyWins.filter(function (i) { return i.id !== item.id; }); save(); renderWins(); });
+    }
+    function renderLessons() {
+      renderList('lsLessonsList', ls.weeklyLessons, 'No lessons added yet.',
+        function (item) { ls.weeklyLessons = ls.weeklyLessons.filter(function (i) { return i.id !== item.id; }); save(); renderLessons(); });
+    }
+    function renderAttention() {
+      renderList('lsAttentionList', ls.areasNeedingAttention, 'Nothing flagged — all clear.',
+        function (item) { ls.areasNeedingAttention = ls.areasNeedingAttention.filter(function (i) { return i.id !== item.id; }); save(); renderAttention(); });
+    }
+    renderWins(); renderLessons(); renderAttention();
+
+    function wireAdd(inputId, btnId, pushFn, renderFn) {
+      var input = $(inputId);
+      function add() {
+        var v = input.value.trim();
+        if (!v) return;
+        pushFn(v);
+        input.value = '';
+        save(); renderFn();
+      }
+      $(btnId).addEventListener('click', add);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+    }
+    wireAdd('lsWinsAddInput', 'lsWinsAddBtn', function (v) { ls.weeklyWins.push({ id: window.LifeStats.uid(), text: v }); }, renderWins);
+    wireAdd('lsLessonsAddInput', 'lsLessonsAddBtn', function (v) { ls.weeklyLessons.push({ id: window.LifeStats.uid(), text: v }); }, renderLessons);
+    wireAdd('lsAttentionAddInput', 'lsAttentionAddBtn', function (v) { ls.areasNeedingAttention.push({ id: window.LifeStats.uid(), text: v }); }, renderAttention);
+
+    // Re-render if another tab / device changes Life Stats data.
+    window.addEventListener('storage', function () {
+      ls = window.LifeStats.load();
+      renderOverall(); renderComputed();
+      renderWins(); renderLessons(); renderAttention();
+    });
+  })();
+  </script>
+
+</main>
 </body>
 </html>

@@ -94,9 +94,9 @@ Hormone Optimisation ✅
 
 Appearance / Looks ✅
 
-Goals
+Goals ✅
 
-Life Stats
+Life Stats ✅
 
 Heatmap
 

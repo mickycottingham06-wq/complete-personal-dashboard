@@ -236,6 +236,28 @@ Add Appearance / Looks
 
 ---
 
+## 2026-07-05
+
+### Life Stats
+
+Built the full Life Stats command centre, replacing the "coming soon" placeholder page.
+
+New shared data layer `scripts/life-stats-data.js` owns the `lifeStats` localStorage key: seven manual 1-10 scores (overall, productivity, health, boxing, business, goals, appearance), weekly wins, weekly lessons, areas needing attention, and notes. Follows the same load-with-defaults / save pattern as `window.Appearance` / `window.Hormones`. It also exposes `computeStats()`, a pure read-only function that pulls a live cross-Life-OS snapshot from `window.Streaks`, `window.Goals`, `window.Business`, `window.Boxing`, `window.Health` and `window.Appearance` — current/best streak, habit completion %, goals average progress, revenue progress, boxing weekly completion, sleep/recovery/hydration/energy, weight, and looks/skin scores — without duplicating any of that data. Every read is defensive, so a section with no data yet just shows zero instead of erroring.
+
+Built the full page `pages/life-stats.html` using the same `.stack-card` / `.section-title` / slider / list components as Appearance and Hormone Optimisation. Manual scores use sliders; wins/lessons/attention items are a simple add/delete text list (no checkbox, since these are journal-style entries, not routines).
+
+Added a compact Life Stats preview card to index.html (overall score, current streak, goals average progress, first area needing attention) linking to the full page. The bento tile and sidebar link already existed and needed no changes beyond an updated tile subtitle.
+
+Files affected:
+
+scripts/life-stats-data.js (new), pages/life-stats.html, index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md, docs/PROJECT.md
+
+Commit:
+
+Add Life Stats
+
+---
+
 ## Future Entries
 
 Example

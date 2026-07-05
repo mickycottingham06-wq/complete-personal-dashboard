@@ -644,31 +644,44 @@ Original Quotes
 
 # Life Stats
 
-lifeStats.js
+Implemented. Lives in `localStorage` under the key `lifeStats`. The load/save/compute logic lives in `scripts/life-stats-data.js` (shared business logic), used by both the full page at `pages/life-stats.html` and the preview card on index.html.
 
-Should contain:
+Shape:
 
-Days Alive
+```
+lifeStats: {
+  overallScore: number,           // 1-10 manual overall rating
+  productivityScore: number,      // 1-10
+  healthScore: number,            // 1-10
+  boxingScore: number,            // 1-10
+  businessScore: number,          // 1-10
+  goalsScore: number,             // 1-10
+  appearanceScore: number,        // 1-10
+  weeklyWins: [ { id: string, text: string } ],
+  weeklyLessons: [ { id: string, text: string } ],
+  areasNeedingAttention: [ { id: string, text: string } ],
+  notes: string
+}
+```
 
-Gym Sessions
+The seven scores are manual/subjective ratings the user edits with sliders — they are not derived from other sections, since "how good do I feel this is going" is a judgement call, not a calculation.
 
-Boxing Sessions
+Everything else on the page is computed live rather than stored, via `window.LifeStats.computeStats()`, which reads (never duplicates):
 
-Runs Completed
+- `window.Streaks` → current streak, best streak, today's habit completion %
+- `window.Goals` → active goal count, average progress
+- `window.Business` → revenue current/target/percentage
+- `window.Boxing` → weekly boxing session completion, current/target weight
+- `window.Health` → last night's sleep, recovery score, water intake, energy level
+- `window.Appearance` → looks score, skin score
 
-Hours Trained
+Any section without data yet (e.g. its localStorage key has never been touched) still returns its own safe defaults, so `computeStats()` never throws — it just shows zeros until that section has real data.
 
-Books Read
+`window.LifeStats.load()` returns stored manual data, filling in any fields missing against the default shape (upgrades older saved data). `window.LifeStats.save(ls)` persists changes. `window.LifeStats.uid()` generates ids for new win/lesson/attention rows. `window.LifeStats.computeStats()` is a pure read — it owns no state and can be called as often as needed.
 
-Money Saved
+The full interactive UI lives at `pages/life-stats.html`. index.html shows a compact preview card (overall score, current streak, goals average progress, first area needing attention) that links to it.
 
-Revenue Generated
-
-Hours Worked
-
-Hours Slept
-
-Calories Burned
+Everything related to cross-Life-OS analytics belongs here. Future features (Heatmap, API integrations) should read this shape and `computeStats()` rather than duplicating scores or recalculating section data separately.
 
 ---
 

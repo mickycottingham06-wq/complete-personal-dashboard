@@ -166,7 +166,7 @@ Appearance / Looks (placeholder)
 
 Goals (pages/goals.html)
 
-Life Stats (placeholder)
+Life Stats (pages/life-stats.html)
 
 Heatmap (placeholder)
 
