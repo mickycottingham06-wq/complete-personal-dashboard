@@ -4,8 +4,6 @@
 
 Build AI Assistant (AI CEO / Business Assistant done — prompt-powered, pages/ai-ceo.html; broader OS-level AI Assistant from AI_ASSISTANT_BEHAVIOUR.md still open)
 
-Build Goals (placeholder page exists at pages/goals.html)
-
 Build Heatmap (placeholder page exists at pages/heatmap.html)
 
 Build Life Stats (placeholder page exists at pages/life-stats.html)

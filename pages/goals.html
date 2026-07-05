@@ -10,12 +10,18 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/goals-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --accent: #6BE3A4;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -48,13 +54,15 @@ body::after {
 
 .page { max-width: 1100px; margin: 0 auto; }
 .dash-title {
-  margin: 0 0 14px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  margin: 0 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
   background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
+.dash-subtitle { font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 20px; line-height: 1.6; max-width: 560px; }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
+.section { margin-top: 8px; }
 .section-title {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
@@ -67,18 +75,99 @@ body::after {
   margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
 }
-.placeholder-card { text-align: center; padding: 40px 20px; }
-.placeholder-icon { font-size: 40px; margin-bottom: 14px; filter: grayscale(15%); }
-.placeholder-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.placeholder-text { font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); max-width: 420px; margin: 0 auto 22px; }
-.placeholder-back {
-  display: inline-block; padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-primary);
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.set-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
 }
-.placeholder-back:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+.set-input::placeholder { color: var(--text-tertiary); }
+.set-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.set-input { resize: vertical; min-height: 56px; line-height: 1.5; font-family: inherit; }
+select.set-input { cursor: pointer; }
+select.set-input option { background: #16161a; color: var(--text-primary); }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 620px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+/* ---- Active goal cards ---- */
+.goal-card { border: 1px solid rgba(255,255,255,0.06); }
+.goal-card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+.goal-title-input { flex: 1; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.goal-del {
+  border: 1px solid rgba(255,255,255,0.10); background: transparent; color: var(--text-tertiary);
+  border-radius: 9px; width: 34px; height: 34px; flex-shrink: 0; cursor: pointer; font-size: 17px; line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.goal-del:hover { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); color: var(--danger); }
+
+.goal-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.badge {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 999px; border: 1px solid transparent;
+}
+.badge[data-priority="High"]   { color: var(--danger);  background: rgba(255,107,107,0.10); border-color: rgba(255,107,107,0.3); }
+.badge[data-priority="Medium"] { color: var(--warning); background: rgba(242,192,99,0.10); border-color: rgba(242,192,99,0.3); }
+.badge[data-priority="Low"]    { color: var(--text-tertiary); background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+.badge[data-status="Not Started"] { color: var(--text-tertiary); background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+.badge[data-status="In Progress"] { color: #7DD3FC; background: rgba(125,211,252,0.10); border-color: rgba(125,211,252,0.3); }
+.badge[data-status="On Track"]    { color: var(--success); background: rgba(107,227,164,0.10); border-color: rgba(107,227,164,0.3); }
+.badge[data-status="At Risk"]     { color: var(--danger); background: rgba(255,107,107,0.10); border-color: rgba(255,107,107,0.3); }
+.badge[data-status="Achieved"]    { color: var(--success); background: rgba(107,227,164,0.16); border-color: rgba(107,227,164,0.4); }
+
+.goal-progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.goal-progress-track { flex: 1; height: 8px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.goal-progress-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #6BE3A4, #A7F3D0); transition: width 0.3s ease; }
+.goal-progress-slider { width: 100%; accent-color: var(--accent); height: 4px; cursor: pointer; }
+.goal-progress-pct { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); width: 42px; text-align: right; flex-shrink: 0; }
+
+.goal-subtitle { font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin: 16px 0 8px; }
+.goal-subtitle:first-of-type { margin-top: 0; }
+
+.check-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.check-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;
+  transition: background 0.2s, opacity 0.3s;
+}
+.check-row:hover { background: rgba(255,255,255,0.06); }
+.check-row.is-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
+.check-row.is-done .check-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.check-text { flex: 1; font-size: 13.5px; color: var(--text-primary); }
+.checkbox {
+  appearance: none; -webkit-appearance: none; width: 20px; height: 20px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 6px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.checkbox:checked { background: #6BE3A4; border-color: #6BE3A4; box-shadow: 0 0 12px rgba(107,227,164,0.35); }
+.checkbox:checked::after {
+  content: ''; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px;
+  border: solid #0A0A0B; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.check-del {
+  border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 3px 5px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.check-row:hover .check-del { opacity: 1; }
+.check-del:hover { color: var(--danger); }
+.check-add { display: flex; gap: 8px; }
+.check-add .set-input { padding: 8px 10px; font-size: 13px; }
+.check-empty { font-size: 12.5px; color: var(--text-tertiary); padding: 2px 2px 8px; }
+
+.add-btn {
+  margin-top: 4px; padding: 10px 16px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 11px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+.add-btn.wide { width: 100%; text-align: center; }
+
+.empty-hint { text-align: center; padding: 30px 16px; color: var(--text-tertiary); font-size: 13.5px; }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
@@ -90,15 +179,332 @@ body::after {
 <div class="page">
 
   <h1 class="dash-title">Goals</h1>
+  <p class="dash-subtitle">Your life direction — from the one big goal down to what matters this week — and every active goal you're pushing right now.</p>
 
-  <div class="section-title">Coming Soon</div>
-  <div class="gm-card placeholder-card">
-    <div class="placeholder-icon">🎯</div>
-    <div class="placeholder-title">Long-term Goals isn't built yet</div>
-    <p class="placeholder-text">Long-term goal tracking — category, target, deadline, and progress — separate from the daily to-do list on the Main page.</p>
-    <a class="placeholder-back" href="/index.html">← Back to Main</a>
+  <!-- Life Direction -->
+  <div class="section">
+    <div class="section-title">Life Direction</div>
+    <div class="gm-card">
+      <div class="field">
+        <label class="field-label">Main Life Goal</label>
+        <textarea class="set-input" id="glMainLifeGoal" rows="2" placeholder="The one thing that matters most, long-term…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">12-Month Goal</label>
+        <textarea class="set-input" id="glTwelveMonthGoal" rows="2" placeholder="Where this needs to be a year from now…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">90-Day Goal</label>
+        <textarea class="set-input" id="glNinetyDayGoal" rows="2" placeholder="The next 90 days of progress…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Monthly Goal</label>
+        <textarea class="set-input" id="glMonthlyGoal" rows="2" placeholder="What this month needs to deliver…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Weekly Goal</label>
+        <textarea class="set-input" id="glWeeklyGoal" rows="2" placeholder="This week's target…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Goals -->
+  <div class="section">
+    <div class="section-title">Active Goals</div>
+    <div id="activeGoalsList"></div>
+    <button class="add-btn wide" id="addGoalBtn" type="button">+ Add Active Goal</button>
   </div>
 
 </div>
+
+<!-- ===== Goals logic — reads/writes through window.Goals
+     (scripts/goals-data.js) so the preview card on the main dashboard
+     always sees the same data. ===== -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var g = window.Goals.load();
+  function save() { window.Goals.save(g); }
+
+  var fieldTimer = null;
+  function bindText(id, key) {
+    var el = $(id);
+    el.value = g[key] || '';
+    el.addEventListener('input', function () {
+      g[key] = el.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 300);
+    });
+  }
+  bindText('glMainLifeGoal', 'mainLifeGoal');
+  bindText('glTwelveMonthGoal', 'twelveMonthGoal');
+  bindText('glNinetyDayGoal', 'ninetyDayGoal');
+  bindText('glMonthlyGoal', 'monthlyGoal');
+  bindText('glWeeklyGoal', 'weeklyGoal');
+
+  function selectOptions(list, current) {
+    return list.map(function (v) {
+      return '<option value="' + v + '"' + (v === current ? ' selected' : '') + '>' + v + '</option>';
+    }).join('');
+  }
+
+  // ---- Generic checklist renderer used by Milestones / Actions ----
+  function renderChecklist(wrap, items, onToggle, onDelete) {
+    wrap.innerHTML = '';
+    if (items.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'check-empty';
+      empty.textContent = 'None yet — add one below.';
+      wrap.appendChild(empty);
+      return;
+    }
+    var ul = document.createElement('ul');
+    ul.className = 'check-list';
+    items.forEach(function (item) {
+      var li = document.createElement('li');
+      li.className = 'check-row' + (item.completed ? ' is-done' : '');
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'checkbox'; cb.checked = !!item.completed;
+      cb.addEventListener('change', function () { onToggle(item, cb.checked); });
+
+      var text = document.createElement('span');
+      text.className = 'check-text'; text.textContent = item.title;
+
+      var del = document.createElement('button');
+      del.type = 'button'; del.className = 'check-del'; del.textContent = '×';
+      del.addEventListener('click', function () { onDelete(item); });
+
+      li.appendChild(cb); li.appendChild(text); li.appendChild(del);
+      ul.appendChild(li);
+    });
+    wrap.appendChild(ul);
+  }
+
+  function wireAdd(input, addFn) {
+    function add() {
+      var v = input.value.trim();
+      if (!v) return;
+      addFn(v);
+      input.value = '';
+    }
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+    return add;
+  }
+
+  function renderGoalCard(goal) {
+    var card = document.createElement('div');
+    card.className = 'gm-card goal-card';
+
+    // ---- Header: title + delete ----
+    var head = document.createElement('div');
+    head.className = 'goal-card-head';
+
+    var title = document.createElement('input');
+    title.type = 'text'; title.className = 'set-input goal-title-input';
+    title.placeholder = 'Goal title…'; title.value = goal.title || '';
+    title.addEventListener('input', function () {
+      goal.title = title.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 300);
+    });
+
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'goal-del'; del.textContent = '×';
+    del.addEventListener('click', function () {
+      g.activeGoals = g.activeGoals.filter(function (x) { return x.id !== goal.id; });
+      save(); renderActiveGoals();
+    });
+
+    head.appendChild(title); head.appendChild(del);
+    card.appendChild(head);
+
+    // ---- Category / Priority / Status / Deadline ----
+    var grid = document.createElement('div');
+    grid.className = 'grid3';
+
+    var catField = document.createElement('div');
+    catField.className = 'field';
+    catField.innerHTML = '<label class="field-label">Category</label>';
+    var cat = document.createElement('select');
+    cat.className = 'set-input';
+    cat.innerHTML = selectOptions(window.Goals.CATEGORIES, goal.category);
+    cat.addEventListener('change', function () { goal.category = cat.value; save(); });
+    catField.appendChild(cat);
+
+    var prField = document.createElement('div');
+    prField.className = 'field';
+    prField.innerHTML = '<label class="field-label">Priority</label>';
+    var pr = document.createElement('select');
+    pr.className = 'set-input';
+    pr.innerHTML = selectOptions(window.Goals.PRIORITIES, goal.priority);
+    pr.addEventListener('change', function () { goal.priority = pr.value; save(); renderBadges(); });
+    prField.appendChild(pr);
+
+    var stField = document.createElement('div');
+    stField.className = 'field';
+    stField.innerHTML = '<label class="field-label">Status</label>';
+    var st = document.createElement('select');
+    st.className = 'set-input';
+    st.innerHTML = selectOptions(window.Goals.STATUSES, goal.status);
+    st.addEventListener('change', function () { goal.status = st.value; save(); renderBadges(); });
+    stField.appendChild(st);
+
+    grid.appendChild(catField); grid.appendChild(prField); grid.appendChild(stField);
+    card.appendChild(grid);
+
+    var deadlineField = document.createElement('div');
+    deadlineField.className = 'field';
+    deadlineField.innerHTML = '<label class="field-label">Deadline</label>';
+    var deadline = document.createElement('input');
+    deadline.type = 'date'; deadline.className = 'set-input'; deadline.value = goal.deadline || '';
+    deadline.addEventListener('input', function () { goal.deadline = deadline.value; save(); });
+    deadlineField.appendChild(deadline);
+    card.appendChild(deadlineField);
+
+    // ---- Badges ----
+    var badges = document.createElement('div');
+    badges.className = 'goal-badges';
+    function renderBadges() {
+      badges.innerHTML =
+        '<span class="badge" data-priority="' + goal.priority + '">' + goal.priority + ' priority</span>' +
+        '<span class="badge" data-status="' + goal.status + '">' + goal.status + '</span>';
+    }
+    renderBadges();
+    card.insertBefore(badges, grid);
+
+    // ---- Progress ----
+    var progRow = document.createElement('div');
+    progRow.className = 'goal-progress-row';
+    var track = document.createElement('div');
+    track.className = 'goal-progress-track';
+    var fill = document.createElement('div');
+    fill.className = 'goal-progress-fill';
+    fill.style.width = (Number(goal.progress) || 0) + '%';
+    track.appendChild(fill);
+    var pct = document.createElement('span');
+    pct.className = 'goal-progress-pct';
+    pct.textContent = (Number(goal.progress) || 0) + '%';
+    progRow.appendChild(track); progRow.appendChild(pct);
+    card.appendChild(progRow);
+
+    var slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.step = '5';
+    slider.className = 'goal-progress-slider';
+    slider.value = Number(goal.progress) || 0;
+    slider.style.marginBottom = '14px';
+    slider.addEventListener('input', function () {
+      goal.progress = Number(slider.value) || 0;
+      fill.style.width = goal.progress + '%';
+      pct.textContent = goal.progress + '%';
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 200);
+    });
+    card.appendChild(slider);
+
+    // ---- Milestones ----
+    var msTitle = document.createElement('div');
+    msTitle.className = 'goal-subtitle'; msTitle.textContent = 'Milestones';
+    card.appendChild(msTitle);
+    var msWrap = document.createElement('div');
+    card.appendChild(msWrap);
+    function renderMilestones() {
+      renderChecklist(msWrap, goal.milestones,
+        function (item, checked) { item.completed = checked; save(); renderMilestones(); },
+        function (item) { goal.milestones = goal.milestones.filter(function (i) { return i.id !== item.id; }); save(); renderMilestones(); });
+    }
+    renderMilestones();
+    var msAdd = document.createElement('div');
+    msAdd.className = 'check-add';
+    var msInput = document.createElement('input');
+    msInput.type = 'text'; msInput.className = 'set-input'; msInput.placeholder = 'Add a milestone…';
+    var msBtn = document.createElement('button');
+    msBtn.type = 'button'; msBtn.className = 'add-btn'; msBtn.textContent = '+ Add';
+    var doAddMs = wireAdd(msInput, function (v) {
+      goal.milestones.push({ id: window.Goals.uid(), title: v, completed: false });
+      save(); renderMilestones();
+    });
+    msBtn.addEventListener('click', doAddMs);
+    msAdd.appendChild(msInput); msAdd.appendChild(msBtn);
+    card.appendChild(msAdd);
+
+    // ---- Action Steps ----
+    var acTitle = document.createElement('div');
+    acTitle.className = 'goal-subtitle'; acTitle.textContent = 'Action Steps';
+    card.appendChild(acTitle);
+    var acWrap = document.createElement('div');
+    card.appendChild(acWrap);
+    function renderActions() {
+      renderChecklist(acWrap, goal.actions,
+        function (item, checked) { item.completed = checked; save(); renderActions(); },
+        function (item) { goal.actions = goal.actions.filter(function (i) { return i.id !== item.id; }); save(); renderActions(); });
+    }
+    renderActions();
+    var acAdd = document.createElement('div');
+    acAdd.className = 'check-add';
+    var acInput = document.createElement('input');
+    acInput.type = 'text'; acInput.className = 'set-input'; acInput.placeholder = 'Add an action step…';
+    var acBtn = document.createElement('button');
+    acBtn.type = 'button'; acBtn.className = 'add-btn'; acBtn.textContent = '+ Add';
+    var doAddAc = wireAdd(acInput, function (v) {
+      goal.actions.push({ id: window.Goals.uid(), title: v, completed: false });
+      save(); renderActions();
+    });
+    acBtn.addEventListener('click', doAddAc);
+    acAdd.appendChild(acInput); acAdd.appendChild(acBtn);
+    card.appendChild(acAdd);
+
+    // ---- Notes ----
+    var notesTitle = document.createElement('div');
+    notesTitle.className = 'goal-subtitle'; notesTitle.textContent = 'Notes';
+    card.appendChild(notesTitle);
+    var notes = document.createElement('textarea');
+    notes.className = 'set-input'; notes.rows = 2; notes.placeholder = 'Anything worth remembering about this goal…';
+    notes.value = goal.notes || '';
+    notes.addEventListener('input', function () {
+      goal.notes = notes.value;
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(save, 300);
+    });
+    card.appendChild(notes);
+
+    return card;
+  }
+
+  function renderActiveGoals() {
+    var wrap = $('activeGoalsList');
+    wrap.innerHTML = '';
+    if (g.activeGoals.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'gm-card empty-hint';
+      empty.textContent = 'No active goals yet — add one below to start tracking it.';
+      wrap.appendChild(empty);
+      return;
+    }
+    g.activeGoals.forEach(function (goal) {
+      wrap.appendChild(renderGoalCard(goal));
+    });
+  }
+  renderActiveGoals();
+
+  $('addGoalBtn').addEventListener('click', function () {
+    g.activeGoals.push(window.Goals.defaultActiveGoal());
+    save(); renderActiveGoals();
+  });
+
+  // Re-render if another tab / device changes goals data.
+  window.addEventListener('storage', function () {
+    g = window.Goals.load();
+    $('glMainLifeGoal').value = g.mainLifeGoal || '';
+    $('glTwelveMonthGoal').value = g.twelveMonthGoal || '';
+    $('glNinetyDayGoal').value = g.ninetyDayGoal || '';
+    $('glMonthlyGoal').value = g.monthlyGoal || '';
+    $('glWeeklyGoal').value = g.weeklyGoal || '';
+    renderActiveGoals();
+  });
+})();
+</script>
 </body>
 </html>

@@ -19,6 +19,7 @@
 <script src="scripts/health-data.js"></script>
 <script src="scripts/hormone-data.js"></script>
 <script src="scripts/appearance-data.js"></script>
+<script src="scripts/goals-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -422,6 +423,25 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewSkincarePct">—</div><div class="l">Skincare</div></div>
         <div class="streak-stat"><div class="v" id="previewGroomingPct">—</div><div class="l">Grooming</div></div>
       </div>
+    </a>
+  </div>
+
+  <!-- ===== GOALS PREVIEW — compact entry point, full view lives at
+       pages/goals.html ===== -->
+  <div class="section" id="goalsPreview">
+    <div class="section-title">Goals</div>
+    <a class="gm-card preview-card" href="pages/goals.html">
+      <div class="preview-top">
+        <div>
+          <div class="gm-eyebrow" style="margin-bottom:4px">Main Life Goal</div>
+          <div class="preview-focus" id="previewGoalMain">—</div>
+          <div class="preview-sub" id="previewGoalNinetyDay">—</div>
+        </div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="preview-rev-track"><div class="preview-rev-fill" id="previewGoalProgressFill" style="width:0%"></div></div>
+      <div class="preview-rev-pct" id="previewGoalProgressPct">0% average progress</div>
+      <div class="preview-sub" id="previewGoalCount" style="margin-top:12px">0 active goals</div>
     </a>
   </div>
 
@@ -1047,7 +1067,26 @@ body::after {
     focusEl.textContent = hasFocus ? 'Focus: ' + look.nextImprovementFocus.trim() : 'No focus set';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); }
+  function renderGoalsPreview() {
+    const g = window.Goals.load();
+
+    const mainEl = $('previewGoalMain');
+    const hasMain = !!(g.mainLifeGoal && g.mainLifeGoal.trim());
+    mainEl.textContent = hasMain ? g.mainLifeGoal.trim() : 'Set your main life goal →';
+    mainEl.classList.toggle('is-empty', !hasMain);
+
+    const hasNinety = !!(g.ninetyDayGoal && g.ninetyDayGoal.trim());
+    $('previewGoalNinetyDay').textContent = hasNinety ? '90-day: ' + g.ninetyDayGoal.trim() : 'No 90-day goal set';
+
+    const active = g.activeGoals || [];
+    const count = active.length;
+    const avgPct = count ? Math.round(active.reduce((sum, x) => sum + (Number(x.progress) || 0), 0) / count) : 0;
+    $('previewGoalProgressFill').style.width = avgPct + '%';
+    $('previewGoalProgressPct').textContent = avgPct + '% average progress';
+    $('previewGoalCount').textContent = count + (count === 1 ? ' active goal' : ' active goals');
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

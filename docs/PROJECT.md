@@ -164,7 +164,7 @@ Hormone Optimisation (placeholder)
 
 Appearance / Looks (placeholder)
 
-Goals (placeholder)
+Goals (pages/goals.html)
 
 Life Stats (placeholder)
 

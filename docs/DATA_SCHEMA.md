@@ -330,6 +330,52 @@ Everything related to appearance/looks tracking belongs here. Future features (H
 
 ---
 
+# Life Goals Data
+
+Implemented. Lives in `localStorage` under the key `lifeGoals`. The load/save logic lives in `scripts/goals-data.js` (shared business logic), used by both the full page at `pages/goals.html` and the preview card on index.html.
+
+This is separate from the per-day `goals:YYYY-MM-DD` keys used by the Main page's daily goal ticker (`pages/main.html`, `scripts/topbar.js`) — that system is a simple daily to-do list; `lifeGoals` is the long-term life-direction / active-goal command centre. The two intentionally do not share data.
+
+Shape:
+
+```
+lifeGoals: {
+  mainLifeGoal: string,
+  twelveMonthGoal: string,
+  ninetyDayGoal: string,
+  monthlyGoal: string,
+  weeklyGoal: string,
+  activeGoals: [
+    {
+      id: string,
+      title: string,
+      category: string,       // one of CATEGORIES
+      priority: string,       // one of PRIORITIES
+      status: string,         // one of STATUSES
+      progress: number,       // 0-100
+      deadline: string,       // YYYY-MM-DD
+      milestones: [ { id: string, title: string, completed: boolean } ],
+      actions: [ { id: string, title: string, completed: boolean } ],
+      notes: string
+    }
+  ]
+}
+```
+
+Default categories (`window.Goals.CATEGORIES`): Business / Money, Boxing, Health, Appearance, Career / Skills, Personal.
+
+Priorities (`window.Goals.PRIORITIES`): High, Medium, Low. Statuses (`window.Goals.STATUSES`): Not Started, In Progress, On Track, At Risk, Achieved.
+
+`activeGoals` starts empty — no seeded goals, since these are personal and specific to the user.
+
+`window.Goals.load()` returns stored goals data, filling in any fields missing against the default shape (upgrades older saved data, including per-goal fields and milestone/action arrays). `window.Goals.save(g)` persists changes. `window.Goals.uid()` generates ids for new goal/milestone/action rows. `window.Goals.defaultActiveGoal()` returns a blank active goal (used by "+ Add Active Goal").
+
+The full interactive UI lives at `pages/goals.html`. index.html shows a compact preview card (main life goal, 90-day goal, active goal count, average progress) that links to it.
+
+Everything related to long-term goal tracking belongs here. Future features (Daily Snapshot, Streaks, Business HQ, Boxing HQ, Health HQ, Appearance/Looks, Life Stats, Heatmap, AI coaching) should read this shape rather than duplicating goal data.
+
+---
+
 # Business Data
 
 Implemented. Lives in `localStorage` under the key `business`. The load/save logic lives in `scripts/business-data.js` (shared business logic), used by both the full page at `pages/business-hq.html` and the preview card on index.html.
@@ -436,9 +482,9 @@ Financial Goals
 
 ---
 
-# Goal Data
+# Goal Data (superseded)
 
-goals.js
+This was the original planning stub, superseded by the implemented "Life Goals Data" section above (`lifeGoals` key, `scripts/goals-data.js`). Kept here only for history.
 
 Each goal should contain:
 
