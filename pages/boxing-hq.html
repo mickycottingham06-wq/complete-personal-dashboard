@@ -10,6 +10,8 @@
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/boxing-data.js"></script>
+<script src="../scripts/health-data.js"></script>
+<script src="../scripts/core-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -284,6 +286,13 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     </div>
   </div>
 
+  <div class="section">
+    <div class="section-title">Related</div>
+    <div class="gm-card" style="font-size:12px;color:var(--text-tertiary)">
+      Weight and recovery here stay in sync with <a href="health.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Health HQ</a>. Training volume rolls up into <a href="life-stats.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Life Stats</a>.
+    </div>
+  </div>
+
 </div>
 
 <!-- ===== Boxing HQ logic — reads/writes through window.Boxing
@@ -295,7 +304,10 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
   const $ = (id) => document.getElementById(id);
 
   let box = window.Boxing.load();
-  function save() { window.Boxing.save(box); }
+  function save() {
+    window.Boxing.save(box);
+    if (window.Core) window.Core.setCurrentWeight(box.currentWeight);
+  }
 
   const PHASES = ['Base Building', 'Strength & Power', 'Fight Camp', 'Peak Week', 'Fight Week', 'Recovery', 'Off Season'];
   const LOG_TYPES = ['Boxing', 'Sparring', 'Running', 'Strength', 'Conditioning', 'Recovery'];

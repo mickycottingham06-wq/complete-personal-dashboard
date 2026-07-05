@@ -138,31 +138,23 @@ Pages should display data rather than hardcoding values.
 
 Current and planned pages include:
 
-Home (index.html — compact hub: preview cards + bento grid)
-
-Main (pages/main.html — goals & daily plan)
+Command Centre (index.html — the home page: Today top bar, compact preview cards, bento quick-nav grid. Formerly labelled "Main" in the sidebar/bottom bar; that label is retired)
 
 Daily Snapshot (pages/daily-snapshot.html)
 
 Streaks (pages/streaks.html)
 
-Finance
+Business HQ (pages/business-hq.html)
 
-Health HQ
+AI CEO (pages/ai-ceo.html)
 
-Gym
+Boxing HQ (pages/boxing-hq.html)
 
-Water
+Health HQ (pages/health.html)
 
-Caffeine
+Hormone Optimisation (pages/hormone-optimisation.html)
 
-Boxing HQ (placeholder)
-
-Business HQ (placeholder)
-
-Hormone Optimisation (placeholder)
-
-Appearance / Looks (placeholder)
+Appearance / Looks (pages/appearance.html)
 
 Goals (pages/goals.html)
 
@@ -172,13 +164,13 @@ Heatmap (pages/heatmap.html)
 
 Integrations (pages/integrations.html — foundation only: Weather, Google Calendar, AI API, Cloud Sync cards, mock/demo state until real keys are wired up)
 
-AI Assistant
+Settings (modal on Command Centre)
 
-Calendar
+Money HQ (pages/finance.html — the existing Finance build, kept functional but de-prioritised on the Command Centre and labelled "future finance hub" until this becomes its own phase; see ROADMAP.md Phase 5)
 
-Weather
+De-prioritised / merged, not in the primary sidebar (still reachable directly, not deleted): Fitness (pages/gym.html) → folds into Boxing HQ / Health HQ; Water (pages/po-water.html) → folds into Health HQ; Caffeine (pages/caffeine.html) → folds into Health HQ; Nova (pages/nova-lite.html) → folds into AI CEO; pages/main.html (old daily goal ticker) → no longer linked from the sidebar now that Command Centre owns that role.
 
-Settings
+Calendar and Weather are read through Integrations rather than as standalone pages.
 
 Future pages should follow the same design language.
 
@@ -192,7 +184,7 @@ Users should always know where they are.
 
 Do not redesign navigation unless specifically requested.
 
-A collapsible sidebar (three-line hamburger button) lists every page above and lives in `scripts/topbar.js`, so any page that already includes the top/bottom chrome gets it automatically. See COMPONENT_LIBRARY.md for the Sidebar Navigation and Preview Card components.
+A collapsible sidebar (three-line hamburger button) lists every primary page above and lives in `scripts/topbar.js`, so any page that already includes the top/bottom chrome gets it automatically. The sidebar's first entry is "Command Centre" (links to index.html) — the old "Main" label and its link to pages/main.html were retired. See COMPONENT_LIBRARY.md for the Sidebar Navigation and Preview Card components.
 
 ---
 

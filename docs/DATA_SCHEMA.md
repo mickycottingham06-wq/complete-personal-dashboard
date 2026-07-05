@@ -872,6 +872,27 @@ Future AI Settings
 
 ---
 
+# Core / Shared Data
+
+Implemented as a **thin aggregation layer, not a new source of truth**. Lives in `localStorage` under the key `core`. The load/save/aggregate logic lives in `scripts/core-data.js`, included on index.html, `pages/health.html`, and `pages/boxing-hq.html`.
+
+Shape:
+
+```
+core: {
+  currency: string,       // 'GBP' by default — the whole app defaults to £, not CHF
+  lastUpdated: string,    // ISO timestamp, set whenever window.Core.save() runs
+}
+```
+
+`window.Core.load()` / `.save(core)` follow the same upgrade-on-load pattern as every other section. `window.Core.getSnapshot()` is a pure read (never persists) that aggregates the cross-section values described in this task's brief — `currentWeight`, `targetWeight`, `dailyCompletion`, `currentStreak`, `mainFocus`, `activeGoal`, `businessFocus`, `healthStatus`, `trainingStatus` — by reading `window.Health`, `window.Boxing`, `window.Business`, `window.DailySnapshot`, `window.Streaks`, and `window.Goals` live, the same pattern as `window.LifeStats.computeStats()`. It never duplicates or owns any of those values itself.
+
+The one exception is weight: `window.Health.currentWeight` and `window.Boxing.currentWeight` are two separate fields (Health HQ and Boxing HQ each need their own record), so `window.Core.setCurrentWeight(kg)` writes the same number into **both** on every save from either page's weight field. This keeps the two in sync without merging the two sections' data models. `pages/health.html` and `pages/boxing-hq.html` both call it from their own `save()` wrapper.
+
+Future features that want a single "how's everything doing" view (a rebuilt Command Centre widget, a future Money HQ summary) should read `getSnapshot()` rather than re-reading every section's data directly.
+
+---
+
 # Rules
 
 Never duplicate data.

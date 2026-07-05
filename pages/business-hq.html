@@ -136,11 +136,21 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
 }
 .add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
 
-.ai-ceo-card { border: 1px solid rgba(167,139,250,0.18); }
+.ai-ceo-card {
+  border: 1px solid rgba(167,139,250,0.18);
+  display: block; text-decoration: none; color: inherit; cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.ai-ceo-card:hover { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(0,0,0,0.55); border-color: rgba(167,139,250,0.4); }
 .ai-ceo-badge {
   display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.08em; text-transform: uppercase; color: #A78BFA; margin-bottom: 10px;
 }
+.ai-ceo-cta-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ai-ceo-cta-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.ai-ceo-cta-sub { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+.ai-ceo-cta-arrow { font-size: 18px; color: var(--text-tertiary); transition: transform 0.18s ease, color 0.18s ease; flex-shrink: 0; }
+.ai-ceo-card:hover .ai-ceo-cta-arrow { transform: translateX(4px); color: var(--text-primary); }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
@@ -230,10 +240,16 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
   <!-- AI CEO -->
   <div class="section">
     <div class="section-title">AI CEO</div>
-    <div class="gm-card ai-ceo-card">
-      <div class="ai-ceo-badge">🤖 Placeholder — full AI CEO coming later</div>
-      <textarea class="set-input" id="bizAiCeoPrompt" rows="3" placeholder="Draft what you'd ask your AI CEO…"></textarea>
-    </div>
+    <a class="gm-card ai-ceo-card" href="ai-ceo.html">
+      <div class="ai-ceo-badge">Business Advisor</div>
+      <div class="ai-ceo-cta-row">
+        <div>
+          <div class="ai-ceo-cta-title">Open AI CEO with Business Context</div>
+          <div class="ai-ceo-cta-sub">Your current focus, revenue and blockers carry over automatically</div>
+        </div>
+        <span class="ai-ceo-cta-arrow">→</span>
+      </div>
+    </a>
   </div>
 
 </div>
@@ -394,7 +410,6 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
   bindField('bizTodayTask', 'todayTask');
   bindField('bizWeeklyTarget', 'weeklyTarget');
   bindField('bizNotes', 'notes');
-  bindField('bizAiCeoPrompt', 'aiCeoPrompt');
   bindField('bizCurrentRevenue', 'currentRevenue', true);
   bindField('bizRevenueTarget', 'revenueTarget', true);
 

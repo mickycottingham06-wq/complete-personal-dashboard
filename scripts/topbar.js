@@ -290,7 +290,7 @@ body.topbar-modal-open {
 
   // Full navigation list — same set on every page, opened by the hamburger.
   const SIDEBAR_LINKS = [
-    { key: 'main',        icon: '🏠', label: 'Main',                  href: '/pages/main.html' },
+    { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/index.html' },
     { key: 'snapshot',    icon: '📋', label: 'Daily Snapshot',        href: '/pages/daily-snapshot.html' },
     { key: 'streaks',     icon: '🔥', label: 'Streaks',               href: '/pages/streaks.html' },
     { key: 'business',    icon: '💼', label: 'Business HQ',          href: '/pages/business-hq.html' },
@@ -323,15 +323,11 @@ body.topbar-modal-open {
 <nav class="bottombar" id="bottombar" role="navigation" aria-label="Main tabs">
   <a href="/index.html" class="bottombar-tab" data-page="main">
     <span class="bottombar-tab-icon">🏠</span>
-    <span>Main</span>
+    <span>Home</span>
   </a>
   <a href="/pages/health.html" class="bottombar-tab" data-page="health">
     <span class="bottombar-tab-icon">💊</span>
     <span>Health</span>
-  </a>
-  <a href="/pages/gym.html" class="bottombar-tab" data-page="fitness">
-    <span class="bottombar-tab-icon">💪</span>
-    <span>Fitness</span>
   </a>
 </nav>
 `;
@@ -353,16 +349,15 @@ body.topbar-modal-open {
   function currentPageKey() {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
-    if (p.endsWith('gym.html')) return 'fitness';
-    return 'main'; // index.html, /, or anything else falls back to main
+    return 'main'; // index.html, /, or anything else falls back to Home
   }
 
   // Maps the current URL to a sidebar data-page key so the matching link
   // can be highlighted. Broader than currentPageKey() since the sidebar
-  // covers every section, not just the 3 bottom tabs.
+  // covers every section, not just the bottom tabs.
   function sidebarPageKey() {
     const p = (window.location.pathname || '').toLowerCase();
-    if (p.endsWith('main.html')) return 'main';
+    if (p.endsWith('index.html') || p === '/') return 'command-centre';
     if (p.endsWith('daily-snapshot.html')) return 'snapshot';
     if (p.endsWith('streaks.html')) return 'streaks';
     if (p.endsWith('business-hq.html')) return 'business';
@@ -375,7 +370,7 @@ body.topbar-modal-open {
     if (p.endsWith('life-stats.html')) return 'life-stats';
     if (p.endsWith('heatmap.html')) return 'heatmap';
     if (p.endsWith('integrations.html')) return 'integrations';
-    return ''; // index.html hub and anything else — no single nav item owns it
+    return ''; // pages/main.html (de-prioritised) and anything else — no nav item owns it
   }
 
   function injectStyleAndHTML() {

@@ -360,6 +360,38 @@ Add Backup / Cloud Sync Foundation
 
 ---
 
+## 2026-07-05
+
+### Command Centre Cleanup, Navigation Cleanup & Shared Core Data
+
+Renamed "Main" to "Command Centre" throughout the sidebar, bottom bar, and index.html itself, and fixed a pre-existing inconsistency where the sidebar's "Main" link pointed at `pages/main.html` (a separate daily goal-ticker page) while the bottom bar's "Main" tab pointed at `index.html` — both now point at `index.html`, which is the real home hub.
+
+Added a compact "Today" bar to the top of index.html: date, today's habit completion %, current streak, weather summary, and next calendar event, reading live through `window.Streaks` and `window.Integrations`.
+
+Cleaned up the index.html bento grid: removed the self-referencing "Main" tile and the Fitness / Water / Caffeine / Nova tiles (all de-prioritised in favour of Boxing HQ, Health HQ, and AI CEO, which already cover the same ground via their preview cards). Their pages still exist and are reachable directly — they are just no longer promoted on the home page. Relabelled the Finance tile "Money HQ" and visually de-emphasised it as a future rebuild. Removed the per-tile emoji glyphs. Renumbered the remaining tiles. Removed the bottom bar's "Fitness" tab for the same reason.
+
+Fixed several preview cards on index.html that showed a bare `0h` / `0/10` before any data existed — Health, Hormone, Appearance, and Life Stats previews now show a clean `—` until a real score is logged.
+
+Fixed Finance's default currency: every currency `<select>` in `pages/finance.html` (net worth, subscriptions, incoming orders, wishlist) now defaults to GBP instead of CHF, and every JS fallback that used to read `'CHF'` when no currency was set now reads `'GBP'`. The internal storage/conversion pivot (variable names like `amountCHF`, the CHF-based exchange-rate fetch) is untouched — only the currency the user sees by default changed, per instructions not to rebuild Finance in this pass.
+
+Added a small shared "core" data layer, `scripts/core-data.js` (`window.Core`), owning the `core` localStorage key (`currency`, `lastUpdated`) plus a read-only `getSnapshot()` that aggregates `currentWeight`, `targetWeight`, `dailyCompletion`, `currentStreak`, `mainFocus`, `activeGoal`, `businessFocus`, `healthStatus`, and `trainingStatus` live from Health, Boxing, Business, Daily Snapshot, Streaks, and Goals — the same read-never-own pattern as `window.LifeStats.computeStats()`. `window.Core.setCurrentWeight(kg)` is the one place that writes across sections: it keeps `Health.currentWeight` and `Boxing.currentWeight` in sync, since both pages track the same physical value. Wired into `pages/health.html` and `pages/boxing-hq.html`'s existing `save()` functions.
+
+Replaced the legacy "🤖 Placeholder — full AI CEO coming later" textarea on Business HQ with a clear CTA card — "Open AI CEO with Business Context" — linking straight to `pages/ai-ceo.html` (which already reads Business HQ's data live). No live AI API added.
+
+Added short "Related" cross-links between sections that were previously only connected implicitly: Daily Snapshot → Streaks & Heatmap, Health HQ → Hormone Optimisation & Appearance, Boxing HQ → Health HQ & Life Stats, Goals → Life Stats.
+
+Updated `docs/PROJECT.md` (pages list, navigation section), `docs/ROADMAP.md` (Money HQ future phase, Command Centre cleanup marked done), and `docs/DATA_SCHEMA.md` (new Core / Shared Data section) to match.
+
+Files affected:
+
+index.html, scripts/topbar.js, scripts/core-data.js (new), pages/health.html, pages/boxing-hq.html, pages/business-hq.html, pages/daily-snapshot.html, pages/goals.html, pages/finance.html, docs/PROJECT.md, docs/ROADMAP.md, docs/DATA_SCHEMA.md, docs/CHANGELOG.md
+
+Commit:
+
+Command Centre cleanup, navigation cleanup, and shared core data foundation
+
+---
+
 ## Future Entries
 
 Example

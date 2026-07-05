@@ -34,6 +34,8 @@ Sidebar Navigation ✅
 
 Compact Dashboard Layout ✅
 
+Command Centre Cleanup ✅ (Main renamed to Command Centre, Today top bar, shared `core` data foundation, old duplicate homepage cards de-prioritised)
+
 Weather
 
 Calendar
@@ -80,7 +82,7 @@ AI Business Assistant ✅ (prompt-powered — no live API yet)
 
 ## Phase 5
 
-Finance HQ
+Money HQ (future — currently the existing Finance page, de-prioritised on the Command Centre and labelled "future finance hub" until this phase is built)
 
 Net Worth
 

@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
-<title>Micky's Dashboard</title>
+<title>Command Centre · Micky's Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="scripts/sync.js" defer></script>
@@ -23,6 +23,7 @@
 <script src="scripts/heatmap-data.js"></script>
 <script src="scripts/integrations-data.js"></script>
 <script src="scripts/google-calendar-service.js"></script>
+<script src="scripts/core-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -214,6 +215,14 @@ body::after {
 .gear-btn:active { transform: scale(0.94) rotate(35deg); }
 .gear-btn svg { width: 22px; height: 22px; }
 
+/* ===== Today bar — compact Command Centre status strip ===== */
+.today-bar { padding: 14px 18px; }
+.today-bar-row { display: flex; flex-wrap: wrap; gap: 18px; }
+.today-bar-item { flex: 1; min-width: 92px; }
+.today-bar-v { font-size: 14.5px; font-weight: 700; color: var(--text-primary); line-height: 1.25; }
+.today-bar-l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 4px; }
+@media (max-width: 620px) { .today-bar-item { min-width: 42%; } }
+
 /* ===== Settings modal ===== */
 .modal-bg {
   position: fixed; inset: 0; z-index: 120; display: none;
@@ -272,13 +281,43 @@ body::after {
 <div class="page">
 
   <div class="hub-head">
-    <h1 class="dash-title">Micky's Life OS</h1>
+    <h1 class="dash-title">Command Centre</h1>
     <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     </button>
+  </div>
+
+  <!-- ===== TODAY BAR — compact status strip: date, completion %,
+       streak, weather, next calendar event. All read live from
+       existing data (Streaks, Integrations) — nothing owned here. ===== -->
+  <div class="section" id="todayBarSection">
+    <div class="gm-card today-bar">
+      <div class="today-bar-row">
+        <div class="today-bar-item">
+          <div class="today-bar-v" id="todayDate">—</div>
+          <div class="today-bar-l">Today</div>
+        </div>
+        <div class="today-bar-item">
+          <div class="today-bar-v" id="todayCompletion">—</div>
+          <div class="today-bar-l">Completion</div>
+        </div>
+        <div class="today-bar-item">
+          <div class="today-bar-v" id="todayStreak">—</div>
+          <div class="today-bar-l">Streak</div>
+        </div>
+        <div class="today-bar-item">
+          <div class="today-bar-v" id="todayWeather">Not connected</div>
+          <div class="today-bar-l">Weather</div>
+        </div>
+        <div class="today-bar-item">
+          <div class="today-bar-v" id="todayNextEvent">Not connected</div>
+          <div class="today-bar-l">Next Event</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ===== DAILY SNAPSHOT PREVIEW — compact entry point, full view lives at
@@ -506,39 +545,10 @@ body::after {
 
   <div class="bento">
 
-    <!-- Big tile -->
-    <a class="tile big" href="pages/main.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·01</span>
-        <span class="tile-emoji">🏠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Main</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Goals & daily plan</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="pages/gym.html" style="--accent:#7DD3FC">
-      <div class="tile-top">
-        <span class="tile-num">·02</span>
-        <span class="tile-emoji">💪</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Fitness</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Workouts, splits, sessions</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
     <!-- Small tile -->
     <a class="tile" href="pages/health.html" style="--accent:#A7F3D0">
       <div class="tile-top">
-        <span class="tile-num">·03</span>
-        <span class="tile-emoji">💊</span>
+        <span class="tile-num">·01</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Health HQ</h2>
@@ -549,66 +559,9 @@ body::after {
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="pages/po-water.html" style="--accent:#60A5FA">
-      <div class="tile-top">
-        <span class="tile-num">·04</span>
-        <span class="tile-emoji">💧</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Water</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Hydration</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="pages/finance.html" style="--accent:#F2C063">
-      <div class="tile-top">
-        <span class="tile-num">·05</span>
-        <span class="tile-emoji">📊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Finance</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Net worth & spending</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/caffeine.html" style="--accent:#C9A36B">
-      <div class="tile-top">
-        <span class="tile-num">·06</span>
-        <span class="tile-emoji">☕</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Caffeine</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Intake & timing</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="pages/nova-lite.html" style="--accent:#A78BFA">
-      <div class="tile-top">
-        <span class="tile-num">·07</span>
-        <span class="tile-emoji">🧠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Nova</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Your AI mentor</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
     <a class="tile" href="pages/business-hq.html" style="--accent:#F2C063">
       <div class="tile-top">
-        <span class="tile-num">·08</span>
-        <span class="tile-emoji">💼</span>
+        <span class="tile-num">·02</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Business HQ</h2>
@@ -621,8 +574,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/boxing-hq.html" style="--accent:#FF6B6B">
       <div class="tile-top">
-        <span class="tile-num">·09</span>
-        <span class="tile-emoji">🥊</span>
+        <span class="tile-num">·03</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Boxing HQ</h2>
@@ -635,8 +587,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/hormone-optimisation.html" style="--accent:#7DD3FC">
       <div class="tile-top">
-        <span class="tile-num">·10</span>
-        <span class="tile-emoji">🧬</span>
+        <span class="tile-num">·04</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Hormone Optimisation</h2>
@@ -649,8 +600,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/appearance.html" style="--accent:#A78BFA">
       <div class="tile-top">
-        <span class="tile-num">·11</span>
-        <span class="tile-emoji">✨</span>
+        <span class="tile-num">·05</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Appearance / Looks</h2>
@@ -663,8 +613,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/goals.html" style="--accent:#6BE3A4">
       <div class="tile-top">
-        <span class="tile-num">·12</span>
-        <span class="tile-emoji">🎯</span>
+        <span class="tile-num">·06</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Goals</h2>
@@ -677,8 +626,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/life-stats.html" style="--accent:#60A5FA">
       <div class="tile-top">
-        <span class="tile-num">·13</span>
-        <span class="tile-emoji">📈</span>
+        <span class="tile-num">·07</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Life Stats</h2>
@@ -691,8 +639,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/heatmap.html" style="--accent:#C9A36B">
       <div class="tile-top">
-        <span class="tile-num">·14</span>
-        <span class="tile-emoji">🗓️</span>
+        <span class="tile-num">·08</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Heatmap</h2>
@@ -705,8 +652,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/integrations.html" style="--accent:#7DD3FC">
       <div class="tile-top">
-        <span class="tile-num">·15</span>
-        <span class="tile-emoji">🔌</span>
+        <span class="tile-num">·09</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Integrations</h2>
@@ -716,11 +662,23 @@ body::after {
       </div>
     </a>
 
+    <!-- Small tile -->
+    <a class="tile" href="pages/ai-ceo.html" style="--accent:#A78BFA">
+      <div class="tile-top">
+        <span class="tile-num">·10</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">AI CEO</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Business advisor prompts</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
     <!-- Small tile — opens the Settings modal in place instead of navigating -->
     <a class="tile" href="#" id="bentoSettingsTile" style="--accent:#B8B6B0">
       <div class="tile-top">
-        <span class="tile-num">·16</span>
-        <span class="tile-emoji">⚙️</span>
+        <span class="tile-num">·11</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Settings</h2>
@@ -730,16 +688,15 @@ body::after {
       </div>
     </a>
 
-    <!-- Small tile -->
-    <a class="tile" href="pages/ai-ceo.html" style="--accent:#A78BFA">
+    <!-- Small tile — de-prioritised: Finance is being rebuilt as Money HQ -->
+    <a class="tile" href="pages/finance.html" style="--accent:#76746E;opacity:0.62">
       <div class="tile-top">
-        <span class="tile-num">·17</span>
-        <span class="tile-emoji">🤖</span>
+        <span class="tile-num">·12</span>
       </div>
       <div class="tile-spacer"></div>
-      <h2 class="tile-title">AI CEO</h2>
+      <h2 class="tile-title">Money HQ</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Business advisor prompts</span>
+        <span class="tile-sub">Future finance hub — coming soon</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -1109,26 +1066,30 @@ body::after {
     focusEl.textContent = hasFocus ? 'Focus: ' + box.currentFocus.trim() : 'No focus set';
   }
 
+  // Manual scores default to 0 until the user has logged anything —
+  // show a clean dash instead of a misleading "0h" / "0/10".
+  function fmtScore(n, suffix) { const v = Number(n) || 0; return v ? v + suffix : '—'; }
+
   function renderHealthPreview() {
     const health = window.Health.load();
-    $('previewHealthSleep').textContent = (Number(health.lastNightSleep) || 0) + 'h';
-    $('previewHealthRecovery').textContent = (Number(health.recoveryScore) || 0);
-    $('previewHealthWater').textContent = (Number(health.waterIntake) || 0) + 'L';
-    $('previewHealthEnergy').textContent = (Number(health.energyLevel) || 0) + '/10';
+    $('previewHealthSleep').textContent = fmtScore(health.lastNightSleep, 'h');
+    $('previewHealthRecovery').textContent = fmtScore(health.recoveryScore, '');
+    $('previewHealthWater').textContent = fmtScore(health.waterIntake, 'L');
+    $('previewHealthEnergy').textContent = fmtScore(health.energyLevel, '/10');
   }
 
   function renderHormonePreview() {
     const hor = window.Hormones.load();
-    $('previewHormoneScore').textContent = (Number(hor.hormoneScore) || 0) + '/10';
-    $('previewHormoneEnergy').textContent = (Number(hor.energyLevel) || 0) + '/10';
-    $('previewHormoneSleep').textContent = (Number(hor.sleepConsistency) || 0) + '/10';
-    $('previewHormoneStress').textContent = (Number(hor.stressLevel) || 0) + '/10';
+    $('previewHormoneScore').textContent = fmtScore(hor.hormoneScore, '/10');
+    $('previewHormoneEnergy').textContent = fmtScore(hor.energyLevel, '/10');
+    $('previewHormoneSleep').textContent = fmtScore(hor.sleepConsistency, '/10');
+    $('previewHormoneStress').textContent = fmtScore(hor.stressLevel, '/10');
   }
 
   function renderAppearancePreview() {
     const look = window.Appearance.load();
-    $('previewLooksScore').textContent = (Number(look.looksScore) || 0) + '/10';
-    $('previewSkinScore').textContent = (Number(look.skinScore) || 0) + '/10';
+    $('previewLooksScore').textContent = fmtScore(look.looksScore, '/10');
+    $('previewSkinScore').textContent = fmtScore(look.skinScore, '/10');
     const skincare = look.skincareRoutine || [];
     const skincarePct = skincare.length ? Math.round(skincare.filter(i => i.completed).length / skincare.length * 100) : 0;
     $('previewSkincarePct').textContent = skincarePct + '%';
@@ -1163,7 +1124,7 @@ body::after {
     var ls = window.LifeStats.load();
     var c = window.LifeStats.computeStats();
 
-    $('previewLifeStatsOverall').textContent = (Number(ls.overallScore) || 0) + '/10';
+    $('previewLifeStatsOverall').textContent = fmtScore(ls.overallScore, '/10');
     $('previewLifeStatsStreak').textContent = String(c.currentStreak);
     $('previewLifeStatsGoals').textContent = c.goalsAvgProgress + '%';
 
@@ -1230,7 +1191,32 @@ body::after {
     }
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }
+  // ===== Today bar — date, completion %, streak, weather, next event.
+  // Reads through window.Streaks + window.Integrations, owns nothing. =====
+  function renderTodayBar() {
+    const d = new Date();
+    const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    $('todayDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+
+    const result = window.Streaks.recompute();
+    $('todayCompletion').textContent = Math.round(result.pct * 100) + '%';
+    $('todayStreak').textContent = result.data.currentStreak + (result.data.currentStreak === 1 ? ' day' : ' days');
+
+    const it = window.Integrations.load();
+    const w = it.weather;
+    $('todayWeather').textContent = (w.enabled && w.temperature) ? (w.temperature + (w.condition ? ' · ' + w.condition : '')) : 'No data yet';
+
+    const cal = it.googleCalendar;
+    if (cal.enabled) {
+      const next = window.GoogleCalendarService.getNext(cal.upcomingEvents);
+      $('todayNextEvent').textContent = next ? (next.title + ' · ' + next.time) : 'No events';
+    } else {
+      $('todayNextEvent').textContent = 'No data yet';
+    }
+  }
+
+  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);
