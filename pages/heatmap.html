@@ -10,12 +10,22 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/streaks-data.js"></script>
+<script src="../scripts/business-data.js"></script>
+<script src="../scripts/boxing-data.js"></script>
+<script src="../scripts/goals-data.js"></script>
+<script src="../scripts/heatmap-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -55,6 +65,7 @@ body::after {
 }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
+.section { margin-top: 8px; }
 .section-title {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
@@ -67,22 +78,75 @@ body::after {
   margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
 }
-.placeholder-card { text-align: center; padding: 40px 20px; }
-.placeholder-icon { font-size: 40px; margin-bottom: 14px; filter: grayscale(15%); }
-.placeholder-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.placeholder-text { font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); max-width: 420px; margin: 0 auto 22px; }
-.placeholder-back {
-  display: inline-block; padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-primary);
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+
+/* ===== Overview stats ===== */
+.streak-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+@media (max-width: 480px) { .streak-stats { grid-template-columns: repeat(2,1fr); } }
+.streak-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.streak-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.streak-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
+/* ===== View mode toggle ===== */
+.hm-toggle-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.hm-toggle-btn {
+  padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03); color: var(--text-tertiary);
+  font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.placeholder-back:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+.hm-toggle-btn:hover { color: var(--text-primary); }
+.hm-toggle-btn.active { background: rgba(255,255,255,0.09); color: var(--text-primary); border-color: rgba(255,255,255,0.20); }
+
+/* ===== Grid ===== */
+.hm-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; }
+.hm-cell {
+  aspect-ratio: 1; border-radius: 5px; cursor: pointer;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
+  transition: transform 0.12s, border-color 0.15s, box-shadow 0.15s;
+}
+.hm-cell:hover { transform: scale(1.18); z-index: 1; }
+.hm-cell[data-level="1"] { background: rgba(107,227,164,0.20); border-color: rgba(107,227,164,0.20); }
+.hm-cell[data-level="2"] { background: rgba(107,227,164,0.42); border-color: rgba(107,227,164,0.42); }
+.hm-cell[data-level="3"] { background: rgba(107,227,164,0.66); border-color: rgba(107,227,164,0.66); }
+.hm-cell[data-level="4"] { background: rgba(107,227,164,0.92); border-color: rgba(107,227,164,0.92); box-shadow: 0 0 8px rgba(107,227,164,0.45); }
+.hm-cell.is-today { border-color: var(--warning); }
+.hm-cell.is-selected { box-shadow: 0 0 0 2px #FAFAFA; }
+.hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 10.5px; color: var(--text-tertiary); }
+.hm-legend .hm-cell { width: 12px; height: 12px; aspect-ratio: unset; cursor: default; }
+.hm-legend .hm-cell:hover { transform: none; }
+
+/* ===== Selected day detail ===== */
+.hm-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.hm-detail-date { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.hm-detail-score { font-family: var(--font-mono); font-size: 26px; font-weight: 800; color: var(--text-primary); }
+.hm-detail-score .l { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-left: 6px; }
+
+.hm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.hm-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06);
+  font-size: 12px; color: var(--text-tertiary);
+}
+.hm-chip.on { color: var(--success); border-color: rgba(107,227,164,0.32); background: rgba(107,227,164,0.08); }
+
+.hm-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 8px; }
+.hm-notes {
+  width: 100%; min-height: 90px; padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  font-family: inherit; font-size: 13px; line-height: 1.5;
+  outline: none; resize: vertical;
+  transition: border-color 0.2s, background 0.2s;
+}
+.hm-notes::placeholder { color: var(--text-tertiary); }
+.hm-notes:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+.hm-notes-status { font-size: 11px; color: var(--text-tertiary); min-height: 14px; margin-top: 6px; }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
+  .hm-grid { grid-template-columns: repeat(8, 1fr); }
 }
 </style>
 </head>
@@ -91,14 +155,178 @@ body::after {
 
   <h1 class="dash-title">Heatmap</h1>
 
-  <div class="section-title">Coming Soon</div>
-  <div class="gm-card placeholder-card">
-    <div class="placeholder-icon">🗓️</div>
-    <div class="placeholder-title">Heatmap isn't built yet</div>
-    <p class="placeholder-text">A GitHub-style contribution grid for consistency across habits, training, and business work — built on top of the Streaks history.</p>
-    <a class="placeholder-back" href="/index.html">← Back to Main</a>
+  <div class="section">
+    <div class="section-title">Overview</div>
+    <div class="gm-card">
+      <div class="streak-stats">
+        <div class="streak-stat"><div class="v" id="hmTodayScore">0</div><div class="l">Today's Score</div></div>
+        <div class="streak-stat"><div class="v" id="hmStreak">0</div><div class="l">Current Streak</div></div>
+        <div class="streak-stat"><div class="v" id="hmWeekAvg">0</div><div class="l">Week Avg</div></div>
+        <div class="streak-stat"><div class="v" id="hmBestDay">—</div><div class="l">Best Day This Week</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Consistency Grid</div>
+    <div class="gm-card">
+      <div class="hm-toggle-row" id="hmToggleRow">
+        <button type="button" class="hm-toggle-btn" data-mode="30">30 Days</button>
+        <button type="button" class="hm-toggle-btn" data-mode="60">60 Days</button>
+        <button type="button" class="hm-toggle-btn" data-mode="90">90 Days</button>
+      </div>
+      <div class="hm-grid" id="hmGrid"></div>
+      <div class="hm-legend">
+        <span>Less</span>
+        <div class="hm-cell" data-level="0"></div>
+        <div class="hm-cell" data-level="1"></div>
+        <div class="hm-cell" data-level="2"></div>
+        <div class="hm-cell" data-level="3"></div>
+        <div class="hm-cell" data-level="4"></div>
+        <span>More</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Selected Day</div>
+    <div class="gm-card">
+      <div class="hm-detail-head">
+        <div class="hm-detail-date" id="hmDetailDate">—</div>
+        <div class="hm-detail-score"><span id="hmDetailScoreNum">0</span><span class="l">/ 100</span></div>
+      </div>
+      <div class="hm-chips" id="hmDetailChips"></div>
+      <div class="hm-label">Notes</div>
+      <textarea class="hm-notes" id="hmNotes" placeholder="What happened today? Wins, blockers, context for future you…"></textarea>
+      <div class="hm-notes-status" id="hmNotesStatus"></div>
+    </div>
   </div>
 
 </div>
+
+<!-- ===== Heatmap logic — reads derived daily activity through
+     window.Heatmap (scripts/heatmap-data.js), which itself reads
+     window.DailySnapshot / window.Streaks / window.Boxing /
+     window.Business / window.Goals so this page never duplicates
+     any of that data. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  function parseKey(key) { const p = key.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function formatShort(dateKey) {
+    const d = parseKey(dateKey);
+    const dows = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+  }
+  function levelFor(score) {
+    if (score <= 0) return 0;
+    if (score <= 25) return 1;
+    if (score <= 50) return 2;
+    if (score <= 75) return 3;
+    return 4;
+  }
+
+  let notesTimer = null;
+
+  function renderOverview() {
+    const stats = window.Heatmap.computeWeekStats();
+    $('hmTodayScore').textContent = String(stats.todayScore);
+    $('hmStreak').textContent = String(stats.currentStreak);
+    $('hmWeekAvg').textContent = String(stats.weekAvg);
+    $('hmBestDay').textContent = stats.bestDay.score > 0
+      ? formatShort(stats.bestDay.date).split(',')[0] + ' (' + stats.bestDay.score + ')'
+      : '—';
+  }
+
+  function renderGrid() {
+    const hm = window.Heatmap.get();
+    const days = Number(hm.viewMode) || 30;
+    const todayKey = window.Heatmap.activeDateKey();
+    const selected = hm.selectedDate;
+
+    document.querySelectorAll('#hmToggleRow .hm-toggle-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.mode === String(days));
+    });
+
+    const range = window.Heatmap.getRange(days);
+    const grid = $('hmGrid');
+    grid.innerHTML = '';
+    range.forEach(({ date, entry }) => {
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell' + (date === todayKey ? ' is-today' : '') + (date === selected ? ' is-selected' : '');
+      cell.setAttribute('data-level', String(levelFor(entry.completionScore)));
+      cell.title = formatShort(date) + ' — ' + entry.completionScore + '/100';
+      cell.addEventListener('click', () => {
+        window.Heatmap.setSelectedDate(date);
+        renderGrid();
+        renderDetail();
+      });
+      grid.appendChild(cell);
+    });
+  }
+
+  function chip(label, on) {
+    const el = document.createElement('span');
+    el.className = 'hm-chip' + (on ? ' on' : '');
+    el.textContent = (on ? '● ' : '○ ') + label;
+    return el;
+  }
+
+  function renderDetail() {
+    const hm = window.Heatmap.get();
+    const dateKey = hm.selectedDate;
+    const entry = window.Heatmap.getEntry(dateKey);
+
+    $('hmDetailDate').textContent = formatShort(dateKey);
+    $('hmDetailScoreNum').textContent = String(entry.completionScore);
+
+    const chips = $('hmDetailChips');
+    chips.innerHTML = '';
+    chips.appendChild(chip('Habits ' + entry.habitsCompleted + '/' + entry.habitsTotal, entry.habitsTotal > 0 && entry.habitsCompleted === entry.habitsTotal));
+    chips.appendChild(chip('Training', entry.trainingCompleted));
+    chips.appendChild(chip('Business', entry.businessTaskCompleted));
+    chips.appendChild(chip('Health', entry.healthRoutineCompleted));
+    chips.appendChild(chip('Goals', entry.goalsWorkedOn));
+
+    const notesEl = $('hmNotes');
+    if (document.activeElement !== notesEl) notesEl.value = entry.notes || '';
+  }
+
+  function scheduleSaveNotes() {
+    clearTimeout(notesTimer);
+    const statusEl = $('hmNotesStatus');
+    notesTimer = setTimeout(() => {
+      const hm = window.Heatmap.get();
+      window.Heatmap.setNotes(hm.selectedDate, $('hmNotes').value);
+      statusEl.textContent = 'Saved';
+      setTimeout(() => { statusEl.textContent = ''; }, 1500);
+      renderGrid();
+    }, 500);
+  }
+
+  function render() {
+    window.Heatmap.recompute();
+    renderOverview();
+    renderGrid();
+    renderDetail();
+  }
+
+  document.querySelectorAll('#hmToggleRow .hm-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      window.Heatmap.setViewMode(btn.dataset.mode);
+      renderGrid();
+    });
+  });
+
+  $('hmNotes').addEventListener('input', scheduleSaveNotes);
+
+  render();
+  window.addEventListener('storage', render);
+  window.addEventListener('focus', render);
+})();
+</script>
 </body>
 </html>

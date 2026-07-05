@@ -98,7 +98,7 @@ Goals ✅
 
 Life Stats ✅
 
-Heatmap
+Heatmap ✅
 
 Progress Tracking
 

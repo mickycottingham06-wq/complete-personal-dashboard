@@ -685,6 +685,55 @@ Everything related to cross-Life-OS analytics belongs here. Future features (Hea
 
 ---
 
+# Heatmap
+
+Implemented. Lives in `localStorage` under the key `heatmap`. The derive/recompute/save logic lives in `scripts/heatmap-data.js` (shared business logic), used by both the full page at `pages/heatmap.html` and the preview card on index.html.
+
+Shape:
+
+```
+heatmap: {
+  entries: [
+    {
+      id: string,
+      date: string,               // YYYY-MM-DD, 6 AM rollover — same convention as goals: / dailySnapshot
+      completionScore: number,    // 0-100
+      habitsCompleted: number,
+      habitsTotal: number,
+      trainingCompleted: boolean,
+      businessTaskCompleted: boolean,
+      healthRoutineCompleted: boolean,
+      goalsWorkedOn: boolean,
+      notes: string
+    }
+  ],
+  selectedDate: string,
+  viewMode: string               // '30' | '60' | '90'
+}
+```
+
+`entries` is capped at 120 rows (covers the 90-day view plus buffer), oldest → newest, same pattern as `streaks.history`.
+
+Today's entry is derived live rather than duplicated, reading (never owning):
+
+- `window.DailySnapshot` → habit completion (`habitsCompleted`/`habitsTotal`), `businessFocus`/`healthStatus` text as fallback signals
+- `window.Boxing` → `trainingLog` entries dated today (extra signal for `trainingCompleted` alongside the Daily Snapshot "training" habit)
+- `window.Business` → `todayTask` (fallback signal for `businessTaskCompleted`)
+- `window.Goals` → active goals with `status: 'In Progress'` and `progress > 0` (fallback signal for `goalsWorkedOn`)
+- the `goals:YYYY-MM-DD` daily to-do list keys → any goal marked done that day (primary signal for `goalsWorkedOn`)
+
+`completionScore` is `round((habitPct + activityPct) / 2)`, where `habitPct` is habit completion % and `activityPct` is the percentage of the four boolean flags that are true. Kept intentionally simple rather than a weighted model.
+
+Past days the Heatmap was never opened for still show something meaningful instead of a blank cell: `window.Heatmap.getEntry(date)` falls back to `window.Streaks.history` for that date (habit completion only) before falling back to a safe all-zero default. Once a day has its own `heatmap` entry (because today's recompute ran, or a note was added), that entry is frozen and never rewritten — same rule as `streaks.history`.
+
+`window.Heatmap.get()` returns the raw stored value. `window.Heatmap.recompute()` recomputes and persists today's entry (preserving any notes already saved for today) and should be called on every page load. `window.Heatmap.getEntry(date)` is a pure read for any date. `window.Heatmap.getRange(days)` returns oldest→newest `{ date, entry }` pairs for the grid without writing to storage. `window.Heatmap.setNotes(date, text)`, `.setSelectedDate(date)` and `.setViewMode('30'|'60'|'90')` persist their respective fields. `window.Heatmap.computeWeekStats()` returns `{ todayScore, weekAvg, bestDay: { date, score }, currentStreak }` for the preview card and the full page's overview row.
+
+The full interactive UI lives at `pages/heatmap.html`: a 30/60/90-day intensity grid (10 columns, GitHub-style color levels), a selected-day detail panel (score, activity chips, notes), and an overview row (today's score, current streak, week average, best day this week). index.html shows a compact preview card (today's score, current streak, week average, best day) that links to it.
+
+No API integrations are wired up yet — this is local-only, matching every other section. Future features (real Daily Snapshot/Streaks history depth, Business/Health/Boxing per-day completion flags, API integrations) should extend this shape and its derivation rather than creating a second consistency-tracking system.
+
+---
+
 # AI Assistant Data
 
 aiAssistant.js

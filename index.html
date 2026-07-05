@@ -21,6 +21,7 @@
 <script src="scripts/appearance-data.js"></script>
 <script src="scripts/goals-data.js"></script>
 <script src="scripts/life-stats-data.js"></script>
+<script src="scripts/heatmap-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -461,6 +462,24 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewLifeStatsGoals">—</div><div class="l">Goals</div></div>
       </div>
       <div class="preview-sub" id="previewLifeStatsAttention" style="margin-top:12px">No areas flagged</div>
+    </a>
+  </div>
+
+  <!-- ===== HEATMAP PREVIEW — compact entry point, full view lives at
+       pages/heatmap.html ===== -->
+  <div class="section" id="heatmapPreview">
+    <div class="section-title">Heatmap</div>
+    <a class="gm-card preview-card" href="pages/heatmap.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow">Daily Consistency</div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats-4" style="margin-top:10px">
+        <div class="streak-stat"><div class="v" id="previewHeatmapToday">0</div><div class="l">Today</div></div>
+        <div class="streak-stat"><div class="v" id="previewHeatmapStreak">0</div><div class="l">Streak</div></div>
+        <div class="streak-stat"><div class="v" id="previewHeatmapWeekAvg">0</div><div class="l">Week Avg</div></div>
+        <div class="streak-stat"><div class="v" id="previewHeatmapBestDay">—</div><div class="l">Best Day</div></div>
+      </div>
     </a>
   </div>
 
@@ -1117,7 +1136,16 @@ body::after {
     $('previewLifeStatsAttention').textContent = attention.length ? attention[0].text : 'No areas flagged';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); }
+  function renderHeatmapPreview() {
+    window.Heatmap.recompute();
+    var stats = window.Heatmap.computeWeekStats();
+    $('previewHeatmapToday').textContent = String(stats.todayScore);
+    $('previewHeatmapStreak').textContent = String(stats.currentStreak);
+    $('previewHeatmapWeekAvg').textContent = String(stats.weekAvg);
+    $('previewHeatmapBestDay').textContent = stats.bestDay.score > 0 ? String(stats.bestDay.score) : '—';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

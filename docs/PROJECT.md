@@ -168,7 +168,7 @@ Goals (pages/goals.html)
 
 Life Stats (pages/life-stats.html)
 
-Heatmap (placeholder)
+Heatmap (pages/heatmap.html)
 
 AI Assistant
 

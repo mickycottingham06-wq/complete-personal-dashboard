@@ -256,6 +256,24 @@ Commit:
 
 Add Life Stats
 
+### Heatmap
+
+Built the full Heatmap consistency view, replacing the "coming soon" placeholder page.
+
+New shared data layer `scripts/heatmap-data.js` owns the `heatmap` localStorage key: a capped (120-entry) day-by-day history of `{ completionScore, habitsCompleted/Total, trainingCompleted, businessTaskCompleted, healthRoutineCompleted, goalsWorkedOn, notes }`, plus `selectedDate` and `viewMode`. Today's entry is derived live rather than duplicated — reads `window.DailySnapshot` (habits, business/health focus text), `window.Boxing` (training log dated today), `window.Business` (today's task), `window.Goals` and the `goals:YYYY-MM-DD` daily to-do keys (goal activity) — and `completionScore` is a simple average of habit completion % and the four boolean flags' completion %. Past days the Heatmap was never opened for still render something meaningful instead of a blank cell, by falling back to `window.Streaks.history` for that date. Follows the same freeze-once-written history pattern as `window.Streaks`.
+
+Built the full page `pages/heatmap.html`: an overview row (today's score, current streak, week average, best day this week), a 30/60/90-day intensity grid (10 columns, GitHub-style green intensity levels reusing the existing `--success` token, click to select a day), and a selected-day detail panel with activity chips and an auto-saving notes textarea. Reuses the existing `.gm-card` / `.section-title` / `.streak-stat` components rather than inventing new UI or a chart library.
+
+Added a compact Heatmap preview card to index.html (today's score, current streak, week average, best day) linking to the full page. The bento tile and sidebar link already existed and needed no changes.
+
+Files affected:
+
+scripts/heatmap-data.js (new), pages/heatmap.html, index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md, docs/PROJECT.md
+
+Commit:
+
+Add Heatmap
+
 ---
 
 ## Future Entries

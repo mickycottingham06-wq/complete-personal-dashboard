@@ -4,8 +4,6 @@
 
 Build AI Assistant (AI CEO / Business Assistant done — prompt-powered, pages/ai-ceo.html; broader OS-level AI Assistant from AI_ASSISTANT_BEHAVIOUR.md still open)
 
-Build Heatmap (placeholder page exists at pages/heatmap.html)
-
 ---
 
 ## Medium Priority
