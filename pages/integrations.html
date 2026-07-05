@@ -13,6 +13,7 @@
 <script src="../scripts/integrations-data.js"></script>
 <script src="../scripts/weather-service.js"></script>
 <script src="../scripts/google-calendar-service.js"></script>
+<script src="../scripts/backup-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -135,6 +136,9 @@ body::after {
 .int-empty { font-size: 12px; color: var(--text-tertiary); font-style: italic; padding: 10px 2px; }
 
 .int-err-box { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.28); color: #FF8A8A; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 14px; }
+.bk-msg { background: rgba(107,227,164,0.08); border: 1px solid rgba(107,227,164,0.28); color: #6BE3A4; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 14px; }
+.bk-btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.bk-btn-row .int-sync-btn { flex: 1; min-width: 150px; }
 
 .int-sync-btn {
   width: 100%; padding: 11px; border: 1px solid rgba(255,255,255,0.12); border-radius: 11px;
@@ -158,7 +162,40 @@ body::after {
 <div class="page">
 
   <h1 class="dash-title">Integrations</h1>
-  <p class="page-sub">Connection foundation for external services. Weather is live (via a server-side proxy, no key exposed to the browser) with a mock fallback if the fetch fails. The rest — Google Calendar, AI API, Cloud Sync — are still foundation only: every "Sync now" writes clearly-labelled demo data so they're ready the moment a real API key or OAuth flow is wired up.</p>
+  <p class="page-sub">Connection foundation for external services, plus your local data safety net. Weather is live (via a server-side proxy, no key exposed to the browser) with a mock fallback if the fetch fails. Google Calendar, AI API, and Cloud Sync are still foundation only: every "Sync now" writes clearly-labelled demo data so they're ready the moment a real API key or OAuth flow is wired up.</p>
+
+  <!-- ===== DATA & BACKUP ===== -->
+  <div class="section">
+    <div class="section-title">Data & Backup</div>
+    <div class="gm-card">
+      <div class="int-card-head">
+        <div class="int-card-title"><span class="int-icon">🗄️</span> Data & Backup</div>
+        <span class="int-status on"><span class="dot"></span><span class="txt">Local Storage active</span></span>
+      </div>
+      <p class="int-card-note">Your Life OS data lives in this browser's Local Storage. Export a backup regularly to protect it — export and import both run fully offline, nothing ever leaves your device. Cloud sync is not connected yet (see the Cloud Sync card below); this backup file is what a future sync would upload.</p>
+
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="bkVersion">—</div><div class="l">Data Version</div></div>
+        <div class="int-stat"><div class="v" id="bkLastBackup">Never</div><div class="l">Last Backup</div></div>
+      </div>
+
+      <div class="int-err-box" id="bkErr" style="display:none"></div>
+      <div class="bk-msg" id="bkMsg" style="display:none"></div>
+
+      <div class="bk-btn-row">
+        <button class="int-sync-btn" id="bkExportBtn" type="button">⬇ Export Backup</button>
+        <button class="int-sync-btn" id="bkImportBtn" type="button">⬆ Import Backup</button>
+        <input type="file" id="bkFileInput" accept="application/json" style="display:none">
+      </div>
+
+      <div class="field">
+        <label class="field-label">Backup Notes</label>
+        <textarea class="int-notes" id="bkNotes" placeholder="Optional notes — e.g. reminders to export before a big change…"></textarea>
+      </div>
+
+      <p class="int-card-note" style="margin-bottom:0;">⚠️ Importing a backup overwrites your current Life OS data for every key in the file. You'll be asked to confirm before anything is overwritten, and invalid files are rejected safely without touching your data.</p>
+    </div>
+  </div>
 
   <!-- ===== WEATHER ===== -->
   <div class="section">
@@ -448,7 +485,81 @@ body::after {
   $('intCloudNotes').addEventListener('input', (e) => autoSaveField('cloudSync', 'notes', e.target.value));
   $('intCloudSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('cloudSync'); renderCloud(); });
 
-  function renderAll() { renderWeather(); renderCal(); renderAi(); renderCloud(); }
+  /* ---------- Data & Backup ---------- */
+  function relBackupTime(iso) {
+    if (!iso) return 'Never';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'Just now';
+    if (s < 3600) return Math.floor(s / 60) + ' min ago';
+    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+    return Math.floor(s / 86400) + ' d ago';
+  }
+  function showBkMsg(text, isError) {
+    const errBox = $('bkErr'), okBox = $('bkMsg');
+    if (isError) { errBox.style.display = ''; errBox.textContent = text; okBox.style.display = 'none'; }
+    else { okBox.style.display = ''; okBox.textContent = text; errBox.style.display = 'none'; }
+  }
+  function renderBackup() {
+    const b = window.Backup.load();
+    $('bkVersion').textContent = b.dataVersion || window.Backup.DATA_VERSION;
+    $('bkLastBackup').textContent = relBackupTime(b.lastBackupDate);
+    if (document.activeElement !== $('bkNotes')) $('bkNotes').value = b.backupNotes || '';
+  }
+  let bkNotesTimer = null;
+  $('bkNotes').addEventListener('input', (e) => {
+    clearTimeout(bkNotesTimer);
+    const v = e.target.value;
+    bkNotesTimer = setTimeout(() => window.Backup.setField('backupNotes', v), 400);
+  });
+  $('bkExportBtn').addEventListener('click', () => {
+    try {
+      const payload = window.Backup.buildExport();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'life-os-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      window.Backup.markBackupDone();
+      renderBackup();
+      showBkMsg('Backup exported — check your downloads.', false);
+    } catch (e) {
+      showBkMsg('Export failed — please try again.', true);
+    }
+  });
+  $('bkImportBtn').addEventListener('click', () => $('bkFileInput').click());
+  $('bkFileInput').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let payload;
+      try {
+        payload = JSON.parse(reader.result);
+      } catch (err) {
+        showBkMsg('That file isn’t valid JSON — import cancelled.', true);
+        return;
+      }
+      const check = window.Backup.validate(payload);
+      if (!check.ok) { showBkMsg(check.error, true); return; }
+      const confirmed = window.confirm(
+        'This will overwrite your current Life OS data (' + check.keyCount + ' keys) with this backup file. This cannot be undone. Continue?'
+      );
+      if (!confirmed) return;
+      const result = window.Backup.apply(payload);
+      if (!result.ok) { showBkMsg(result.error, true); return; }
+      showBkMsg('Backup restored (' + result.keyCount + ' keys). Reloading…', false);
+      setTimeout(() => window.location.reload(), 900);
+    };
+    reader.onerror = () => showBkMsg('Could not read that file — import cancelled.', true);
+    reader.readAsText(file);
+  });
+
+  function renderAll() { renderBackup(); renderWeather(); renderCal(); renderAi(); renderCloud(); }
 
   renderAll();
   window.addEventListener('storage', renderAll);

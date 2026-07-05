@@ -794,6 +794,32 @@ Future features (real weather/calendar fetches, AI API request/response logging,
 
 ---
 
+# Backup / Data Management
+
+Implemented as a **local-first foundation** — no server, no database, no auth. Lives in `localStorage` under the key `backupSettings`. The export/import/validate logic lives in `scripts/backup-data.js` (shared business logic), used by the "Data & Backup" card on `pages/integrations.html`.
+
+Shape:
+
+```
+backupSettings: {
+  dataVersion: string,        // e.g. '1.0.0' — bumped if the export/import shape changes
+  lastBackupDate: string,     // ISO timestamp of the last successful export, '' if never
+  cloudSyncProvider: string,  // free-text, unused until real cloud sync exists
+  cloudSyncStatus: string,    // free-text, unused until real cloud sync exists
+  backupNotes: string
+}
+```
+
+`window.Backup.buildExport()` captures every key currently in `localStorage` as raw strings (no re-encoding) into `{ meta: { app, dataVersion, exportedAt, keyCount }, data: { ...key: rawValue } }` — this is the entire Life OS dataset (every HQ page, Daily Snapshot, Streaks, Integrations, Settings profile, the daily `goals:YYYY-MM-DD` keys, water tracker, WHOOP tokens). `window.Backup.validate(payload)` never throws — it checks the file is an object with a `data` object of string values before anything is applied, rejecting corrupt/foreign JSON with a clear error instead of crashing. `window.Backup.apply(payload)` writes only the keys present in the backup into `localStorage` (it never clears keys the backup doesn't mention) and returns `{ ok, error, keyCount }`. `window.Backup.markBackupDone()` stamps `lastBackupDate` after a successful export.
+
+The full UI lives in the "Data & Backup" card at the top of `pages/integrations.html`: Export downloads a `life-os-backup-YYYY-MM-DD.json` file via a Blob; Import reads a chosen file, validates it, asks for confirmation before overwriting anything, then reloads the page so every script picks up the restored state. Invalid JSON or a malformed/foreign backup file shows an inline error and never touches existing data.
+
+`cloudSyncProvider` / `cloudSyncStatus` are placeholder fields only — no cloud sync is implemented here. The existing `integrations.cloudSync` card (see Integrations below) is the actual future-cloud-sync placeholder; this key exists so a later real sync integration has a place to record which provider/state it's using without a schema change.
+
+Everything related to backup/export/import belongs here. A future real cloud sync should read `buildExport()`'s payload shape as its upload format rather than inventing a second one.
+
+---
+
 # AI Assistant Data
 
 aiAssistant.js

@@ -340,6 +340,26 @@ Clarify deferred AI API direction and Prompt Builder wording
 
 ---
 
+## 2026-07-05
+
+### Backup / Cloud Sync Foundation
+
+Added a local-first backup foundation so Life OS data isn't only one browser-clear away from being lost, without building a real backend yet.
+
+New shared data layer `scripts/backup-data.js` owns the `backupSettings` localStorage key (`dataVersion`, `lastBackupDate`, `cloudSyncProvider`, `cloudSyncStatus`, `backupNotes`). `buildExport()` captures every current localStorage key as raw strings into a single JSON payload (the whole Life OS dataset — every HQ page, Daily Snapshot, Streaks, Integrations, Settings, daily goal-ticker keys, water tracker, WHOOP tokens). `validate()` never throws — it checks the file's basic shape before anything is applied, rejecting corrupt or foreign JSON with a clear error. `apply()` only writes keys present in the backup, never clearing anything the file doesn't mention.
+
+Added a "Data & Backup" card to the top of `pages/integrations.html`: shows Local Storage active status, data version, and last backup date; an Export button that downloads a `life-os-backup-YYYY-MM-DD.json` file; an Import button that reads a chosen file, validates it, asks for confirmation before overwriting anything, then reloads the page; and a notes field. Invalid JSON or a malformed backup shows an inline error and never touches existing data. Points to the existing Cloud Sync card (already a foundation-only placeholder) as the future upload destination for this same export payload — no real cloud sync, auth, or database added.
+
+Files affected:
+
+scripts/backup-data.js (new), pages/integrations.html, index.html, docs/DATA_SCHEMA.md, docs/CHANGELOG.md
+
+Commit:
+
+Add Backup / Cloud Sync Foundation
+
+---
+
 ## Future Entries
 
 Example
