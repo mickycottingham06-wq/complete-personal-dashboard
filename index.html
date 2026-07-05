@@ -13,6 +13,7 @@
 <script src="scripts/daily-snapshot-data.js"></script>
 <script src="scripts/streaks-data.js"></script>
 <script src="scripts/business-data.js"></script>
+<script src="scripts/money-data.js"></script>
 <script src="scripts/ai-ceo-data.js"></script>
 <script src="scripts/boxing-data.js"></script>
 <script src="scripts/health-data.js"></script>
@@ -375,6 +376,28 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== MONEY HQ PREVIEW — compact entry point, full view lives at
+       pages/money-hq.html ===== -->
+  <div class="section" id="moneyPreview">
+    <div class="section-title">Money HQ</div>
+    <a class="gm-card preview-card" href="pages/money-hq.html">
+      <div class="preview-top">
+        <div>
+          <div class="gm-eyebrow" style="margin-bottom:4px">Net Worth</div>
+          <div class="preview-focus" id="previewMoneyNetWorth">£0</div>
+          <div class="preview-sub" id="previewMoneySavings">—</div>
+        </div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+        <div class="streak-stat"><div class="v" id="previewMoneyIncome">£0</div><div class="l">Income</div></div>
+        <div class="streak-stat"><div class="v" id="previewMoneySpending">£0</div><div class="l">Spending</div></div>
+        <div class="streak-stat"><div class="v" id="previewMoneyRate">0%</div><div class="l">Savings Rate</div></div>
+      </div>
+      <div class="preview-sub" id="previewMoneyBill" style="margin-top:12px">—</div>
+    </a>
+  </div>
+
   <!-- ===== AI CEO PREVIEW — compact entry point, full view lives at
        pages/ai-ceo.html ===== -->
   <div class="section" id="aiCeoPreview">
@@ -688,15 +711,15 @@ body::after {
       </div>
     </a>
 
-    <!-- Small tile — de-prioritised: Finance is being rebuilt as Money HQ -->
-    <a class="tile" href="pages/finance.html" style="--accent:#76746E;opacity:0.62">
+    <!-- Small tile -->
+    <a class="tile" href="pages/money-hq.html" style="--accent:#6BE3A4">
       <div class="tile-top">
         <span class="tile-num">·12</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Money HQ</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Future finance hub — coming soon</span>
+        <span class="tile-sub">Net worth, spending & budgeting</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -1030,6 +1053,18 @@ body::after {
     taskEl.textContent = hasTask ? 'Today: ' + biz.todayTask.trim() : 'No task set for today';
   }
 
+  function renderMoneyPreview() {
+    const summary = window.Money.computeSummary();
+    $('previewMoneyNetWorth').textContent = fmtMoney(summary.netWorth);
+    $('previewMoneySavings').textContent = (summary.monthlySavings >= 0 ? 'Saving ' : 'Overspent ') + fmtMoney(Math.abs(summary.monthlySavings)) + ' this month';
+    $('previewMoneyIncome').textContent = fmtMoney(summary.monthlyIncome);
+    $('previewMoneySpending').textContent = fmtMoney(summary.monthlySpending);
+    $('previewMoneyRate').textContent = summary.savingsRate + '%';
+    $('previewMoneyBill').textContent = summary.nextBill
+      ? 'Next bill: ' + summary.nextBill.name + ' (' + fmtMoney(summary.nextBill.amount) + ')'
+      : 'No upcoming bills';
+  }
+
   function renderAiCeoPreview() {
     const ceo = window.AiCeo.load();
     const mode = window.AiCeo.modeById(ceo.activeMode);
@@ -1216,7 +1251,7 @@ body::after {
     }
   }
 
-  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }
+  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderMoneyPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

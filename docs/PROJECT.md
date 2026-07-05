@@ -146,6 +146,8 @@ Streaks (pages/streaks.html)
 
 Business HQ (pages/business-hq.html)
 
+Money HQ (pages/money-hq.html — Phase 5 built: Overview, Net Worth, Spending, Income, Budget, Investments, Bills/Subscriptions, Receipts tabs, own internal bottom tab bar, `money` localStorage key via scripts/money-data.js; see DATA_SCHEMA.md and ROADMAP.md Phase 5)
+
 AI CEO (pages/ai-ceo.html)
 
 Boxing HQ (pages/boxing-hq.html)
@@ -166,9 +168,7 @@ Integrations (pages/integrations.html — foundation only: Weather, Google Calen
 
 Settings (modal on Command Centre)
 
-Money HQ (pages/finance.html — the existing Finance build, kept functional but de-prioritised on the Command Centre and labelled "future finance hub" until this becomes its own phase; see ROADMAP.md Phase 5)
-
-De-prioritised / merged, not in the primary sidebar (still reachable directly, not deleted): Fitness (pages/gym.html) → folds into Boxing HQ / Health HQ; Water (pages/po-water.html) → folds into Health HQ; Caffeine (pages/caffeine.html) → folds into Health HQ; Nova (pages/nova-lite.html) → folds into AI CEO; pages/main.html (old daily goal ticker) → no longer linked from the sidebar now that Command Centre owns that role.
+De-prioritised / merged, not in the primary sidebar (still reachable directly, not deleted): pages/finance.html (old Finance build, superseded by Money HQ above); Fitness (pages/gym.html) → folds into Boxing HQ / Health HQ; Water (pages/po-water.html) → folds into Health HQ; Caffeine (pages/caffeine.html) → folds into Health HQ; Nova (pages/nova-lite.html) → folds into AI CEO; pages/main.html (old daily goal ticker) → no longer linked from the sidebar now that Command Centre owns that role.
 
 Calendar and Weather are read through Integrations rather than as standalone pages.
 

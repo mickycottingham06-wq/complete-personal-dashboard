@@ -281,7 +281,7 @@ body.topbar-modal-open {
       </a>
       <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
     </div>
-    <a href="/pages/finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
+    <a href="/pages/money-hq.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Money HQ">
       <span class="topbar-finance-icon">📊</span>
     </a>
   </div>
@@ -294,6 +294,7 @@ body.topbar-modal-open {
     { key: 'snapshot',    icon: '📋', label: 'Daily Snapshot',        href: '/pages/daily-snapshot.html' },
     { key: 'streaks',     icon: '🔥', label: 'Streaks',               href: '/pages/streaks.html' },
     { key: 'business',    icon: '💼', label: 'Business HQ',          href: '/pages/business-hq.html' },
+    { key: 'money-hq',    icon: '📊', label: 'Money HQ',             href: '/pages/money-hq.html' },
     { key: 'ai-ceo',      icon: '🤖', label: 'AI CEO',               href: '/pages/ai-ceo.html' },
     { key: 'boxing',      icon: '🥊', label: 'Boxing HQ',            href: '/pages/boxing-hq.html' },
     { key: 'health',      icon: '💊', label: 'Health HQ',            href: '/pages/health.html' },
@@ -332,11 +333,13 @@ body.topbar-modal-open {
 </nav>
 `;
 
-  // Pages where we suppress the app chrome: finance has its own internal
-  // 4-tab bottom nav and self-contained back button.
+  // Pages where we suppress the app chrome: these have their own internal
+  // bottom tab nav and self-contained back button (finance.html is the old,
+  // de-prioritised Finance build; money-hq.html is its replacement).
   function isFinancePage() {
     const p = (window.location.pathname || '').toLowerCase();
-    return p.endsWith('/finance.html') || p.endsWith('finance.html');
+    return p.endsWith('/finance.html') || p.endsWith('finance.html')
+      || p.endsWith('/money-hq.html') || p.endsWith('money-hq.html');
   }
   // When the water tracker is iframed inside health.html, the embedded
   // page shouldn't render its own chrome again.
@@ -361,6 +364,7 @@ body.topbar-modal-open {
     if (p.endsWith('daily-snapshot.html')) return 'snapshot';
     if (p.endsWith('streaks.html')) return 'streaks';
     if (p.endsWith('business-hq.html')) return 'business';
+    if (p.endsWith('money-hq.html')) return 'money-hq';
     if (p.endsWith('ai-ceo.html')) return 'ai-ceo';
     if (p.endsWith('boxing-hq.html')) return 'boxing';
     if (p.endsWith('health.html')) return 'health';

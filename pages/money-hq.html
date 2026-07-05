@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Money HQ · Micky's Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/sync.js" defer></script>
+<script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/money-data.js"></script>
+<script src="../scripts/goals-data.js"></script>
+<style>
+:root {
+  --bg: #0A0A0B;
+  --bg-deep: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+  --accent: #E07658;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg-deep); color: var(--text-primary); font-family: var(--font); -webkit-font-smoothing: antialiased; min-height: 100%; }
+body::before {
+  content: ''; position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(60% 45% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 55%),
+    radial-gradient(55% 45% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 55%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; opacity: 0.7; pointer-events: none;
+}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+
+.shell { max-width: 880px; margin: 0 auto; padding: 24px 16px 100px; }
+
+.mh-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px; margin: 0 0 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px; color: var(--text-secondary);
+  font-family: var(--font); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mh-back-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.mh-back-btn svg { display: block; }
+
+.mh-header { margin-bottom: 18px; }
+.mh-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); }
+.mh-subtitle { font-size: 12.5px; color: var(--text-tertiary); margin-top: 4px; }
+
+/* ===== Bottom tab bar ===== */
+.bottom-tabs {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  display: flex; justify-content: flex-start; gap: 4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px max(12px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right));
+  background: linear-gradient(180deg, transparent, rgba(5,5,6,0.94) 30%);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.bottom-tabs::before {
+  content: ''; position: absolute; top: 0; left: 12px; right: 12px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
+  pointer-events: none;
+}
+.bot-tab {
+  flex: 0 0 auto;
+  background: transparent; border: 1px solid transparent; color: var(--text-tertiary);
+  padding: 9px 13px; border-radius: 10px; font-family: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.03em; white-space: nowrap; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.bot-tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.025); }
+.bot-tab.active { color: var(--text-primary); background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.12); }
+
+.section[hidden] { display: none !important; }
+.mh-hidden { display: none !important; }
+
+.section-title { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+.section-title-text { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.card {
+  background: var(--glass-bg); border: 1px solid transparent; border-radius: var(--radius-lg);
+  padding: 16px 18px; margin-bottom: 10px;
+  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: var(--glass-shadow); position: relative; overflow: hidden;
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent); pointer-events: none;
+}
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+
+.label {
+  font-size: 9.5px; color: var(--text-tertiary); margin-bottom: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.16em; font-family: var(--font-mono);
+}
+
+.empty-state {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); text-align: center; padding: 16px 0; font-family: var(--font-mono);
+}
+
+/* ===== Generic entry form (auto-fit grid of field chips + button below) ===== */
+.mh-form {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px; margin-bottom: 10px;
+}
+.mh-form input, .mh-form select {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); outline: none;
+  color: var(--text-primary); border-radius: 8px; padding: 9px 10px;
+  font-family: inherit; font-size: 13px; min-width: 0; width: 100%;
+}
+.mh-form input::placeholder { color: var(--text-tertiary); }
+.mh-textarea {
+  width: 100%; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06);
+  outline: none; color: var(--text-primary); border-radius: 8px; padding: 9px 10px;
+  font-family: inherit; font-size: 13px; resize: vertical; min-height: 44px; margin-bottom: 10px;
+}
+.mh-textarea::placeholder { color: var(--text-tertiary); }
+
+.mh-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 18px; background: linear-gradient(180deg, #6EE7B7, #4ED4A0); color: #04201A;
+  border: none; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 14px rgba(110,231,183,0.20);
+  transition: transform 0.12s, box-shadow 0.18s;
+}
+.mh-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(110,231,183,0.32); }
+.mh-btn:active { transform: scale(0.97); }
+.mh-btn-ghost {
+  background: rgba(255,255,255,0.05); color: var(--text-secondary); box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.mh-btn-ghost:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); box-shadow: none; }
+
+/* ===== Stat tiles (Overview) ===== */
+.mh-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.mh-stat { background: rgba(255,255,255,0.025); border-radius: 12px; padding: 14px 16px; }
+.mh-stat-label { font-size: 9.5px; letter-spacing: 0.14em; font-weight: 800; text-transform: uppercase; color: var(--text-tertiary); font-family: var(--font-mono); }
+.mh-stat-val { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.mh-stat-val.neg { color: var(--danger); }
+.mh-stat-val.pos { color: var(--success); }
+
+/* ===== Progress bars ===== */
+.mh-progress-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.mh-progress-fill { height: 100%; border-radius: 3px; background: var(--success); transition: width 0.3s ease; }
+.mh-progress-fill.warn { background: var(--warning); }
+.mh-progress-fill.bad { background: var(--danger); }
+
+/* ===== Badges ===== */
+.mh-badge {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 999px; font-family: var(--font-mono);
+  background: rgba(255,255,255,0.06); color: var(--text-secondary); white-space: nowrap;
+}
+.mh-badge.good { background: rgba(107,227,164,0.12); color: #8EE9B7; }
+.mh-badge.warn { background: rgba(242,192,99,0.12); color: #F2C063; }
+.mh-badge.bad  { background: rgba(255,138,138,0.12); color: #FF8A8A; }
+
+/* ===== List rows (accounts / assets / liabilities) ===== */
+.nw-subcard { background: rgba(255,255,255,0.025) !important; border: none; margin-bottom: 0; }
+.nw-list { font-size: 13px; margin-bottom: 4px; }
+.nw-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; gap: 8px; min-width: 0; }
+.nw-name { color: var(--text-primary); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nw-amt { font-weight: 600; color: var(--text-primary); flex-shrink: 0; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.nw-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1; flex-shrink: 0; }
+.nw-del:hover { color: var(--danger); }
+
+/* ===== Custom rows (transactions, investments, bills, receipts) ===== */
+.custom-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.025); border-radius: 10px; margin-bottom: 6px; font-size: 13px; color: var(--text-primary); }
+.custom-item:hover { background: rgba(255,255,255,0.05); }
+.custom-item .item-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.30); flex-shrink: 0; }
+.custom-item .item-body { flex: 1; min-width: 0; }
+.custom-item .item-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.custom-item .item-meta { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 2px; }
+.custom-item .item-amt { font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0; }
+.custom-item .item-amt.pos { color: var(--success); }
+.custom-item .item-amt.neg { color: #FF8A8A; }
+.custom-item .delete-x { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; flex-shrink: 0; }
+.custom-item .delete-x:hover { color: #FF8A8A; background: rgba(255,138,138,0.10); }
+
+/* ===== Legend rows (spending by category / income by source) ===== */
+.mh-leg { display: grid; grid-template-columns: 8px 1fr auto; gap: 8px; align-items: center; font-size: 12px; padding: 5px 6px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.mh-leg-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 6px currentColor; }
+.mh-leg-name { color: var(--text-secondary); }
+.mh-leg-amt { color: var(--text-primary); font-weight: 700; font-family: var(--font-mono); font-size: 11.5px; }
+
+/* ===== Recent-activity style rows ===== */
+.mh-activity-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
+.mh-activity-list::-webkit-scrollbar { width: 4px !important; display: block !important; }
+.mh-activity-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 2px; }
+.mh-act-row { display: grid; grid-template-columns: 4px 1fr auto auto; gap: 10px; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.025); border-radius: 8px; font-size: 12.5px; }
+.mh-act-row:hover { background: rgba(255,255,255,0.05); }
+.mh-act-bar { width: 4px; height: 22px; border-radius: 2px; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
+.mh-act-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mh-act-name { color: var(--text-primary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.mh-act-meta { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); letter-spacing: 0.03em; text-transform: uppercase; }
+.mh-act-amt { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--font-mono); white-space: nowrap; }
+.mh-act-amt.up { color: #6BE3A4; }
+.mh-act-amt.down { color: #FF8A8A; }
+.mh-act-date { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); white-space: nowrap; }
+
+/* ===== Receipts ===== */
+#receiptPreviewImg { background: rgba(255,255,255,0.04); }
+
+@media (max-width: 600px) {
+  .mh-form { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<a href="../index.html" class="mh-back-btn" aria-label="Back to dashboard">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+  <span>Back</span>
+</a>
+
+<div class="mh-header">
+  <div class="mh-title">Money HQ</div>
+  <div class="mh-subtitle">Net worth, spending, income & budgeting — all figures in GBP (£)</div>
+</div>
+
+<!-- ===== OVERVIEW ===== -->
+<div class="section" data-section="overview">
+  <div class="section-title"><span class="section-title-text">OVERVIEW</span></div>
+  <div class="mh-stat-grid" id="ovStats"></div>
+
+  <div class="card-grid" style="margin-top:10px">
+    <div class="card">
+      <div class="label">Upcoming bills</div>
+      <div id="ovBills"></div>
+      <div class="empty-state" id="ovBillsEmpty">No upcoming bills</div>
+    </div>
+    <div class="card">
+      <div class="label">Spending by category — this month</div>
+      <div id="ovCategories"></div>
+      <div class="empty-state" id="ovCategoriesEmpty">No spending logged yet</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:0">
+    <div class="label">Recent transactions</div>
+    <div class="mh-activity-list" id="ovTxns"></div>
+    <div class="empty-state" id="ovTxnsEmpty">No transactions yet</div>
+  </div>
+
+  <div class="card" style="margin-top:0">
+    <div class="label">Financial goal progress</div>
+    <div id="ovGoals"></div>
+    <div class="empty-state" id="ovGoalsEmpty">No financial goals yet — add one in Goals under "Business / Money"</div>
+  </div>
+</div>
+
+<!-- ===== NET WORTH ===== -->
+<div class="section" data-section="networth" hidden>
+  <div class="section-title"><span class="section-title-text">NET WORTH</span></div>
+
+  <div class="card">
+    <div class="label">Total net worth</div>
+    <div id="nwTotal" style="font-size:32px;font-weight:700;color:var(--text-primary);line-height:1.05">£0</div>
+    <div id="nwBreakdown" style="font-size:11px;color:var(--text-tertiary);margin-top:6px"></div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card nw-subcard">
+      <div class="label" style="display:flex;justify-content:space-between"><span>Bank accounts</span><span id="bankTotal">£0</span></div>
+      <div id="bankList" class="nw-list"></div>
+      <div class="mh-form"><input type="text" id="bankName" placeholder="Account name"><input type="number" id="bankAmount" placeholder="Balance" step="0.01"></div>
+      <button class="mh-btn" id="bankAddBtn">Add account</button>
+    </div>
+    <div class="card nw-subcard">
+      <div class="label" style="display:flex;justify-content:space-between"><span>Cash</span><span id="cashTotal">£0</span></div>
+      <div id="cashList" class="nw-list"></div>
+      <div class="mh-form"><input type="text" id="cashName" placeholder="e.g. Wallet cash"><input type="number" id="cashAmount" placeholder="Balance" step="0.01"></div>
+      <button class="mh-btn" id="cashAddBtn">Add cash</button>
+    </div>
+    <div class="card nw-subcard">
+      <div class="label" style="display:flex;justify-content:space-between"><span>Crypto</span><span id="cryptoTotal">£0</span></div>
+      <div id="cryptoList" class="nw-list"></div>
+      <div class="mh-form"><input type="text" id="cryptoName" placeholder="Coin / wallet"><input type="number" id="cryptoAmount" placeholder="Value" step="0.01"></div>
+      <button class="mh-btn" id="cryptoAddBtn">Add crypto</button>
+    </div>
+    <div class="card nw-subcard">
+      <div class="label" style="display:flex;justify-content:space-between"><span>Other assets</span><span id="otherTotal">£0</span></div>
+      <div id="otherList" class="nw-list"></div>
+      <div class="mh-form"><input type="text" id="otherName" placeholder="Asset name"><input type="number" id="otherAmount" placeholder="Value" step="0.01"></div>
+      <button class="mh-btn" id="otherAddBtn">Add asset</button>
+    </div>
+    <div class="card nw-subcard">
+      <div class="label" style="display:flex;justify-content:space-between"><span>Debts / liabilities</span><span id="liabTotal">£0</span></div>
+      <div id="liabList" class="nw-list"></div>
+      <div class="mh-form"><input type="text" id="liabName" placeholder="e.g. Credit card"><input type="number" id="liabAmount" placeholder="Balance owed" step="0.01"></div>
+      <button class="mh-btn" id="liabAddBtn">Add liability</button>
+    </div>
+    <div class="card nw-subcard">
+      <div class="label" style="display:flex;justify-content:space-between"><span>Investments</span><span id="nwInvestTotal">£0</span></div>
+      <div style="font-size:11px;color:var(--text-tertiary);padding:8px 0">Read-only rollup — manage individual investments in the Investments tab.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Recent net worth snapshots</div>
+    <div id="nwHistory"></div>
+    <div class="empty-state" id="nwHistoryEmpty">Add an account or asset to start tracking net worth over time</div>
+  </div>
+</div>
+
+<!-- ===== SPENDING ===== -->
+<div class="section" data-section="spending" hidden>
+  <div class="section-title"><span class="section-title-text">SPENDING</span></div>
+
+  <div class="card">
+    <div class="label">Add spending</div>
+    <div class="mh-form">
+      <input type="date" id="spendDate">
+      <input type="text" id="spendMerchant" placeholder="Merchant">
+      <select id="spendCategory"></select>
+      <input type="number" id="spendAmount" placeholder="Amount" step="0.01">
+      <select id="spendMethod"></select>
+      <input type="text" id="spendNotes" placeholder="Notes (optional)">
+    </div>
+    <button class="mh-btn" id="spendAddBtn">Add spending</button>
+  </div>
+
+  <div class="mh-stat-grid">
+    <div class="mh-stat"><div class="mh-stat-label">Monthly spending</div><div class="mh-stat-val" id="spendMonthlyTotal">£0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Spending by category — this month</div>
+    <div id="spendCats"></div>
+    <div class="empty-state" id="spendCatsEmpty">No spending logged yet</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Recent spending</div>
+    <div id="spendList"></div>
+    <div class="empty-state" id="spendEmpty">No spending logged yet</div>
+  </div>
+</div>
+
+<!-- ===== INCOME ===== -->
+<div class="section" data-section="income" hidden>
+  <div class="section-title"><span class="section-title-text">INCOME</span></div>
+
+  <div class="card">
+    <div class="label">Add income</div>
+    <div class="mh-form">
+      <input type="date" id="incDate">
+      <input type="text" id="incSource" placeholder="Source">
+      <select id="incType"></select>
+      <input type="number" id="incAmount" placeholder="Amount" step="0.01">
+      <input type="text" id="incNotes" placeholder="Notes (optional)">
+    </div>
+    <button class="mh-btn" id="incAddBtn">Add income</button>
+  </div>
+
+  <div class="mh-stat-grid">
+    <div class="mh-stat"><div class="mh-stat-label">Monthly income</div><div class="mh-stat-val" id="incMonthlyTotal">£0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Income by source — this month</div>
+    <div id="incSources"></div>
+    <div class="empty-state" id="incSourcesEmpty">No income logged yet</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Recent income</div>
+    <div id="incList"></div>
+    <div class="empty-state" id="incEmpty">No income logged yet</div>
+  </div>
+</div>
+
+<!-- ===== BUDGET ===== -->
+<div class="section" data-section="budget" hidden>
+  <div class="section-title"><span class="section-title-text">BUDGET</span></div>
+
+  <div class="card">
+    <div class="label">Monthly budget target</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <input type="number" id="budgetTargetInput" placeholder="0" step="0.01" style="background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.06);outline:none;color:var(--text-primary);border-radius:8px;padding:9px 10px;font-family:inherit;font-size:14px;width:140px">
+      <button class="mh-btn" id="budgetTargetSaveBtn">Save target</button>
+    </div>
+    <div class="mh-progress-track"><div class="mh-progress-fill" id="budgetTotalFill" style="width:0%"></div></div>
+    <div id="budgetTotalMeta" style="font-size:11px;color:var(--text-tertiary);margin-top:8px"></div>
+  </div>
+
+  <div id="budgetCatList"></div>
+</div>
+
+<!-- ===== INVESTMENTS ===== -->
+<div class="section" data-section="investments" hidden>
+  <div class="section-title"><span class="section-title-text">INVESTMENTS</span></div>
+
+  <div class="card">
+    <div class="label">Add investment</div>
+    <div class="mh-form">
+      <input type="text" id="invName" placeholder="Name (e.g. S&P 500 fund)">
+      <select id="invType"></select>
+      <input type="number" id="invContributed" placeholder="Contributed" step="0.01">
+      <input type="number" id="invCurrentValue" placeholder="Current value" step="0.01">
+      <input type="text" id="invNotes" placeholder="Notes (optional)">
+    </div>
+    <button class="mh-btn" id="invAddBtn">Add investment</button>
+  </div>
+
+  <div class="mh-stat-grid">
+    <div class="mh-stat"><div class="mh-stat-label">Total invested</div><div class="mh-stat-val" id="invTotalContributed">£0</div></div>
+    <div class="mh-stat"><div class="mh-stat-label">Current value</div><div class="mh-stat-val" id="invTotalValue">£0</div></div>
+    <div class="mh-stat"><div class="mh-stat-label">Gain / loss</div><div class="mh-stat-val" id="invGain">£0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Your investments</div>
+    <div id="invList"></div>
+    <div class="empty-state" id="invEmpty">No investments logged yet</div>
+  </div>
+</div>
+
+<!-- ===== BILLS / SUBSCRIPTIONS ===== -->
+<div class="section" data-section="bills" hidden>
+  <div class="section-title"><span class="section-title-text">BILLS &amp; SUBSCRIPTIONS</span></div>
+
+  <div class="card">
+    <div class="label">Add bill / subscription</div>
+    <div class="mh-form">
+      <input type="text" id="billName" placeholder="Name (e.g. Netflix)">
+      <input type="number" id="billAmount" placeholder="Amount" step="0.01">
+      <input type="date" id="billDueDate">
+      <select id="billFrequency"></select>
+      <select id="billCategory"></select>
+      <select id="billStatus"></select>
+    </div>
+    <button class="mh-btn" id="billAddBtn">Add bill</button>
+  </div>
+
+  <div class="mh-stat-grid">
+    <div class="mh-stat"><div class="mh-stat-label">Monthly recurring total</div><div class="mh-stat-val" id="billMonthlyTotal">£0</div></div>
+    <div class="mh-stat"><div class="mh-stat-label">Upcoming</div><div class="mh-stat-val" id="billUpcomingCount">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Upcoming bills</div>
+    <div id="billList"></div>
+    <div class="empty-state" id="billEmpty">No bills or subscriptions yet</div>
+  </div>
+</div>
+
+<!-- ===== RECEIPTS ===== -->
+<div class="section" data-section="receipts" hidden>
+  <div class="section-title"><span class="section-title-text">RECEIPTS</span></div>
+
+  <div class="card" style="border:1px dashed rgba(255,255,255,0.12)">
+    <div class="label">How receipt entry works</div>
+    <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">
+      Add a photo of a receipt for your own reference while you fill in the details below, then confirm to save it as a spending entry. Automatic text extraction (OCR) is not built yet — this is manual entry only, marked as a future upgrade. The photo is never saved to this device's storage: it is discarded from memory as soon as you confirm or cancel.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Add receipt</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <label class="mh-btn" for="receiptFileInput" style="cursor:pointer">Take photo / upload</label>
+      <input type="file" accept="image/*" capture="environment" id="receiptFileInput" style="display:none">
+      <button class="mh-btn mh-btn-ghost" id="receiptManualBtn" type="button">Enter manually (no photo)</button>
+    </div>
+    <div id="receiptPreviewWrap" style="display:none;margin-top:12px">
+      <img id="receiptPreviewImg" style="max-width:180px;max-height:180px;border-radius:10px;display:block;margin-bottom:8px;object-fit:cover" alt="Receipt preview — not saved">
+      <div style="font-size:10px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.08em">Preview only — discarded after confirm or cancel</div>
+    </div>
+  </div>
+
+  <div class="card mh-hidden" id="receiptConfirmCard">
+    <div class="label">Confirm spending details</div>
+    <div class="mh-form">
+      <input type="date" id="receiptDate">
+      <input type="text" id="receiptMerchant" placeholder="Merchant">
+      <select id="receiptCategory"></select>
+      <input type="number" id="receiptAmount" placeholder="Total amount" step="0.01">
+    </div>
+    <textarea id="receiptNotes" class="mh-textarea" placeholder="Notes (optional)"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="mh-btn" id="receiptConfirmBtn" type="button">Confirm &amp; add spending</button>
+      <button class="mh-btn mh-btn-ghost" id="receiptCancelBtn" type="button">Discard</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Recent receipts</div>
+    <div id="receiptList"></div>
+    <div class="empty-state" id="receiptEmpty">No receipts logged yet</div>
+  </div>
+</div>
+
+</div>
+
+<!-- ===== BOTTOM TAB BAR ===== -->
+<nav class="bottom-tabs" id="bottomTabs" aria-label="Money HQ sections">
+  <button class="bot-tab active" data-tab="overview">Overview</button>
+  <button class="bot-tab" data-tab="networth">Net Worth</button>
+  <button class="bot-tab" data-tab="spending">Spending</button>
+  <button class="bot-tab" data-tab="income">Income</button>
+  <button class="bot-tab" data-tab="budget">Budget</button>
+  <button class="bot-tab" data-tab="investments">Investments</button>
+  <button class="bot-tab" data-tab="bills">Bills</button>
+  <button class="bot-tab" data-tab="receipts">Receipts</button>
+</nav>
+
+<script>
+(function () {
+  'use strict';
+
+  var M = window.Money;
+  var money = M.load();
+
+  function persist() { money = M.save(money); renderAll(); }
+
+  function fmt(n, decimals) {
+    decimals = decimals == null ? 0 : decimals;
+    var v = Number(n) || 0;
+    var sign = v < 0 ? '−' : '';
+    return sign + '£' + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    try { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+    catch (e) { return d; }
+  }
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  var CAT_COLORS = {
+    'Food': '#F2C063', 'Transport': '#7DD3FC', 'Training/Health': '#6EE7B7',
+    'Clothes/Appearance': '#B794F4', 'Business': '#E07658', 'Subscriptions': '#FBBF24',
+    'Savings/Investments': '#6BE3A4', 'Other': '#B8B6B0',
+  };
+  function catColor(cat) { return CAT_COLORS[cat] || '#B8B6B0'; }
+
+  function fillSelect(sel, options, selected) {
+    sel.innerHTML = options.map(function (o) { return '<option value="' + esc(o) + '"' + (o === selected ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('');
+  }
+
+  // ============================================================
+  // TAB SWITCHING
+  // ============================================================
+  var TAB_KEY = 'money_active_tab';
+  var VALID_TABS = ['overview', 'networth', 'spending', 'income', 'budget', 'investments', 'bills', 'receipts'];
+  var tabs = document.querySelectorAll('.bot-tab');
+  var sections = document.querySelectorAll('.section[data-section]');
+  function setActiveTab(name) {
+    tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    sections.forEach(function (s) { if (s.dataset.section === name) s.removeAttribute('hidden'); else s.setAttribute('hidden', ''); });
+    try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  tabs.forEach(function (b) { b.addEventListener('click', function () { setActiveTab(b.dataset.tab); }); });
+  var savedTab = null;
+  try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) {}
+  setActiveTab(VALID_TABS.indexOf(savedTab) !== -1 ? savedTab : 'overview');
+
+  // ============================================================
+  // OVERVIEW
+  // ============================================================
+  function renderOverview() {
+    var stats = [
+      { label: 'Net Worth', val: fmt(M.netWorth(money)) },
+      { label: 'Monthly Income', val: fmt(M.monthlyIncome(money)) },
+      { label: 'Monthly Spending', val: fmt(M.monthlySpending(money)) },
+      { label: 'Monthly Savings', val: fmt(M.monthlySavings(money)), cls: M.monthlySavings(money) < 0 ? 'neg' : 'pos' },
+      { label: 'Savings Rate', val: M.savingsRate(money) + '%' },
+      { label: 'Total Invested', val: fmt(M.totalInvestmentsValue(money)) },
+    ];
+    document.getElementById('ovStats').innerHTML = stats.map(function (s) {
+      return '<div class="mh-stat"><div class="mh-stat-label">' + esc(s.label) + '</div><div class="mh-stat-val ' + (s.cls || '') + '">' + esc(s.val) + '</div></div>';
+    }).join('');
+
+    var bills = M.upcomingBills(money, 4);
+    document.getElementById('ovBillsEmpty').style.display = bills.length ? 'none' : '';
+    document.getElementById('ovBills').innerHTML = bills.map(function (b) {
+      var d = b.daysUntil;
+      var badge = d == null ? 'good' : d < 0 ? 'bad' : d <= 3 ? 'warn' : 'good';
+      var dayLabel = d == null ? '—' : d === 0 ? 'Due today' : d < 0 ? Math.abs(d) + 'd overdue' : 'in ' + d + 'd';
+      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(b.category) + '"></span><div class="item-body"><div class="item-title">' + esc(b.name) + '</div><div class="item-meta">' + esc(b.frequency || '') + ' · ' + fmtDate(b.dueDate) + '</div></div><span class="mh-badge ' + badge + '">' + esc(dayLabel) + '</span><div class="item-amt">' + fmt(b.amount) + '</div></div>';
+    }).join('');
+
+    var cats = M.spendingByCategory(money, true).slice(0, 5);
+    var catTotal = cats.reduce(function (s, c) { return s + c.amount; }, 0) || 1;
+    document.getElementById('ovCategoriesEmpty').style.display = cats.length ? 'none' : '';
+    document.getElementById('ovCategories').innerHTML = cats.map(function (c) {
+      return '<div class="mh-leg"><span class="mh-leg-dot" style="background:' + catColor(c.category) + ';color:' + catColor(c.category) + '"></span><span class="mh-leg-name">' + esc(c.category) + '</span><span class="mh-leg-amt">' + fmt(c.amount) + ' · ' + Math.round((c.amount / catTotal) * 100) + '%</span></div>';
+    }).join('');
+
+    var txns = M.recentTransactions(money, 6);
+    document.getElementById('ovTxnsEmpty').style.display = txns.length ? 'none' : '';
+    document.getElementById('ovTxns').innerHTML = txns.map(function (t) {
+      var up = t.amount >= 0;
+      return '<div class="mh-act-row"><span class="mh-act-bar" style="background:' + (up ? '#6BE3A4' : '#FF8A8A') + ';color:' + (up ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="mh-act-info"><span class="mh-act-name">' + esc(t.label) + '</span><span class="mh-act-meta">' + esc(t.category || t.kind) + '</span></div><span class="mh-act-amt ' + (up ? 'up' : 'down') + '">' + (up ? '+' : '') + fmt(t.amount) + '</span><span class="mh-act-date">' + fmtDate(t.date) + '</span></div>';
+    }).join('');
+
+    var goals = (window.Goals && window.Goals.load) ? window.Goals.load().activeGoals.filter(function (g) { return g.category === 'Business / Money'; }) : [];
+    document.getElementById('ovGoalsEmpty').style.display = goals.length ? 'none' : '';
+    document.getElementById('ovGoals').innerHTML = goals.map(function (g) {
+      var pct = Math.max(0, Math.min(100, Number(g.progress) || 0));
+      return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="font-weight:600">' + esc(g.title || 'Untitled goal') + '</span><span style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:11.5px">' + pct + '%</span></div><div class="mh-progress-track"><div class="mh-progress-fill" style="width:' + pct + '%"></div></div></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // NET WORTH
+  // ============================================================
+  function nwListHtml(items, onField) {
+    return items.map(function (it) {
+      return '<div class="nw-row"><span class="nw-name">' + esc(it.name) + '</span><span class="nw-amt">' + fmt(it[onField]) + '</span><button class="nw-del" data-id="' + it.id + '">×</button></div>';
+    }).join('');
+  }
+
+  function renderNetWorth() {
+    var nw = M.netWorth(money);
+    document.getElementById('nwTotal').textContent = fmt(nw);
+    document.getElementById('nwBreakdown').textContent =
+      'Accounts ' + fmt(M.totalAccounts(money, 'bank') + M.totalAccounts(money, 'cash')) +
+      ' · Investments ' + fmt(M.totalInvestmentsValue(money)) +
+      ' · Crypto ' + fmt(M.totalAssets(money, 'crypto')) +
+      ' · Other ' + fmt(M.totalAssets(money, 'other')) +
+      ' · Liabilities −' + fmt(M.totalLiabilities(money));
+
+    var bank = money.accounts.filter(function (a) { return a.type === 'bank'; });
+    var cash = money.accounts.filter(function (a) { return a.type === 'cash'; });
+    var crypto = money.assets.filter(function (a) { return a.type === 'crypto'; });
+    var other = money.assets.filter(function (a) { return a.type === 'other'; });
+
+    document.getElementById('bankTotal').textContent = fmt(M.totalAccounts(money, 'bank'));
+    document.getElementById('bankList').innerHTML = nwListHtml(bank, 'balance');
+    document.getElementById('cashTotal').textContent = fmt(M.totalAccounts(money, 'cash'));
+    document.getElementById('cashList').innerHTML = nwListHtml(cash, 'balance');
+    document.getElementById('cryptoTotal').textContent = fmt(M.totalAssets(money, 'crypto'));
+    document.getElementById('cryptoList').innerHTML = nwListHtml(crypto, 'value');
+    document.getElementById('otherTotal').textContent = fmt(M.totalAssets(money, 'other'));
+    document.getElementById('otherList').innerHTML = nwListHtml(other, 'value');
+    document.getElementById('liabTotal').textContent = fmt(M.totalLiabilities(money));
+    document.getElementById('liabList').innerHTML = nwListHtml(money.liabilities, 'balance');
+    document.getElementById('nwInvestTotal').textContent = fmt(M.totalInvestmentsValue(money));
+
+    var hist = (money.netWorthHistory || []).slice().reverse().slice(0, 8);
+    document.getElementById('nwHistoryEmpty').style.display = hist.length ? 'none' : '';
+    document.getElementById('nwHistory').innerHTML = hist.map(function (h, i) {
+      var prev = hist[i + 1];
+      var delta = prev ? h.value - prev.value : 0;
+      var up = delta >= 0;
+      return '<div class="mh-act-row"><span class="mh-act-bar" style="background:' + (up ? '#6BE3A4' : '#FF8A8A') + ';color:' + (up ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="mh-act-info"><span class="mh-act-name">' + fmt(h.value) + '</span><span class="mh-act-meta">Snapshot</span></div><span class="mh-act-amt ' + (up ? 'up' : 'down') + '">' + (prev ? (up ? '+' : '') + fmt(delta) : '—') + '</span><span class="mh-act-date">' + fmtDate(h.date) + '</span></div>';
+    }).join('');
+  }
+
+  function wireAdd(nameId, amtId, btnId, arrKey, type, field) {
+    document.getElementById(btnId).addEventListener('click', function () {
+      var nameEl = document.getElementById(nameId), amtEl = document.getElementById(amtId);
+      var name = nameEl.value.trim(), amt = Number(amtEl.value);
+      if (!name || !isFinite(amt)) return;
+      var row = { id: M.uid(), name: name };
+      row[field] = amt;
+      if (type) row.type = type;
+      money[arrKey].push(row);
+      nameEl.value = ''; amtEl.value = '';
+      persist();
+    });
+  }
+  wireAdd('bankName', 'bankAmount', 'bankAddBtn', 'accounts', 'bank', 'balance');
+  wireAdd('cashName', 'cashAmount', 'cashAddBtn', 'accounts', 'cash', 'balance');
+  wireAdd('cryptoName', 'cryptoAmount', 'cryptoAddBtn', 'assets', 'crypto', 'value');
+  wireAdd('otherName', 'otherAmount', 'otherAddBtn', 'assets', 'other', 'value');
+  wireAdd('liabName', 'liabAmount', 'liabAddBtn', 'liabilities', null, 'balance');
+
+  ['bankList', 'cashList', 'cryptoList', 'otherList', 'liabList'].forEach(function (listId) {
+    document.getElementById(listId).addEventListener('click', function (e) {
+      var btn = e.target.closest('.nw-del');
+      if (!btn) return;
+      var id = btn.dataset.id;
+      money.accounts = money.accounts.filter(function (a) { return a.id !== id; });
+      money.assets = money.assets.filter(function (a) { return a.id !== id; });
+      money.liabilities = money.liabilities.filter(function (a) { return a.id !== id; });
+      persist();
+    });
+  });
+
+  // ============================================================
+  // SPENDING
+  // ============================================================
+  fillSelect(document.getElementById('spendCategory'), M.SPENDING_CATEGORIES);
+  fillSelect(document.getElementById('spendMethod'), M.PAYMENT_METHODS);
+  document.getElementById('spendDate').value = todayStr();
+
+  document.getElementById('spendAddBtn').addEventListener('click', function () {
+    var amt = Number(document.getElementById('spendAmount').value);
+    var merchant = document.getElementById('spendMerchant').value.trim();
+    if (!merchant || !(amt > 0)) return;
+    money.spending.push({
+      id: M.uid(),
+      date: document.getElementById('spendDate').value || todayStr(),
+      merchant: merchant,
+      category: document.getElementById('spendCategory').value,
+      amount: amt,
+      paymentMethod: document.getElementById('spendMethod').value,
+      notes: document.getElementById('spendNotes').value.trim(),
+      source: 'manual',
+    });
+    document.getElementById('spendMerchant').value = '';
+    document.getElementById('spendAmount').value = '';
+    document.getElementById('spendNotes').value = '';
+    persist();
+  });
+
+  document.getElementById('spendList').addEventListener('click', function (e) {
+    var btn = e.target.closest('.delete-x');
+    if (!btn) return;
+    money.spending = money.spending.filter(function (s) { return s.id !== btn.dataset.id; });
+    persist();
+  });
+
+  function renderSpending() {
+    document.getElementById('spendMonthlyTotal').textContent = fmt(M.monthlySpending(money));
+    var cats = M.spendingByCategory(money, true);
+    var total = cats.reduce(function (s, c) { return s + c.amount; }, 0) || 1;
+    document.getElementById('spendCatsEmpty').style.display = cats.length ? 'none' : '';
+    document.getElementById('spendCats').innerHTML = cats.map(function (c) {
+      return '<div class="mh-leg"><span class="mh-leg-dot" style="background:' + catColor(c.category) + ';color:' + catColor(c.category) + '"></span><span class="mh-leg-name">' + esc(c.category) + '</span><span class="mh-leg-amt">' + fmt(c.amount) + ' · ' + Math.round((c.amount / total) * 100) + '%</span></div>';
+    }).join('');
+
+    var rows = money.spending.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 20);
+    document.getElementById('spendEmpty').style.display = rows.length ? 'none' : '';
+    document.getElementById('spendList').innerHTML = rows.map(function (s) {
+      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(s.category) + '"></span><div class="item-body"><div class="item-title">' + esc(s.merchant) + '</div><div class="item-meta">' + esc(s.category) + ' · ' + esc(s.paymentMethod || '') + ' · ' + fmtDate(s.date) + '</div></div><span class="item-amt neg">-' + fmt(s.amount) + '</span><button class="delete-x" data-id="' + s.id + '">×</button></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // INCOME
+  // ============================================================
+  fillSelect(document.getElementById('incType'), M.INCOME_TYPES);
+  document.getElementById('incDate').value = todayStr();
+
+  document.getElementById('incAddBtn').addEventListener('click', function () {
+    var amt = Number(document.getElementById('incAmount').value);
+    var source = document.getElementById('incSource').value.trim();
+    if (!source || !(amt > 0)) return;
+    money.income.push({
+      id: M.uid(),
+      date: document.getElementById('incDate').value || todayStr(),
+      source: source,
+      type: document.getElementById('incType').value,
+      amount: amt,
+      notes: document.getElementById('incNotes').value.trim(),
+    });
+    document.getElementById('incSource').value = '';
+    document.getElementById('incAmount').value = '';
+    document.getElementById('incNotes').value = '';
+    persist();
+  });
+
+  document.getElementById('incList').addEventListener('click', function (e) {
+    var btn = e.target.closest('.delete-x');
+    if (!btn) return;
+    money.income = money.income.filter(function (i) { return i.id !== btn.dataset.id; });
+    persist();
+  });
+
+  function renderIncome() {
+    document.getElementById('incMonthlyTotal').textContent = fmt(M.monthlyIncome(money));
+    var srcs = M.incomeBySource(money, true);
+    var total = srcs.reduce(function (s, c) { return s + c.amount; }, 0) || 1;
+    document.getElementById('incSourcesEmpty').style.display = srcs.length ? 'none' : '';
+    document.getElementById('incSources').innerHTML = srcs.map(function (c) {
+      return '<div class="mh-leg"><span class="mh-leg-dot" style="background:#6BE3A4;color:#6BE3A4"></span><span class="mh-leg-name">' + esc(c.source) + '</span><span class="mh-leg-amt">' + fmt(c.amount) + ' · ' + Math.round((c.amount / total) * 100) + '%</span></div>';
+    }).join('');
+
+    var rows = money.income.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 20);
+    document.getElementById('incEmpty').style.display = rows.length ? 'none' : '';
+    document.getElementById('incList').innerHTML = rows.map(function (i) {
+      return '<div class="custom-item"><span class="item-dot" style="background:#6BE3A4"></span><div class="item-body"><div class="item-title">' + esc(i.source) + '</div><div class="item-meta">' + esc(i.type) + ' · ' + fmtDate(i.date) + '</div></div><span class="item-amt pos">+' + fmt(i.amount) + '</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // BUDGET
+  // ============================================================
+  document.getElementById('budgetTargetSaveBtn').addEventListener('click', function () {
+    money.budgetTarget = Number(document.getElementById('budgetTargetInput').value) || 0;
+    persist();
+  });
+
+  document.getElementById('budgetCatList').addEventListener('change', function (e) {
+    var input = e.target.closest('.budget-limit-input');
+    if (!input) return;
+    var b = money.budgets.find(function (x) { return x.id === input.dataset.id; });
+    if (!b) return;
+    b.monthlyLimit = Number(input.value) || 0;
+    persist();
+  });
+
+  function renderBudget() {
+    document.getElementById('budgetTargetInput').value = money.budgetTarget || '';
+    var spent = M.monthlySpending(money);
+    var target = Number(money.budgetTarget) || 0;
+    var pct = target > 0 ? Math.min(100, Math.round((spent / target) * 100)) : 0;
+    var fillCls = pct >= 100 ? 'bad' : pct >= 80 ? 'warn' : '';
+    var fill = document.getElementById('budgetTotalFill');
+    fill.style.width = pct + '%';
+    fill.className = 'mh-progress-fill ' + fillCls;
+    document.getElementById('budgetTotalMeta').textContent = target > 0
+      ? fmt(spent) + ' of ' + fmt(target) + ' spent this month · ' + fmt(Math.max(0, target - spent)) + ' remaining'
+      : 'Set a monthly target to track overall budget usage.';
+
+    document.getElementById('budgetCatList').innerHTML = (money.budgets || []).map(function (b) {
+      var limit = Number(b.monthlyLimit) || 0;
+      var used = Number(b.spent) || 0;
+      var p = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+      var cls = p >= 100 ? 'bad' : p >= 80 ? 'warn' : '';
+      var badgeCls = p >= 100 ? 'bad' : p >= 80 ? 'warn' : 'good';
+      return '<div class="card">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<span style="font-weight:600;font-size:13px">' + esc(b.category) + '</span>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+        '<input type="number" class="budget-limit-input" data-id="' + b.id + '" value="' + limit + '" step="0.01" style="width:90px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.06);outline:none;color:var(--text-primary);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px">' +
+        '<span class="mh-badge ' + badgeCls + '">' + p + '%</span>' +
+        '</div></div>' +
+        '<div class="mh-progress-track" style="margin-top:10px"><div class="mh-progress-fill ' + cls + '" style="width:' + p + '%"></div></div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">' + fmt(used) + ' of ' + fmt(limit) + ' spent · ' + fmt(Math.max(0, limit - used)) + ' remaining</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // INVESTMENTS
+  // ============================================================
+  fillSelect(document.getElementById('invType'), M.INVESTMENT_TYPES);
+
+  document.getElementById('invAddBtn').addEventListener('click', function () {
+    var name = document.getElementById('invName').value.trim();
+    var contributed = Number(document.getElementById('invContributed').value) || 0;
+    var currentValue = Number(document.getElementById('invCurrentValue').value) || 0;
+    if (!name || (!contributed && !currentValue)) return;
+    money.investments.push({
+      id: M.uid(), name: name, type: document.getElementById('invType').value,
+      contributed: contributed, currentValue: currentValue,
+      notes: document.getElementById('invNotes').value.trim(),
+    });
+    document.getElementById('invName').value = '';
+    document.getElementById('invContributed').value = '';
+    document.getElementById('invCurrentValue').value = '';
+    document.getElementById('invNotes').value = '';
+    persist();
+  });
+
+  document.getElementById('invList').addEventListener('click', function (e) {
+    var btn = e.target.closest('.delete-x');
+    if (!btn) return;
+    money.investments = money.investments.filter(function (i) { return i.id !== btn.dataset.id; });
+    persist();
+  });
+
+  function renderInvestments() {
+    var contributed = M.totalInvestmentsContributed(money);
+    var value = M.totalInvestmentsValue(money);
+    var gain = value - contributed;
+    document.getElementById('invTotalContributed').textContent = fmt(contributed);
+    document.getElementById('invTotalValue').textContent = fmt(value);
+    var gainEl = document.getElementById('invGain');
+    gainEl.textContent = (gain >= 0 ? '+' : '') + fmt(gain);
+    gainEl.className = 'mh-stat-val ' + (gain >= 0 ? 'pos' : 'neg');
+
+    document.getElementById('invEmpty').style.display = money.investments.length ? 'none' : '';
+    document.getElementById('invList').innerHTML = money.investments.map(function (i) {
+      var g = Number(i.currentValue) - Number(i.contributed);
+      var gp = Number(i.contributed) > 0 ? Math.round((g / Number(i.contributed)) * 100) : 0;
+      return '<div class="custom-item"><span class="item-dot" style="background:' + (g >= 0 ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="item-body"><div class="item-title">' + esc(i.name) + '</div><div class="item-meta">' + esc(i.type) + ' · contributed ' + fmt(i.contributed) + '</div></div><span class="item-amt ' + (g >= 0 ? 'pos' : 'neg') + '">' + fmt(i.currentValue) + ' (' + (gp >= 0 ? '+' : '') + gp + '%)</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // BILLS / SUBSCRIPTIONS
+  // ============================================================
+  fillSelect(document.getElementById('billFrequency'), M.BILL_FREQUENCIES);
+  fillSelect(document.getElementById('billCategory'), M.SPENDING_CATEGORIES);
+  fillSelect(document.getElementById('billStatus'), M.BILL_STATUSES);
+
+  document.getElementById('billAddBtn').addEventListener('click', function () {
+    var name = document.getElementById('billName').value.trim();
+    var amt = Number(document.getElementById('billAmount').value);
+    if (!name || !(amt > 0)) return;
+    money.bills.push({
+      id: M.uid(), name: name, amount: amt,
+      dueDate: document.getElementById('billDueDate').value,
+      frequency: document.getElementById('billFrequency').value,
+      category: document.getElementById('billCategory').value,
+      status: document.getElementById('billStatus').value,
+    });
+    document.getElementById('billName').value = '';
+    document.getElementById('billAmount').value = '';
+    document.getElementById('billDueDate').value = '';
+    persist();
+  });
+
+  document.getElementById('billList').addEventListener('click', function (e) {
+    var btn = e.target.closest('.delete-x');
+    if (!btn) return;
+    money.bills = money.bills.filter(function (b) { return b.id !== btn.dataset.id; });
+    persist();
+  });
+  document.getElementById('billList').addEventListener('change', function (e) {
+    var sel = e.target.closest('.bill-status-select');
+    if (!sel) return;
+    var b = money.bills.find(function (x) { return x.id === sel.dataset.id; });
+    if (!b) return;
+    b.status = sel.value;
+    persist();
+  });
+
+  function renderBills() {
+    document.getElementById('billMonthlyTotal').textContent = fmt(M.monthlyRecurringTotal(money));
+    var upcoming = M.upcomingBills(money);
+    document.getElementById('billUpcomingCount').textContent = upcoming.length;
+
+    var all = money.bills.slice().sort(function (a, b) {
+      var da = M.daysUntil(a.dueDate), db = M.daysUntil(b.dueDate);
+      return (da == null ? 9999 : da) - (db == null ? 9999 : db);
+    });
+    document.getElementById('billEmpty').style.display = all.length ? 'none' : '';
+    document.getElementById('billList').innerHTML = all.map(function (b) {
+      var d = M.daysUntil(b.dueDate);
+      var badge = b.status === 'Paid' ? 'good' : b.status === 'Cancelled' ? '' : d != null && d < 0 ? 'bad' : d != null && d <= 3 ? 'warn' : 'good';
+      var dayLabel = b.status === 'Paid' || b.status === 'Cancelled' ? b.status : d == null ? '—' : d === 0 ? 'Due today' : d < 0 ? Math.abs(d) + 'd overdue' : 'in ' + d + 'd';
+      var statusOpts = M.BILL_STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === b.status ? ' selected' : '') + '>' + s + '</option>'; }).join('');
+      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(b.category) + '"></span><div class="item-body"><div class="item-title">' + esc(b.name) + '</div><div class="item-meta">' + esc(b.category) + ' · ' + esc(b.frequency) + ' · ' + fmtDate(b.dueDate) + '</div></div><span class="mh-badge ' + badge + '">' + esc(dayLabel) + '</span><select class="bill-status-select" data-id="' + b.id + '" style="background:rgba(255,255,255,0.04);color:var(--text-primary);border:1px solid rgba(255,255,255,0.08);border-radius:6px;font-size:11px;padding:4px 6px;font-family:inherit">' + statusOpts + '</select><span class="item-amt">' + fmt(b.amount) + '</span><button class="delete-x" data-id="' + b.id + '">×</button></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // RECEIPTS — upload/camera preview + manual confirmation.
+  // The image never touches localStorage: it lives only in this
+  // page's memory (a data: URL held in a local variable / <img>
+  // src) and is cleared as soon as the entry is confirmed or the
+  // user discards it. No OCR is implemented — fields are always
+  // filled in by hand; this is clearly a future upgrade.
+  // ============================================================
+  fillSelect(document.getElementById('receiptCategory'), M.SPENDING_CATEGORIES);
+  var receiptFileInput = document.getElementById('receiptFileInput');
+  var receiptPreviewWrap = document.getElementById('receiptPreviewWrap');
+  var receiptPreviewImg = document.getElementById('receiptPreviewImg');
+  var receiptConfirmCard = document.getElementById('receiptConfirmCard');
+
+  function showConfirmCard() {
+    receiptConfirmCard.classList.remove('mh-hidden');
+    document.getElementById('receiptDate').value = todayStr();
+  }
+  function discardReceipt() {
+    receiptPreviewImg.src = '';
+    receiptPreviewWrap.style.display = 'none';
+    receiptFileInput.value = '';
+    receiptConfirmCard.classList.add('mh-hidden');
+    document.getElementById('receiptMerchant').value = '';
+    document.getElementById('receiptAmount').value = '';
+    document.getElementById('receiptNotes').value = '';
+  }
+
+  receiptFileInput.addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      receiptPreviewImg.src = ev.target.result;
+      receiptPreviewWrap.style.display = 'block';
+      showConfirmCard();
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('receiptManualBtn').addEventListener('click', function () {
+    receiptPreviewWrap.style.display = 'none';
+    showConfirmCard();
+  });
+  document.getElementById('receiptCancelBtn').addEventListener('click', discardReceipt);
+  document.getElementById('receiptConfirmBtn').addEventListener('click', function () {
+    var merchant = document.getElementById('receiptMerchant').value.trim();
+    var amt = Number(document.getElementById('receiptAmount').value);
+    if (!merchant || !(amt > 0)) return;
+    var date = document.getElementById('receiptDate').value || todayStr();
+    var category = document.getElementById('receiptCategory').value;
+    var notes = document.getElementById('receiptNotes').value.trim();
+    money.spending.push({ id: M.uid(), date: date, merchant: merchant, category: category, amount: amt, paymentMethod: 'Card', notes: notes, source: 'receipt' });
+    money.receipts.push({ id: M.uid(), date: date, merchant: merchant, amount: amt, category: category, status: 'added', notes: notes });
+    discardReceipt();
+    persist();
+  });
+
+  function renderReceipts() {
+    var rows = money.receipts.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 15);
+    document.getElementById('receiptEmpty').style.display = rows.length ? 'none' : '';
+    document.getElementById('receiptList').innerHTML = rows.map(function (r) {
+      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(r.category) + '"></span><div class="item-body"><div class="item-title">' + esc(r.merchant) + '</div><div class="item-meta">' + esc(r.category) + ' · ' + fmtDate(r.date) + '</div></div><span class="item-amt neg">-' + fmt(r.amount) + '</span></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  function renderAll() {
+    renderOverview();
+    renderNetWorth();
+    renderSpending();
+    renderIncome();
+    renderBudget();
+    renderInvestments();
+    renderBills();
+    renderReceipts();
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>

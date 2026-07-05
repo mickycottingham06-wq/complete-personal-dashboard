@@ -444,7 +444,47 @@ The full interactive UI lives at `pages/ai-ceo.html`. index.html shows a compact
 
 ---
 
-# Finance Data
+# Money HQ Data
+
+Implemented. Lives in `localStorage` under the key `money`. The load/save/calculation logic lives in `scripts/money-data.js` (shared business logic), used by both the full page at `pages/money-hq.html` and the Command Centre preview card on index.html. Supersedes the old `pages/finance.html` build (kept on disk, de-prioritised, no longer linked from navigation) and the stub below.
+
+Shape:
+
+```
+money: {
+  currency: 'GBP',                 // always GBP — this app never uses CHF
+  accounts: [ { id, name, type: 'bank'|'cash', balance } ],
+  assets: [ { id, name, type: 'crypto'|'other', value } ],
+  liabilities: [ { id, name, type, balance } ],
+  spending: [ { id, date, merchant, category, amount, paymentMethod, notes, source } ],  // source: 'manual'|'receipt'
+  income: [ { id, date, source, type, amount, notes } ],
+  budgets: [ { id, category, monthlyLimit, spent } ],   // spent is a recomputed cache, not a second source of truth
+  budgetTarget: number,             // overall monthly budget target
+  investments: [ { id, name, type, currentValue, contributed, notes } ],
+  bills: [ { id, name, amount, dueDate, frequency, category, status } ],
+  receipts: [ { id, date, merchant, amount, category, status, notes } ],  // log only — no image data ever stored here
+  netWorthHistory: [ { date, value } ],  // capped at 90 entries, oldest → newest, one snapshot per day
+  notes: string,
+}
+```
+
+Default budget categories (`window.Money` seeds these into `budgets` on first load / upgrade): Food, Transport, Training/Health, Clothes/Appearance, Business, Subscriptions, Savings/Investments, Other. The same list is `window.Money.SPENDING_CATEGORIES`, reused by the Spending, Bills, and Receipts category dropdowns so spending always maps onto a budget category.
+
+`window.Money.load()` / `.save(m)` follow the same upgrade-on-load pattern as every other section. `save()` also refreshes two derived caches so they can never drift from the arrays that actually own the data: each budget's `spent` (recomputed from `spending` for the current calendar month) and today's `netWorthHistory` snapshot (replaces today's entry if one already exists, otherwise appends). `window.Money.uid()` generates ids. Pure calculation reads — `netWorth()`, `totalAccounts()`, `totalAssets()`, `totalLiabilities()`, `totalInvestmentsValue()`, `totalInvestmentsContributed()`, `monthlyIncome()`, `monthlySpending()`, `monthlySavings()`, `savingsRate()`, `spendingByCategory()`, `incomeBySource()`, `upcomingBills()`, `monthlyRecurringTotal()`, `recentTransactions()` — never persist and never duplicate the underlying arrays. `window.Money.computeSummary()` bundles the headline numbers (net worth, monthly income/spending/savings, savings rate, total invested, next upcoming bill) for the Command Centre preview card.
+
+The full interactive UI lives at `pages/money-hq.html`: a header + back button (same suppressed-chrome pattern as the old finance.html) and its own internal bottom tab bar for Overview / Net Worth / Spending / Income / Budget / Investments / Bills / Receipts (active tab persisted under `money_active_tab`). index.html shows a compact preview card (net worth, monthly savings line, income/spending/savings-rate mini-stats, next upcoming bill) that links to it.
+
+Receipts tab: the photo is read client-side with `FileReader` into a data URL held only in a page-level JS variable / `<img>` preview — it is never written to `localStorage` and is discarded (cleared from the `<img>` and the file input) as soon as the entry is confirmed or cancelled. No OCR is implemented (no paid API, no client-side text extraction) — merchant/amount/date/category are always typed in by hand; this is clearly labelled in the UI as manual entry with OCR as a future upgrade. Confirming only ever persists a `spending` entry (`source: 'receipt'`) plus a `receipts` log row — never the image.
+
+Overview tab reads (never duplicates) `window.Goals` — active goals with `category === 'Business / Money'` — for the "financial goal progress" rollup.
+
+Everything related to net worth, spending, income, budgeting, investments, bills/subscriptions, and receipt-based spending entry belongs here. Future features (real bank connections, real OCR/AI extraction, property tracking, multi-currency) should extend this shape rather than creating a second finance data source.
+
+---
+
+# Finance Data (superseded)
+
+This was the original planning stub, superseded by the implemented "Money HQ Data" section above (`money` key, `scripts/money-data.js`, `pages/money-hq.html`). Kept here only for history.
 
 finance.js
 
@@ -889,7 +929,7 @@ core: {
 
 The one exception is weight: `window.Health.currentWeight` and `window.Boxing.currentWeight` are two separate fields (Health HQ and Boxing HQ each need their own record), so `window.Core.setCurrentWeight(kg)` writes the same number into **both** on every save from either page's weight field. This keeps the two in sync without merging the two sections' data models. `pages/health.html` and `pages/boxing-hq.html` both call it from their own `save()` wrapper.
 
-Future features that want a single "how's everything doing" view (a rebuilt Command Centre widget, a future Money HQ summary) should read `getSnapshot()` rather than re-reading every section's data directly.
+Future features that want a single "how's everything doing" view (a rebuilt Command Centre widget) should read `getSnapshot()` rather than re-reading every section's data directly. Money HQ's summary (`window.Money.computeSummary()`) follows the same read-only pattern but lives in `scripts/money-data.js` since it's finance-specific, not general cross-section state.
 
 ---
 

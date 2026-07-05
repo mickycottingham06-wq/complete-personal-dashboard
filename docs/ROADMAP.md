@@ -82,21 +82,21 @@ AI Business Assistant ✅ (prompt-powered — no live API yet)
 
 ## Phase 5
 
-Money HQ (future — currently the existing Finance page, de-prioritised on the Command Centre and labelled "future finance hub" until this phase is built)
+Money HQ ✅ (pages/money-hq.html — replaces the old Finance page; own internal bottom tab bar, `money` localStorage key)
 
-Net Worth
+Net Worth ✅ (bank, cash, crypto, other assets, liabilities, auto-calculated total, snapshot history)
 
-Cash
+Cash ✅ (tracked as its own Net Worth category)
 
-Investments
+Investments ✅ (accounts with contributed vs current value, gain/loss)
 
-Bills
+Bills ✅ (Bills / Subscriptions tab — due dates, frequency, status, monthly recurring total)
 
-Income
+Income ✅ (source, type, monthly total, income by source)
 
-Expenses
+Expenses ✅ (Spending tab — manual entry, categories, monthly total, spending by category; Receipts tab adds photo-assisted manual entry, OCR left as a future upgrade)
 
-Property
+Property (still future — no dedicated property tracking yet; log as an "Other asset" / "Liability" in Net Worth for now)
 
 ---
 
