@@ -23,6 +23,7 @@
 <script src="scripts/life-stats-data.js"></script>
 <script src="scripts/heatmap-data.js"></script>
 <script src="scripts/integrations-data.js"></script>
+<script src="scripts/google-calendar-service.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -500,6 +501,7 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewIntCloud">Off</div><div class="l">Cloud Sync</div></div>
       </div>
       <div class="preview-sub" id="previewIntWeatherDetail" style="margin-top:10px"></div>
+      <div class="preview-sub" id="previewIntCalendarDetail" style="margin-top:4px"></div>
     </a>
   </div>
 
@@ -1208,6 +1210,24 @@ body::after {
       detail.textContent = bits.join(' · ');
     } else {
       detail.textContent = '';
+    }
+
+    var cal = it.googleCalendar;
+    var calDetail = $('previewIntCalendarDetail');
+    if (cal.enabled) {
+      var today = window.GoogleCalendarService.getToday(cal.upcomingEvents);
+      var next = window.GoogleCalendarService.getNext(cal.upcomingEvents);
+      var calBits = [];
+      calBits.push(next ? 'Next: ' + next.title + ' · ' + next.time : 'No upcoming events');
+      calBits.push(today.length + ' today');
+      if (cal.lastSync) {
+        var cs = Math.floor((Date.now() - new Date(cal.lastSync).getTime()) / 1000);
+        var calAgo = cs < 60 ? 'just now' : cs < 3600 ? Math.floor(cs / 60) + ' min ago' : cs < 86400 ? Math.floor(cs / 3600) + ' h ago' : Math.floor(cs / 86400) + ' d ago';
+        calBits.push('synced ' + calAgo);
+      }
+      calDetail.textContent = calBits.join(' · ');
+    } else {
+      calDetail.textContent = '';
     }
   }
 

@@ -74,6 +74,12 @@
       });
     });
     if (!Array.isArray(stored.googleCalendar.upcomingEvents)) stored.googleCalendar.upcomingEvents = [];
+    // Upgrade older saved events (title/date/time only) with the richer
+    // location/notes fields so older localStorage data never throws.
+    stored.googleCalendar.upcomingEvents.forEach(function (e) {
+      if (typeof e.location !== 'string') e.location = '';
+      if (typeof e.notes !== 'string') e.notes = '';
+    });
     return stored;
   }
 
@@ -105,15 +111,19 @@
     { temperature: '14°C', condition: 'Light rain' },
   ];
   var MOCK_EVENTS = [
-    { title: 'Team sync', daysFromNow: 0, time: '10:00' },
-    { title: 'Coaching call', daysFromNow: 1, time: '15:30' },
-    { title: 'Dentist appointment', daysFromNow: 3, time: '09:15' },
+    { title: 'Team sync', daysFromNow: 0, time: '10:00', location: 'Google Meet', notes: 'Weekly check-in' },
+    { title: 'Gym session', daysFromNow: 0, time: '18:00', location: 'Home gym', notes: '' },
+    { title: 'Coaching call', daysFromNow: 1, time: '15:30', location: 'Phone', notes: 'Bring last week\'s numbers' },
+    { title: 'Dentist appointment', daysFromNow: 3, time: '09:15', location: 'High Street Dental', notes: '' },
   ];
 
+  // Local calendar date (not UTC) so "today"/"tomorrow" comparisons match
+  // the device's actual day regardless of timezone.
   function dateInDays(n) {
     var d = new Date();
     d.setDate(d.getDate() + n);
-    return d.toISOString().slice(0, 10);
+    var y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
   }
 
   // Simulates a "Sync now" action for a given section. This never makes
@@ -138,9 +148,7 @@
       s.status = 'Connected (demo data)';
       s.lastSync = nowIso();
     } else if (section === 'googleCalendar') {
-      s.upcomingEvents = MOCK_EVENTS.map(function (e) {
-        return { id: uid(), title: e.title, date: dateInDays(e.daysFromNow), time: e.time };
-      });
+      s.upcomingEvents = buildMockCalendarEvents();
       s.status = 'Connected (demo data)';
       s.lastSync = nowIso();
     } else if (section === 'aiApi') {
@@ -153,6 +161,14 @@
 
     save(state);
     return { ok: true, state: state };
+  }
+
+  // Shared mock event builder so google-calendar-service.js's refresh()
+  // and this file's own mockSync() never drift into two different pools.
+  function buildMockCalendarEvents() {
+    return MOCK_EVENTS.map(function (e) {
+      return { id: uid(), title: e.title, date: dateInDays(e.daysFromNow), time: e.time, location: e.location || '', notes: e.notes || '' };
+    });
   }
 
   function setField(section, field, value) {
@@ -172,5 +188,6 @@
     setEnabled: setEnabled,
     setField: setField,
     mockSync: mockSync,
+    buildMockCalendarEvents: buildMockCalendarEvents,
   };
 })();

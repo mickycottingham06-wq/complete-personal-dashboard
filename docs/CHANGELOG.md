@@ -294,6 +294,30 @@ Add Integrations Foundation
 
 ---
 
+## 2026-07-05
+
+### Google Calendar Integration Foundation
+
+Built out the Google Calendar integration inside the existing Integrations foundation, ready to swap in real OAuth later without any UI or data-shape changes.
+
+New `scripts/google-calendar-service.js` keeps calendar-specific logic out of the generic `integrations-data.js`: `refresh('googleCalendar')` simulates a sync delay and writes mock events (a real try/catch sets `status: 'Error — …'` on failure instead of throwing, so the error-state UI path already works), and `getToday(events)` / `getTomorrow(events)` / `getNext(events)` are pure, local-date-aware reads that never throw on empty input. `integrations-data.js`'s `googleCalendar.upcomingEvents` shape gained `location` and `notes` per event (older saved events upgrade in cleanly), and its mock event pool is now shared via `window.Integrations.buildMockCalendarEvents()` so `mockSync()` and the new service never drift into two different demo datasets.
+
+Updated `pages/integrations.html`'s Google Calendar card with Today / Tomorrow / Upcoming event lists, an inline error box (matching the Weather card), and a "Refresh calendar (demo)" button with a real loading state ("Refreshing…", disabled while awaiting).
+
+Updated index.html's Integrations preview card with a calendar detail line (next event, events today, last sync) alongside the existing weather detail line. Added an optional "Next event" chip to `pages/daily-snapshot.html`'s Today header, next to the existing weather chip, shown only when Google Calendar is enabled.
+
+Still foundation-only: no Google OAuth, API key, or secret is configured or shipped in client code — every refresh writes clearly-labelled mock data.
+
+Files affected:
+
+scripts/google-calendar-service.js (new), scripts/integrations-data.js, pages/integrations.html, index.html, pages/daily-snapshot.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md
+
+Commit:
+
+Add Google Calendar Integration Foundation
+
+---
+
 ## Future Entries
 
 Example

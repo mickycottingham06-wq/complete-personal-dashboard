@@ -12,6 +12,7 @@
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/daily-snapshot-data.js"></script>
 <script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/google-calendar-service.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -136,7 +137,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   <h1 class="dash-title">Daily Snapshot</h1>
 
   <div class="section" id="dailySnapshot">
-    <div class="section-title">Today <span class="snap-date" id="snapDate"></span><span class="snap-weather" id="snapWeatherChip"></span></div>
+    <div class="section-title">Today <span class="snap-date" id="snapDate"></span><span class="snap-weather" id="snapWeatherChip"></span><span class="snap-weather" id="snapCalendarChip"></span></div>
     <div class="gm-card">
       <div class="snap-status" id="snapStatus">—</div>
 
@@ -201,6 +202,13 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
     } else {
       chip.textContent = '';
     }
+  }
+
+  function renderCalendarChip() {
+    const c = window.Integrations.load().googleCalendar;
+    const chip = $('snapCalendarChip');
+    const next = c.enabled ? window.GoogleCalendarService.getNext(c.upcomingEvents) : null;
+    chip.textContent = next ? '· Next: ' + next.title + ' ' + next.time : '';
   }
 
   function renderStatus() {
@@ -275,6 +283,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
 
   renderDate();
   renderWeatherChip();
+  renderCalendarChip();
   renderStatus();
   renderPriorities();
   renderHabits();
@@ -287,7 +296,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   // Re-render if another tab / device changes today's snapshot.
   window.addEventListener('storage', () => {
     snap = window.DailySnapshot.loadOrInit();
-    renderStatus(); renderPriorities(); renderHabits(); renderWeatherChip();
+    renderStatus(); renderPriorities(); renderHabits(); renderWeatherChip(); renderCalendarChip();
   });
 })();
 </script>

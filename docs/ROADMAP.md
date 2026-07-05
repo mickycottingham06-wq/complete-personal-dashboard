@@ -110,7 +110,7 @@ Automation
 
 Integrations Foundation ✅ (pages/integrations.html — reusable card/data foundation, mock/demo state only)
 
-Google Calendar (real connection — not yet live)
+Google Calendar (mock/demo foundation built — scripts/google-calendar-service.js; real OAuth connection not yet live)
 
 Weather API (real connection — not yet live)
 

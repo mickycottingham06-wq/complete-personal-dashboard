@@ -28,7 +28,7 @@ API Integrations (foundation done — pages/integrations.html, scripts/integrati
 
 Whoop
 
-Google Calendar
+Google Calendar (mock/demo foundation built — scripts/google-calendar-service.js, Today/Tomorrow/Upcoming + dashboard preview; still needs real OAuth to go live)
 
 Weather
 

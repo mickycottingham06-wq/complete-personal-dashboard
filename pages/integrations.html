@@ -12,6 +12,7 @@
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/integrations-data.js"></script>
 <script src="../scripts/weather-service.js"></script>
+<script src="../scripts/google-calendar-service.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -209,15 +210,24 @@ body::after {
         </div>
         <span class="int-sync-time" id="intCalSyncTime">Last sync: never</span>
       </div>
+      <div class="int-err-box" id="intCalErr" style="display:none"></div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="field-label">Today</label>
+        <div class="int-events" id="intCalToday"></div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="field-label">Tomorrow</label>
+        <div class="int-events" id="intCalTomorrow"></div>
+      </div>
       <div class="field" style="margin-bottom:10px">
         <label class="field-label">Upcoming Events</label>
         <div class="int-events" id="intCalEvents"></div>
       </div>
       <div class="field">
-        <label class="field-label">Notes</label>
+        <label class="field-label">Notes / Status</label>
         <textarea class="int-notes" id="intCalNotes" placeholder="Optional notes about this integration…"></textarea>
       </div>
-      <button class="int-sync-btn" id="intCalSyncBtn" type="button">Sync now (demo)</button>
+      <button class="int-sync-btn" id="intCalSyncBtn" type="button">Refresh calendar (demo)</button>
     </div>
   </div>
 
@@ -359,19 +369,18 @@ body::after {
   });
 
   /* ---------- Google Calendar ---------- */
-  function renderCalEvents(events) {
-    const wrap = $('intCalEvents');
-    wrap.innerHTML = '';
+  function renderCalEvents(el, events, emptyMsg) {
+    el.innerHTML = '';
     if (!events || !events.length) {
-      wrap.innerHTML = '<div class="int-empty">No upcoming events yet — connect and sync to load demo events.</div>';
+      el.innerHTML = '<div class="int-empty">' + emptyMsg + '</div>';
       return;
     }
     events.forEach((e) => {
       const row = document.createElement('div');
       row.className = 'int-event-row';
       row.innerHTML = '<span class="int-event-date">' + e.date + ' · ' + e.time + '</span><span class="int-event-title"></span>';
-      row.querySelector('.int-event-title').textContent = e.title;
-      wrap.appendChild(row);
+      row.querySelector('.int-event-title').textContent = e.title + (e.location ? ' — ' + e.location : '');
+      el.appendChild(row);
     });
   }
   function renderCal() {
@@ -380,12 +389,28 @@ body::after {
     renderToggle($('intCalToggle'), c.enabled);
     $('intCalSyncTime').textContent = relTime(c.lastSync, 'Last sync');
     if (document.activeElement !== $('intCalNotes')) $('intCalNotes').value = c.notes || '';
-    renderCalEvents(c.upcomingEvents);
+    renderCalEvents($('intCalToday'), window.GoogleCalendarService.getToday(c.upcomingEvents), 'No events today.');
+    renderCalEvents($('intCalTomorrow'), window.GoogleCalendarService.getTomorrow(c.upcomingEvents), 'No events tomorrow.');
+    renderCalEvents($('intCalEvents'), c.upcomingEvents, 'No upcoming events yet — connect and refresh to load demo events.');
+    const errBox = $('intCalErr');
+    if (/error/i.test(c.status)) { errBox.style.display = ''; errBox.textContent = c.status; }
+    else errBox.style.display = 'none';
     $('intCalSyncBtn').disabled = !c.enabled;
   }
   wireToggle($('intCalToggle'), (on) => { window.Integrations.setEnabled('googleCalendar', on); renderCal(); });
   $('intCalNotes').addEventListener('input', (e) => autoSaveField('googleCalendar', 'notes', e.target.value));
-  $('intCalSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('googleCalendar'); renderCal(); });
+  $('intCalSyncBtn').addEventListener('click', async () => {
+    const btn = $('intCalSyncBtn');
+    btn.disabled = true;
+    const prevLabel = btn.textContent;
+    btn.textContent = 'Refreshing…';
+    try {
+      await window.GoogleCalendarService.refresh('googleCalendar');
+    } finally {
+      btn.textContent = prevLabel;
+      renderCal();
+    }
+  });
 
   /* ---------- AI API ---------- */
   function renderAi() {
