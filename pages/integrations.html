@@ -11,6 +11,7 @@
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/weather-service.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -85,6 +86,8 @@ body::after {
 .int-status.on .dot { background: var(--success); box-shadow: 0 0 7px rgba(107,227,164,0.65); }
 .int-status.err { color: var(--danger); }
 .int-status.err .dot { background: var(--danger); box-shadow: 0 0 7px rgba(255,107,107,0.55); }
+.int-status.warn { color: var(--warning); }
+.int-status.warn .dot { background: var(--warning); box-shadow: 0 0 7px rgba(242,192,99,0.55); }
 
 .int-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .int-sync-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
@@ -149,7 +152,7 @@ body::after {
 <div class="page">
 
   <h1 class="dash-title">Integrations</h1>
-  <p class="page-sub">Connection foundation for external services. Nothing here makes a real network call yet — every "Sync now" writes clearly-labelled demo data so pages, storage and UI are ready the moment a real API key or OAuth flow is wired up server-side.</p>
+  <p class="page-sub">Connection foundation for external services. Weather is live (via a server-side proxy, no key exposed to the browser) with a mock fallback if the fetch fails. The rest — Google Calendar, AI API, Cloud Sync — are still foundation only: every "Sync now" writes clearly-labelled demo data so they're ready the moment a real API key or OAuth flow is wired up.</p>
 
   <!-- ===== WEATHER ===== -->
   <div class="section">
@@ -175,11 +178,19 @@ body::after {
         <div class="int-stat"><div class="v" id="intWeatherTemp">—</div><div class="l">Temperature</div></div>
         <div class="int-stat"><div class="v" id="intWeatherCond">—</div><div class="l">Condition</div></div>
       </div>
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="intWeatherHigh">—</div><div class="l">High</div></div>
+        <div class="int-stat"><div class="v" id="intWeatherLow">—</div><div class="l">Low</div></div>
+      </div>
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="intWeatherRain">—</div><div class="l">Rain Chance</div></div>
+        <div class="int-stat"><div class="v" id="intWeatherWind">—</div><div class="l">Wind</div></div>
+      </div>
       <div class="field">
         <label class="field-label">Notes</label>
         <textarea class="int-notes" id="intWeatherNotes" placeholder="Optional notes about this integration…"></textarea>
       </div>
-      <button class="int-sync-btn" id="intWeatherSyncBtn" type="button">Sync now (demo)</button>
+      <button class="int-sync-btn" id="intWeatherSyncBtn" type="button">Refresh weather</button>
     </div>
   </div>
 
@@ -288,8 +299,9 @@ body::after {
   function renderStatus(el, status) {
     const txt = el.querySelector('.txt');
     txt.textContent = status;
-    el.classList.remove('on', 'err');
+    el.classList.remove('on', 'err', 'warn');
     if (/error/i.test(status)) el.classList.add('err');
+    else if (/mock/i.test(status)) el.classList.add('warn');
     else if (/connected|enabled/i.test(status) && !/not connected/i.test(status)) el.classList.add('on');
   }
 
@@ -321,6 +333,10 @@ body::after {
     if (document.activeElement !== $('intWeatherNotes')) $('intWeatherNotes').value = w.notes || '';
     $('intWeatherTemp').textContent = w.temperature || '—';
     $('intWeatherCond').textContent = w.condition || '—';
+    $('intWeatherHigh').textContent = w.high || '—';
+    $('intWeatherLow').textContent = w.low || '—';
+    $('intWeatherRain').textContent = w.rainChance || '—';
+    $('intWeatherWind').textContent = w.wind || '—';
     const errBox = $('intWeatherErr');
     if (/error/i.test(w.status)) { errBox.style.display = ''; errBox.textContent = w.status; }
     else errBox.style.display = 'none';
@@ -329,7 +345,18 @@ body::after {
   wireToggle($('intWeatherToggle'), (on) => { window.Integrations.setEnabled('weather', on); renderWeather(); });
   $('intWeatherLocation').addEventListener('input', (e) => autoSaveField('weather', 'location', e.target.value));
   $('intWeatherNotes').addEventListener('input', (e) => autoSaveField('weather', 'notes', e.target.value));
-  $('intWeatherSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('weather'); renderWeather(); });
+  $('intWeatherSyncBtn').addEventListener('click', async () => {
+    const btn = $('intWeatherSyncBtn');
+    btn.disabled = true;
+    const prevLabel = btn.textContent;
+    btn.textContent = 'Refreshing…';
+    try {
+      await window.WeatherService.refresh('weather');
+    } finally {
+      btn.textContent = prevLabel;
+      renderWeather();
+    }
+  });
 
   /* ---------- Google Calendar ---------- */
   function renderCalEvents(events) {

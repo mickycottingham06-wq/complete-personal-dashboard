@@ -744,11 +744,15 @@ Shape:
 integrations: {
   weather: {
     enabled: boolean,
-    status: string,        // 'Not connected' | 'Enabled — not synced yet' | 'Connected (demo data)' | 'Error — …'
+    status: string,        // 'Not connected' | 'Enabled — not synced yet' | 'Connected (live)' | 'Connected (mock data)' | 'Error — …'
     location: string,
     lastSync: string,       // ISO timestamp, '' if never synced
     temperature: string,
     condition: string,
+    high: string,
+    low: string,
+    rainChance: string,
+    wind: string,
     notes: string
   },
   googleCalendar: {
@@ -781,7 +785,8 @@ The full interactive UI lives at `pages/integrations.html`: one card per service
 
 No real API key, secret, or OAuth token is ever stored in this key or shipped in client code. When a real integration is wired up:
 
-- **Weather / Google Calendar** need a server-side `/api/*` route (same pattern as `api/whoop-callback.js`) so the provider's API key/secret never reaches the browser. Suggested env var names (not yet used by any code): `WEATHER_API_KEY`, `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`.
+- **Weather** is implemented. `api/weather.js` is a server-side proxy (`GET /api/weather?location=...`) that defaults to Open-Meteo (free, no key required) and switches to OpenWeatherMap if a `WEATHER_API_KEY` env var is set in Vercel — the key never reaches the browser either way. `scripts/weather-service.js` (`window.WeatherService.refresh('weather')`) calls that proxy and writes the result into `integrations.weather`, falling back to safe mock data (status `'Connected (mock data)'`) if the fetch fails for any reason instead of throwing. The Integrations page's "Refresh weather" button and index.html's preview card both just read the `integrations.weather` shape — swapping providers only ever means editing `api/weather.js`.
+- **Google Calendar** needs a server-side `/api/*` route (same pattern as `api/whoop-callback.js`) so the provider's API key/secret never reaches the browser. Suggested env var names (not yet used by any code): `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`.
 - **AI API** can follow the existing Nova pattern (`pages/nova-lite.html`) — the user pastes their own Anthropic key, stored only in their browser, sent directly to Anthropic — or a server-side `ANTHROPIC_API_KEY` env var behind an `/api/*` route if a shared/non-BYO-key mode is ever built.
 - **Cloud Sync** already has a real implementation elsewhere: `scripts/sync.js` mirrors specific localStorage keys to Supabase per-page (Health, Gym, Water) using `SUPABASE_URL`/`SUPABASE_ANON_KEY` (see SETUP.md). The `cloudSync` card here is a placeholder for a possible future *whole-Life-OS* sync toggle, not a duplicate of the existing per-page sync.
 

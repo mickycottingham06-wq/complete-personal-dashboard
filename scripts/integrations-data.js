@@ -30,6 +30,10 @@
         lastSync: '',
         temperature: '',
         condition: '',
+        high: '',
+        low: '',
+        rainChance: '',
+        wind: '',
         notes: '',
       },
       googleCalendar: {

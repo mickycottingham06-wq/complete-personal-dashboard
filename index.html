@@ -499,6 +499,7 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewIntAi">Off</div><div class="l">AI API</div></div>
         <div class="streak-stat"><div class="v" id="previewIntCloud">Off</div><div class="l">Cloud Sync</div></div>
       </div>
+      <div class="preview-sub" id="previewIntWeatherDetail" style="margin-top:10px"></div>
     </a>
   </div>
 
@@ -1183,13 +1184,31 @@ body::after {
     function label(section) {
       if (!section.enabled) return 'Off';
       if (/error/i.test(section.status)) return 'Error';
-      if (/connected/i.test(section.status)) return 'Demo';
+      if (/mock/i.test(section.status)) return 'Mock';
+      if (/demo/i.test(section.status)) return 'Demo';
+      if (/connected/i.test(section.status)) return 'On';
       return 'On';
     }
     $('previewIntWeather').textContent = label(it.weather);
     $('previewIntCalendar').textContent = label(it.googleCalendar);
     $('previewIntAi').textContent = label(it.aiApi);
     $('previewIntCloud').textContent = label(it.cloudSync);
+
+    var w = it.weather;
+    var detail = $('previewIntWeatherDetail');
+    if (w.enabled && w.temperature) {
+      var bits = [];
+      if (w.location) bits.push(w.location);
+      bits.push(w.temperature + (w.condition ? ' · ' + w.condition : ''));
+      if (w.lastSync) {
+        var s = Math.floor((Date.now() - new Date(w.lastSync).getTime()) / 1000);
+        var ago = s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + ' min ago' : s < 86400 ? Math.floor(s / 3600) + ' h ago' : Math.floor(s / 86400) + ' d ago';
+        bits.push('synced ' + ago);
+      }
+      detail.textContent = bits.join(' · ');
+    } else {
+      detail.textContent = '';
+    }
   }
 
   function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }

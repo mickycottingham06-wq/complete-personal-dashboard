@@ -11,6 +11,7 @@
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/integrations-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -68,6 +69,7 @@ body::after {
 .section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
 .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
 .snap-date { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+.snap-weather { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
 
 .gm-card {
   position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
@@ -134,7 +136,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   <h1 class="dash-title">Daily Snapshot</h1>
 
   <div class="section" id="dailySnapshot">
-    <div class="section-title">Today <span class="snap-date" id="snapDate"></span></div>
+    <div class="section-title">Today <span class="snap-date" id="snapDate"></span><span class="snap-weather" id="snapWeatherChip"></span></div>
     <div class="gm-card">
       <div class="snap-status" id="snapStatus">—</div>
 
@@ -189,6 +191,16 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
     const dows = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const mons = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     $('snapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function renderWeatherChip() {
+    const w = window.Integrations.load().weather;
+    const chip = $('snapWeatherChip');
+    if (w.enabled && w.temperature) {
+      chip.textContent = '· ' + (w.location ? w.location + ' ' : '') + w.temperature + (w.condition ? ', ' + w.condition : '');
+    } else {
+      chip.textContent = '';
+    }
   }
 
   function renderStatus() {
@@ -262,6 +274,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   }
 
   renderDate();
+  renderWeatherChip();
   renderStatus();
   renderPriorities();
   renderHabits();
@@ -274,7 +287,7 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   // Re-render if another tab / device changes today's snapshot.
   window.addEventListener('storage', () => {
     snap = window.DailySnapshot.loadOrInit();
-    renderStatus(); renderPriorities(); renderHabits();
+    renderStatus(); renderPriorities(); renderHabits(); renderWeatherChip();
   });
 })();
 </script>

@@ -79,7 +79,26 @@ Replace the old URL/key in these files:
 
 ---
 
-## 3. WHOOP (optional)
+## 3. Weather (works out of the box, no key needed)
+
+The **Integrations** page's Weather card and the Daily Snapshot/dashboard previews are live —
+enable it, type a location, hit **Refresh weather**. By default `/api/weather` uses
+**Open-Meteo**, a free provider that needs no API key at all.
+
+Want a different provider instead (e.g. OpenWeatherMap)? Add this in Vercel →
+**Settings → Environment Variables**, then redeploy:
+
+| Variable | Value |
+|---|---|
+| `WEATHER_API_KEY` | your OpenWeatherMap API key |
+
+> This key is only ever read server-side inside `api/weather.js` — it's never sent to the
+> browser. If the fetch ever fails (bad location, provider down, offline), the card falls back
+> to clearly-labelled mock data instead of breaking.
+
+---
+
+## 4. WHOOP (optional)
 
 1. **developer.whoop.com** → create an app.
 2. Set its **Redirect URI** to exactly: `https://your-app.vercel.app/api/whoop-callback`
@@ -98,7 +117,7 @@ Replace the old URL/key in these files:
 
 ---
 
-## 4. Nova (AI mentor / gym coach) — optional
+## 5. Nova (AI mentor / gym coach) — optional
 
 No setup or key in the repo. Each user **pastes their own Anthropic API key** on the
 **Nova** tile; it's stored only in their browser and sent straight to Anthropic. Get a key at
@@ -110,5 +129,6 @@ console.anthropic.com.
 1. Fork → import to Vercel → deploy.
 2. New Supabase → run the **SQL** above → paste your **URL + anon key** into `sync.js`,
    `topbar.js`, `gym.html`.
-3. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel.
-4. Change the password in `lock.js`. Done.
+3. Weather works immediately (no key needed) — enable it on the Integrations page.
+4. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel.
+5. Change the password in `lock.js`. Done.
