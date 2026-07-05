@@ -734,6 +734,61 @@ No API integrations are wired up yet — this is local-only, matching every othe
 
 ---
 
+# Integrations
+
+Implemented as a **foundation only** — no live API calls, credentials, or OAuth flows. Lives in `localStorage` under the key `integrations`. The load/save/mock-sync logic lives in `scripts/integrations-data.js` (shared business logic), used by both the full page at `pages/integrations.html` and the preview card on index.html.
+
+Shape:
+
+```
+integrations: {
+  weather: {
+    enabled: boolean,
+    status: string,        // 'Not connected' | 'Enabled — not synced yet' | 'Connected (demo data)' | 'Error — …'
+    location: string,
+    lastSync: string,       // ISO timestamp, '' if never synced
+    temperature: string,
+    condition: string,
+    notes: string
+  },
+  googleCalendar: {
+    enabled: boolean,
+    status: string,
+    lastSync: string,
+    upcomingEvents: [ { id: string, title: string, date: string, time: string } ],
+    notes: string
+  },
+  aiApi: {
+    enabled: boolean,
+    status: string,
+    provider: string,       // free-text label, e.g. 'Anthropic (Claude)'
+    lastUsed: string,        // ISO timestamp, '' if never used
+    notes: string
+  },
+  cloudSync: {
+    enabled: boolean,
+    status: string,
+    provider: string,       // free-text label, e.g. 'Supabase'
+    lastSync: string,
+    notes: string
+  }
+}
+```
+
+`window.Integrations.load()` returns stored state, filling in any missing fields or whole sections against the default shape so older saved data upgrades cleanly. `window.Integrations.save(state)` persists the whole object. `window.Integrations.setEnabled(section, enabled)` flips a section's toggle — disabling always resets `status` to `'Not connected'` and clears `lastSync`/`lastUsed`, but never touches `notes`. `window.Integrations.setField(section, field, value)` persists a single editable field (location, provider, notes). `window.Integrations.mockSync(section)` simulates a "Sync now" action: it never makes a network request, only ever writing safe demo data pulled from a small fixed pool, and demonstrates a safe error path (e.g. weather syncing with no location set returns `status: 'Error — add a location first'` instead of throwing).
+
+The full interactive UI lives at `pages/integrations.html`: one card per service (Weather, Google Calendar, AI API, Cloud Sync), each with an on/off toggle, status badge, last-sync time, editable fields, notes, and a "Sync now (demo)" button. index.html shows a compact preview card (On/Off/Demo/Error per service) that links to it.
+
+No real API key, secret, or OAuth token is ever stored in this key or shipped in client code. When a real integration is wired up:
+
+- **Weather / Google Calendar** need a server-side `/api/*` route (same pattern as `api/whoop-callback.js`) so the provider's API key/secret never reaches the browser. Suggested env var names (not yet used by any code): `WEATHER_API_KEY`, `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`.
+- **AI API** can follow the existing Nova pattern (`pages/nova-lite.html`) — the user pastes their own Anthropic key, stored only in their browser, sent directly to Anthropic — or a server-side `ANTHROPIC_API_KEY` env var behind an `/api/*` route if a shared/non-BYO-key mode is ever built.
+- **Cloud Sync** already has a real implementation elsewhere: `scripts/sync.js` mirrors specific localStorage keys to Supabase per-page (Health, Gym, Water) using `SUPABASE_URL`/`SUPABASE_ANON_KEY` (see SETUP.md). The `cloudSync` card here is a placeholder for a possible future *whole-Life-OS* sync toggle, not a duplicate of the existing per-page sync.
+
+Future features (real weather/calendar fetches, AI API request/response logging, unified cloud sync) should extend this shape rather than creating a second connections system.
+
+---
+
 # AI Assistant Data
 
 aiAssistant.js

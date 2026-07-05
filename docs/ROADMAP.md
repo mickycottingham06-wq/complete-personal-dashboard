@@ -108,15 +108,17 @@ Progress Tracking
 
 Automation
 
-Google Calendar
+Integrations Foundation ✅ (pages/integrations.html — reusable card/data foundation, mock/demo state only)
 
-Weather API
+Google Calendar (real connection — not yet live)
+
+Weather API (real connection — not yet live)
 
 Finance API
 
 Whoop
 
-AI APIs
+AI APIs (real connection — not yet live)
 
 Local Storage
 

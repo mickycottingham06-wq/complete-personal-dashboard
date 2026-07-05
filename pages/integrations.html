@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Integrations · Micky's Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/sync.js" defer></script>
+<script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/integrations-data.js"></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 1100px; margin: 0 auto; }
+.dash-title {
+  margin: 0 0 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.page-sub { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; margin: 0 0 22px; max-width: 620px; }
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.gm-card {
+  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
+  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+
+/* ===== Integration card ===== */
+.int-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.int-card-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.int-icon { font-size: 19px; line-height: 1; }
+.int-status { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--text-tertiary); white-space: nowrap; }
+.int-status .dot { width: 7px; height: 7px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
+.int-status.on { color: var(--success); }
+.int-status.on .dot { background: var(--success); box-shadow: 0 0 7px rgba(107,227,164,0.65); }
+.int-status.err { color: var(--danger); }
+.int-status.err .dot { background: var(--danger); box-shadow: 0 0 7px rgba(255,107,107,0.55); }
+
+.int-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.int-sync-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+
+.field { margin-bottom: 14px; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.set-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.set-input::placeholder { color: var(--text-tertiary); }
+.set-input:focus { border-color: rgba(255,255,255,0.28); }
+.int-notes {
+  width: 100%; min-height: 70px; padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  font-family: inherit; font-size: 13px; line-height: 1.5;
+  outline: none; resize: vertical;
+  transition: border-color 0.2s, background 0.2s;
+}
+.int-notes::placeholder { color: var(--text-tertiary); }
+.int-notes:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+
+.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
+.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; padding: 9px 16px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+
+.int-stats-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 16px; }
+.int-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.int-stat .v { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.int-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
+.int-events { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.int-event-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; }
+.int-event-date { font-family: var(--font-mono); color: var(--text-tertiary); font-size: 11px; white-space: nowrap; }
+.int-event-title { color: var(--text-primary); font-size: 12.5px; flex: 1; }
+.int-empty { font-size: 12px; color: var(--text-tertiary); font-style: italic; padding: 10px 2px; }
+
+.int-err-box { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.28); color: #FF8A8A; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 14px; }
+
+.int-sync-btn {
+  width: 100%; padding: 11px; border: 1px solid rgba(255,255,255,0.12); border-radius: 11px;
+  background: transparent; color: var(--text-secondary);
+  font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.int-sync-btn:hover:not(:disabled) { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+.int-sync-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.int-notes-status { font-size: 11px; color: var(--text-tertiary); min-height: 14px; margin-top: 6px; }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+  .int-stats-2 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Integrations</h1>
+  <p class="page-sub">Connection foundation for external services. Nothing here makes a real network call yet — every "Sync now" writes clearly-labelled demo data so pages, storage and UI are ready the moment a real API key or OAuth flow is wired up server-side.</p>
+
+  <!-- ===== WEATHER ===== -->
+  <div class="section">
+    <div class="section-title">Weather</div>
+    <div class="gm-card">
+      <div class="int-card-head">
+        <div class="int-card-title"><span class="int-icon">🌦️</span> Weather</div>
+        <span class="int-status" id="intWeatherStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
+      </div>
+      <div class="int-row">
+        <div class="seg" id="intWeatherToggle">
+          <button type="button" data-v="off">Off</button>
+          <button type="button" data-v="on">On</button>
+        </div>
+        <span class="int-sync-time" id="intWeatherSyncTime">Last sync: never</span>
+      </div>
+      <div class="field">
+        <label class="field-label">Location</label>
+        <input class="set-input" id="intWeatherLocation" type="text" placeholder="e.g. London, UK" autocomplete="off">
+      </div>
+      <div class="int-err-box" id="intWeatherErr" style="display:none"></div>
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="intWeatherTemp">—</div><div class="l">Temperature</div></div>
+        <div class="int-stat"><div class="v" id="intWeatherCond">—</div><div class="l">Condition</div></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Notes</label>
+        <textarea class="int-notes" id="intWeatherNotes" placeholder="Optional notes about this integration…"></textarea>
+      </div>
+      <button class="int-sync-btn" id="intWeatherSyncBtn" type="button">Sync now (demo)</button>
+    </div>
+  </div>
+
+  <!-- ===== GOOGLE CALENDAR ===== -->
+  <div class="section">
+    <div class="section-title">Google Calendar</div>
+    <div class="gm-card">
+      <div class="int-card-head">
+        <div class="int-card-title"><span class="int-icon">🗓️</span> Google Calendar</div>
+        <span class="int-status" id="intCalStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
+      </div>
+      <div class="int-row">
+        <div class="seg" id="intCalToggle">
+          <button type="button" data-v="off">Off</button>
+          <button type="button" data-v="on">On</button>
+        </div>
+        <span class="int-sync-time" id="intCalSyncTime">Last sync: never</span>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="field-label">Upcoming Events</label>
+        <div class="int-events" id="intCalEvents"></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Notes</label>
+        <textarea class="int-notes" id="intCalNotes" placeholder="Optional notes about this integration…"></textarea>
+      </div>
+      <button class="int-sync-btn" id="intCalSyncBtn" type="button">Sync now (demo)</button>
+    </div>
+  </div>
+
+  <!-- ===== AI API ===== -->
+  <div class="section">
+    <div class="section-title">AI API</div>
+    <div class="gm-card">
+      <div class="int-card-head">
+        <div class="int-card-title"><span class="int-icon">🤖</span> AI API</div>
+        <span class="int-status" id="intAiStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
+      </div>
+      <div class="int-row">
+        <div class="seg" id="intAiToggle">
+          <button type="button" data-v="off">Off</button>
+          <button type="button" data-v="on">On</button>
+        </div>
+        <span class="int-sync-time" id="intAiSyncTime">Last used: never</span>
+      </div>
+      <div class="field">
+        <label class="field-label">Provider</label>
+        <input class="set-input" id="intAiProvider" type="text" placeholder="e.g. Anthropic (Claude)" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label">Notes</label>
+        <textarea class="int-notes" id="intAiNotes" placeholder="Optional notes about this integration…"></textarea>
+      </div>
+      <button class="int-sync-btn" id="intAiSyncBtn" type="button">Test connection (demo)</button>
+    </div>
+  </div>
+
+  <!-- ===== CLOUD SYNC ===== -->
+  <div class="section">
+    <div class="section-title">Cloud Sync</div>
+    <div class="gm-card">
+      <div class="int-card-head">
+        <div class="int-card-title"><span class="int-icon">☁️</span> Cloud Sync</div>
+        <span class="int-status" id="intCloudStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
+      </div>
+      <div class="int-row">
+        <div class="seg" id="intCloudToggle">
+          <button type="button" data-v="off">Off</button>
+          <button type="button" data-v="on">On</button>
+        </div>
+        <span class="int-sync-time" id="intCloudSyncTime">Last sync: never</span>
+      </div>
+      <div class="field">
+        <label class="field-label">Provider</label>
+        <input class="set-input" id="intCloudProvider" type="text" placeholder="e.g. Supabase" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label">Notes</label>
+        <textarea class="int-notes" id="intCloudNotes" placeholder="Optional notes about this integration…"></textarea>
+      </div>
+      <button class="int-sync-btn" id="intCloudSyncBtn" type="button">Sync now (demo)</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== Integrations logic — reads/writes through window.Integrations
+     (scripts/integrations-data.js). No network calls: "Sync now" only
+     ever writes safe demo data, clearly labelled as such. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  function relTime(iso, verb) {
+    if (!iso) return verb + ': never';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    let out;
+    if (s < 60) out = 'just now';
+    else if (s < 3600) out = Math.floor(s / 60) + ' min ago';
+    else if (s < 86400) out = Math.floor(s / 3600) + ' h ago';
+    else out = Math.floor(s / 86400) + ' d ago';
+    return verb + ': ' + out;
+  }
+
+  function renderStatus(el, status) {
+    const txt = el.querySelector('.txt');
+    txt.textContent = status;
+    el.classList.remove('on', 'err');
+    if (/error/i.test(status)) el.classList.add('err');
+    else if (/connected|enabled/i.test(status) && !/not connected/i.test(status)) el.classList.add('on');
+  }
+
+  function renderToggle(segEl, enabled) {
+    segEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', (b.dataset.v === 'on') === enabled));
+  }
+
+  function wireToggle(segEl, onChange) {
+    segEl.querySelectorAll('button').forEach((b) => {
+      b.addEventListener('click', () => onChange(b.dataset.v === 'on'));
+    });
+  }
+
+  let notesTimer = {};
+  function autoSaveField(section, field, value) {
+    clearTimeout(notesTimer[section + field]);
+    notesTimer[section + field] = setTimeout(() => {
+      window.Integrations.setField(section, field, value);
+    }, 400);
+  }
+
+  /* ---------- Weather ---------- */
+  function renderWeather() {
+    const w = window.Integrations.load().weather;
+    renderStatus($('intWeatherStatus'), w.status);
+    renderToggle($('intWeatherToggle'), w.enabled);
+    $('intWeatherSyncTime').textContent = relTime(w.lastSync, 'Last sync');
+    if (document.activeElement !== $('intWeatherLocation')) $('intWeatherLocation').value = w.location || '';
+    if (document.activeElement !== $('intWeatherNotes')) $('intWeatherNotes').value = w.notes || '';
+    $('intWeatherTemp').textContent = w.temperature || '—';
+    $('intWeatherCond').textContent = w.condition || '—';
+    const errBox = $('intWeatherErr');
+    if (/error/i.test(w.status)) { errBox.style.display = ''; errBox.textContent = w.status; }
+    else errBox.style.display = 'none';
+    $('intWeatherSyncBtn').disabled = !w.enabled;
+  }
+  wireToggle($('intWeatherToggle'), (on) => { window.Integrations.setEnabled('weather', on); renderWeather(); });
+  $('intWeatherLocation').addEventListener('input', (e) => autoSaveField('weather', 'location', e.target.value));
+  $('intWeatherNotes').addEventListener('input', (e) => autoSaveField('weather', 'notes', e.target.value));
+  $('intWeatherSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('weather'); renderWeather(); });
+
+  /* ---------- Google Calendar ---------- */
+  function renderCalEvents(events) {
+    const wrap = $('intCalEvents');
+    wrap.innerHTML = '';
+    if (!events || !events.length) {
+      wrap.innerHTML = '<div class="int-empty">No upcoming events yet — connect and sync to load demo events.</div>';
+      return;
+    }
+    events.forEach((e) => {
+      const row = document.createElement('div');
+      row.className = 'int-event-row';
+      row.innerHTML = '<span class="int-event-date">' + e.date + ' · ' + e.time + '</span><span class="int-event-title"></span>';
+      row.querySelector('.int-event-title').textContent = e.title;
+      wrap.appendChild(row);
+    });
+  }
+  function renderCal() {
+    const c = window.Integrations.load().googleCalendar;
+    renderStatus($('intCalStatus'), c.status);
+    renderToggle($('intCalToggle'), c.enabled);
+    $('intCalSyncTime').textContent = relTime(c.lastSync, 'Last sync');
+    if (document.activeElement !== $('intCalNotes')) $('intCalNotes').value = c.notes || '';
+    renderCalEvents(c.upcomingEvents);
+    $('intCalSyncBtn').disabled = !c.enabled;
+  }
+  wireToggle($('intCalToggle'), (on) => { window.Integrations.setEnabled('googleCalendar', on); renderCal(); });
+  $('intCalNotes').addEventListener('input', (e) => autoSaveField('googleCalendar', 'notes', e.target.value));
+  $('intCalSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('googleCalendar'); renderCal(); });
+
+  /* ---------- AI API ---------- */
+  function renderAi() {
+    const a = window.Integrations.load().aiApi;
+    renderStatus($('intAiStatus'), a.status);
+    renderToggle($('intAiToggle'), a.enabled);
+    $('intAiSyncTime').textContent = relTime(a.lastUsed, 'Last used');
+    if (document.activeElement !== $('intAiProvider')) $('intAiProvider').value = a.provider || '';
+    if (document.activeElement !== $('intAiNotes')) $('intAiNotes').value = a.notes || '';
+    $('intAiSyncBtn').disabled = !a.enabled;
+  }
+  wireToggle($('intAiToggle'), (on) => { window.Integrations.setEnabled('aiApi', on); renderAi(); });
+  $('intAiProvider').addEventListener('input', (e) => autoSaveField('aiApi', 'provider', e.target.value));
+  $('intAiNotes').addEventListener('input', (e) => autoSaveField('aiApi', 'notes', e.target.value));
+  $('intAiSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('aiApi'); renderAi(); });
+
+  /* ---------- Cloud Sync ---------- */
+  function renderCloud() {
+    const c = window.Integrations.load().cloudSync;
+    renderStatus($('intCloudStatus'), c.status);
+    renderToggle($('intCloudToggle'), c.enabled);
+    $('intCloudSyncTime').textContent = relTime(c.lastSync, 'Last sync');
+    if (document.activeElement !== $('intCloudProvider')) $('intCloudProvider').value = c.provider || '';
+    if (document.activeElement !== $('intCloudNotes')) $('intCloudNotes').value = c.notes || '';
+    $('intCloudSyncBtn').disabled = !c.enabled;
+  }
+  wireToggle($('intCloudToggle'), (on) => { window.Integrations.setEnabled('cloudSync', on); renderCloud(); });
+  $('intCloudProvider').addEventListener('input', (e) => autoSaveField('cloudSync', 'provider', e.target.value));
+  $('intCloudNotes').addEventListener('input', (e) => autoSaveField('cloudSync', 'notes', e.target.value));
+  $('intCloudSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('cloudSync'); renderCloud(); });
+
+  function renderAll() { renderWeather(); renderCal(); renderAi(); renderCloud(); }
+
+  renderAll();
+  window.addEventListener('storage', renderAll);
+  window.addEventListener('focus', renderAll);
+})();
+</script>
+</body>
+</html>

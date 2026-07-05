@@ -22,6 +22,7 @@
 <script src="scripts/goals-data.js"></script>
 <script src="scripts/life-stats-data.js"></script>
 <script src="scripts/heatmap-data.js"></script>
+<script src="scripts/integrations-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -483,6 +484,24 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== INTEGRATIONS PREVIEW — compact entry point, full view lives at
+       pages/integrations.html ===== -->
+  <div class="section" id="integrationsPreview">
+    <div class="section-title">Integrations</div>
+    <a class="gm-card preview-card" href="pages/integrations.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow">Connected Services</div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats-4" style="margin-top:10px">
+        <div class="streak-stat"><div class="v" id="previewIntWeather">Off</div><div class="l">Weather</div></div>
+        <div class="streak-stat"><div class="v" id="previewIntCalendar">Off</div><div class="l">Calendar</div></div>
+        <div class="streak-stat"><div class="v" id="previewIntAi">Off</div><div class="l">AI API</div></div>
+        <div class="streak-stat"><div class="v" id="previewIntCloud">Off</div><div class="l">Cloud Sync</div></div>
+      </div>
+    </a>
+  </div>
+
   <div class="bento">
 
     <!-- Big tile -->
@@ -681,10 +700,24 @@ body::after {
       </div>
     </a>
 
+    <!-- Small tile -->
+    <a class="tile" href="pages/integrations.html" style="--accent:#7DD3FC">
+      <div class="tile-top">
+        <span class="tile-num">·15</span>
+        <span class="tile-emoji">🔌</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Integrations</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Weather, Calendar, AI, Sync</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
     <!-- Small tile — opens the Settings modal in place instead of navigating -->
     <a class="tile" href="#" id="bentoSettingsTile" style="--accent:#B8B6B0">
       <div class="tile-top">
-        <span class="tile-num">·15</span>
+        <span class="tile-num">·16</span>
         <span class="tile-emoji">⚙️</span>
       </div>
       <div class="tile-spacer"></div>
@@ -698,7 +731,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="pages/ai-ceo.html" style="--accent:#A78BFA">
       <div class="tile-top">
-        <span class="tile-num">·16</span>
+        <span class="tile-num">·17</span>
         <span class="tile-emoji">🤖</span>
       </div>
       <div class="tile-spacer"></div>
@@ -1145,7 +1178,21 @@ body::after {
     $('previewHeatmapBestDay').textContent = stats.bestDay.score > 0 ? String(stats.bestDay.score) : '—';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); }
+  function renderIntegrationsPreview() {
+    var it = window.Integrations.load();
+    function label(section) {
+      if (!section.enabled) return 'Off';
+      if (/error/i.test(section.status)) return 'Error';
+      if (/connected/i.test(section.status)) return 'Demo';
+      return 'On';
+    }
+    $('previewIntWeather').textContent = label(it.weather);
+    $('previewIntCalendar').textContent = label(it.googleCalendar);
+    $('previewIntAi').textContent = label(it.aiApi);
+    $('previewIntCloud').textContent = label(it.cloudSync);
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

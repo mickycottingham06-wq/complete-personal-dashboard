@@ -24,7 +24,7 @@ Evening Review
 
 ## Low Priority
 
-API Integrations
+API Integrations (foundation done — pages/integrations.html, scripts/integrations-data.js; each service below still needs a real key/OAuth flow to go live)
 
 Whoop
 

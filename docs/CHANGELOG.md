@@ -274,6 +274,24 @@ Commit:
 
 Add Heatmap
 
+### Integrations Foundation
+
+Built the API Integrations foundation: a reusable connection structure for Weather, Google Calendar, AI API and Cloud Sync, all in mock/demo state until a real API key or OAuth flow is wired up. No secrets, tokens, or credentials are stored or shipped in client code.
+
+New shared data layer `scripts/integrations-data.js` owns the `integrations` localStorage key: one sub-object per service (`weather`, `googleCalendar`, `aiApi`, `cloudSync`), each with `enabled`, `status`, `lastSync`/`lastUsed`, service-specific fields, and `notes`. Follows the same load-with-defaults / save pattern as the other `-data.js` files. `setEnabled()` toggles a service on/off (disabling resets status/sync time but keeps notes). `mockSync()` simulates a "Sync now" action — it never makes a network request, only writes safe demo data from a small fixed pool, and includes one safe error path (weather syncing with no location set returns an inline error instead of throwing).
+
+Built the full page `pages/integrations.html`: one card per service with an on/off toggle (reusing the existing `.seg` segmented-button pattern), a status badge with dot (reusing the WHOOP status-dot language from the Settings modal / Health page), last-sync time, editable fields, notes, and a "Sync now (demo)" button. Everything not connected is explicitly labelled "Not connected" — no live claims are made anywhere in the UI.
+
+Added a compact Integrations preview card to index.html (On / Off / Demo / Error per service) plus a bento tile and sidebar link, matching every other HQ-style section.
+
+Files affected:
+
+scripts/integrations-data.js (new), pages/integrations.html (new), scripts/topbar.js, index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md, docs/PROJECT.md
+
+Commit:
+
+Add Integrations Foundation
+
 ---
 
 ## Future Entries

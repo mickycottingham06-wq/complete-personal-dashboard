@@ -302,6 +302,7 @@ body.topbar-modal-open {
     { key: 'goals',       icon: '🎯', label: 'Goals',                href: '/pages/goals.html' },
     { key: 'life-stats',  icon: '📈', label: 'Life Stats',           href: '/pages/life-stats.html' },
     { key: 'heatmap',     icon: '🗓️', label: 'Heatmap',              href: '/pages/heatmap.html' },
+    { key: 'integrations', icon: '🔌', label: 'Integrations',        href: '/pages/integrations.html' },
     { key: 'settings',    icon: '⚙️', label: 'Settings',             href: '/index.html?openSettings=1', id: 'sidebarSettingsLink' },
   ];
 
@@ -373,6 +374,7 @@ body.topbar-modal-open {
     if (p.endsWith('goals.html')) return 'goals';
     if (p.endsWith('life-stats.html')) return 'life-stats';
     if (p.endsWith('heatmap.html')) return 'heatmap';
+    if (p.endsWith('integrations.html')) return 'integrations';
     return ''; // index.html hub and anything else — no single nav item owns it
   }
 

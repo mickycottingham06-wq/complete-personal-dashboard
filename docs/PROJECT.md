@@ -170,6 +170,8 @@ Life Stats (pages/life-stats.html)
 
 Heatmap (pages/heatmap.html)
 
+Integrations (pages/integrations.html — foundation only: Weather, Google Calendar, AI API, Cloud Sync cards, mock/demo state until real keys are wired up)
+
 AI Assistant
 
 Calendar
