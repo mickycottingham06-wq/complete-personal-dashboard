@@ -14,7 +14,6 @@ Contact: mickycottingham06@gmail.com
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1123,8 +1122,12 @@ document.addEventListener('DOMContentLoaded', function () {
   // row — running our own sync here would race and wipe sibling keys.
   try { if (window.self !== window.top) return; } catch (e) { return; }
   if (typeof initCloudSync !== 'function') return;
+  // Standalone visits (bento "Water" tile) use their own row — sharing
+  // health.html's 'health' appKey here caused a race where this page's
+  // narrower key scope would make health.html delete its stack:* keys
+  // on next load, since they'd be missing from what this page last pushed.
   initCloudSync({
-    appKey: 'health',
+    appKey: 'water',
     syncedKeys: ['po_water_v1'],
     onApplied: function () {
       window.dispatchEvent(new Event('storage'));

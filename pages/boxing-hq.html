@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -479,9 +478,13 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
   $('boxPhase').addEventListener('change', (e) => { box.trainingPhase = e.target.value; save(); });
 
   $('addLogRow').addEventListener('click', () => {
+    // Local calendar date (not UTC) so this matches the date keys the
+    // Heatmap compares training-log entries against.
+    const now = new Date();
+    const localDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     box.trainingLog.unshift({
       id: window.Boxing.uid(),
-      date: new Date().toISOString().slice(0, 10),
+      date: localDate,
       type: LOG_TYPES[0],
       duration: '',
       intensity: INTENSITIES[1],

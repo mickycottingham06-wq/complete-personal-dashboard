@@ -12,9 +12,6 @@ devices with **Supabase**. WHOOP is an optional add-on.
 3. Framework Preset: **Other**. Root Directory: **`./`**. Build/output: leave blank (static).
 4. **Deploy.** You'll get a URL like `https://your-app.vercel.app`.
 
-The dashboard opens to a **password screen** — the default password is in
-[`lock.js`](lock.js) (`var PASSWORD = "qwer"`). Change it to whatever you want.
-
 ---
 
 ## 2. Supabase (cross-device sync) — required for sync
@@ -130,5 +127,4 @@ console.anthropic.com.
 2. New Supabase → run the **SQL** above → paste your **URL + anon key** into `sync.js`,
    `topbar.js`, `gym.html`.
 3. Weather works immediately (no key needed) — enable it on the Integrations page.
-4. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel.
-5. Change the password in `lock.js`. Done.
+4. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel. Done.

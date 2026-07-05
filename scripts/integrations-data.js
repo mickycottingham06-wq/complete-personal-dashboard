@@ -152,10 +152,10 @@
       s.status = 'Connected (demo data)';
       s.lastSync = nowIso();
     } else if (section === 'aiApi') {
-      s.status = 'Connected (demo mode)';
+      s.status = 'Connected (mock mode)';
       s.lastUsed = nowIso();
     } else if (section === 'cloudSync') {
-      s.status = 'Connected (demo data)';
+      s.status = 'Connected (mock data)';
       s.lastSync = nowIso();
     }
 
