@@ -318,6 +318,28 @@ Add Google Calendar Integration Foundation
 
 ---
 
+## 2026-07-05
+
+### AI Integration Direction — Deferred
+
+Confirmed live AI API integration (OpenAI/Claude) stays deferred; the Life OS keeps using the AI CEO Prompt Builder for now. No live API calls, no exposed keys, no server-side AI routes added.
+
+Marked the AI API card in `pages/integrations.html` with a "Future" tag and a note explaining it's deferred until a real key is added later, pointing to the AI CEO Prompt Builder as the current workflow.
+
+Clarified `pages/ai-ceo.html` wording: added a one-line workflow hint above the Prompt Builder (Generate → Copy → paste into ChatGPT/Claude → save advice/actions back manually) and a note on the Saved Advice section confirming logging is manual and local-only.
+
+Added an "AI Integration Direction" note to `docs/ROADMAP.md` documenting the decision.
+
+Files affected:
+
+pages/integrations.html, pages/ai-ceo.html, docs/ROADMAP.md, docs/CHANGELOG.md
+
+Commit:
+
+Clarify deferred AI API direction and Prompt Builder wording
+
+---
+
 ## Future Entries
 
 Example

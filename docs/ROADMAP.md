@@ -1,5 +1,15 @@
 # ROADMAP.md
 
+## AI Integration Direction
+
+Live AI API integration (OpenAI/Claude) is deferred until later.
+
+The Life OS uses the AI CEO Prompt Builder for now: generate a prompt, copy it, paste it into ChatGPT/Claude, then save the useful advice/actions back manually.
+
+No live API calls, no exposed keys, no server-side AI routes yet. This will change when the user is ready to wire up a real key.
+
+---
+
 ## Phase 1 ✅
 
 Project Structure
