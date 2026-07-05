@@ -12,8 +12,6 @@ Build Life Stats (placeholder page exists at pages/life-stats.html)
 
 Build Hormone Optimisation (placeholder page exists at pages/hormone-optimisation.html)
 
-Build Appearance / Looks (placeholder page exists at pages/appearance.html)
-
 ---
 
 ## Medium Priority

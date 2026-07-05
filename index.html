@@ -18,6 +18,7 @@
 <script src="scripts/boxing-data.js"></script>
 <script src="scripts/health-data.js"></script>
 <script src="scripts/hormone-data.js"></script>
+<script src="scripts/appearance-data.js"></script>
 
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
@@ -402,6 +403,24 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewHormoneEnergy">—</div><div class="l">Energy</div></div>
         <div class="streak-stat"><div class="v" id="previewHormoneSleep">—</div><div class="l">Sleep</div></div>
         <div class="streak-stat"><div class="v" id="previewHormoneStress">—</div><div class="l">Stress</div></div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ===== APPEARANCE / LOOKS PREVIEW — compact entry point, full view lives
+       at pages/appearance.html ===== -->
+  <div class="section" id="appearancePreview">
+    <div class="section-title">Appearance / Looks</div>
+    <a class="gm-card preview-card" href="pages/appearance.html">
+      <div class="preview-top">
+        <div class="gm-eyebrow" id="previewAppearanceFocus">No focus set</div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats-4" style="margin-top:10px">
+        <div class="streak-stat"><div class="v" id="previewLooksScore">—</div><div class="l">Looks</div></div>
+        <div class="streak-stat"><div class="v" id="previewSkinScore">—</div><div class="l">Skin</div></div>
+        <div class="streak-stat"><div class="v" id="previewSkincarePct">—</div><div class="l">Skincare</div></div>
+        <div class="streak-stat"><div class="v" id="previewGroomingPct">—</div><div class="l">Grooming</div></div>
       </div>
     </a>
   </div>
@@ -1013,7 +1032,22 @@ body::after {
     $('previewHormoneStress').textContent = (Number(hor.stressLevel) || 0) + '/10';
   }
 
-  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); }
+  function renderAppearancePreview() {
+    const look = window.Appearance.load();
+    $('previewLooksScore').textContent = (Number(look.looksScore) || 0) + '/10';
+    $('previewSkinScore').textContent = (Number(look.skinScore) || 0) + '/10';
+    const skincare = look.skincareRoutine || [];
+    const skincarePct = skincare.length ? Math.round(skincare.filter(i => i.completed).length / skincare.length * 100) : 0;
+    $('previewSkincarePct').textContent = skincarePct + '%';
+    const grooming = look.groomingRoutine || [];
+    const groomingPct = grooming.length ? Math.round(grooming.filter(i => i.completed).length / grooming.length * 100) : 0;
+    $('previewGroomingPct').textContent = groomingPct + '%';
+    const focusEl = $('previewAppearanceFocus');
+    const hasFocus = !!(look.nextImprovementFocus && look.nextImprovementFocus.trim());
+    focusEl.textContent = hasFocus ? 'Focus: ' + look.nextImprovementFocus.trim() : 'No focus set';
+  }
+
+  function renderPreviews() { renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

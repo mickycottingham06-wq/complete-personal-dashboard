@@ -92,6 +92,8 @@ Property
 
 Hormone Optimisation ✅
 
+Appearance / Looks ✅
+
 Goals
 
 Life Stats

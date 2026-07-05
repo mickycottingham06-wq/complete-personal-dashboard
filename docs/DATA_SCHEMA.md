@@ -285,6 +285,51 @@ Everything related to hormone-optimisation lifestyle tracking belongs here. Futu
 
 ---
 
+# Appearance / Looks Data
+
+Implemented. Lives in `localStorage` under the key `appearance`. The load/save logic lives in `scripts/appearance-data.js` (shared business logic), used by both the full page at `pages/appearance.html` and the preview card on index.html.
+
+Shape:
+
+```
+appearance: {
+  looksScore: number,             // 1-10 manual overall rating
+  skinScore: number,              // 1-10
+  acneStatus: string,
+  acneScarringNotes: string,
+  faceBloatingRating: number,     // 1-10
+  bodyCompositionNotes: string,
+  hairstyleNotes: string,
+  beardNotes: string,
+  teethSmileNotes: string,
+  postureNotes: string,
+  styleNotes: string,
+  skincareRoutine: [ { id: string, label: string, completed: boolean } ],
+  groomingRoutine: [ { id: string, label: string, completed: boolean } ],
+  progressPhotos: [
+    { id: string, date: string, label: string, notes: string, imageUrl: string }
+  ],
+  weeklyNotes: string,
+  nextImprovementFocus: string
+}
+```
+
+Default skincare routine: Cleanse, Moisturise, SPF, Evening cleanse, Spot treatment if used, Hydration, Clean pillowcase.
+
+Default grooming routine: Haircut maintained, Beard/facial hair maintained, Eyebrows tidy, Nails clean, Clothes prepared, Fragrance, Posture check.
+
+`progressPhotos` is metadata only — date, label, notes, and an optional `imageUrl` reference string. No base64 or binary image data is ever written to `localStorage`; the UI renders a placeholder "image slot" instead of an actual photo. Full AI photo analysis and real image storage are a future integration and are not implemented.
+
+`window.Appearance.load()` returns stored appearance data, filling in any fields missing against the default shape (upgrades older saved data). `window.Appearance.save(a)` persists changes. `window.Appearance.uid()` generates ids for new checklist/photo rows.
+
+The full interactive UI lives at `pages/appearance.html`. index.html shows a compact preview card (looks score, skin score, skincare completion %, grooming completion %, current improvement focus) that links to it.
+
+Tracking and general appearance optimisation only — this app never diagnoses or treats acne, scarring, hormones, or any health condition.
+
+Everything related to appearance/looks tracking belongs here. Future features (Health HQ cross-links, Life Stats, real image storage, AI photo analysis) should read this shape rather than duplicating score/routine data.
+
+---
+
 # Business Data
 
 Implemented. Lives in `localStorage` under the key `business`. The load/save logic lives in `scripts/business-data.js` (shared business logic), used by both the full page at `pages/business-hq.html` and the preview card on index.html.

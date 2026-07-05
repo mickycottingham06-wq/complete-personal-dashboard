@@ -212,6 +212,30 @@ Add Health HQ
 
 ---
 
+## 2026-07-05
+
+### Appearance / Looks
+
+Built the full Appearance / Looks command centre, replacing the "coming soon" placeholder page.
+
+New shared data layer `scripts/appearance-data.js` owns the `appearance` localStorage key: looks/skin scores, acne status + scarring notes, face bloating rating, body composition notes, hairstyle/beard/teeth/posture/style notes, a skincare routine checklist, a grooming routine checklist, progress photo placeholders, weekly notes, and next improvement focus. Follows the same load-with-defaults / save pattern as `window.Hormones` / `window.Health`.
+
+Built the full page `pages/appearance.html` using the same `.stack-card` / `.section-title` / slider / checklist components as Hormone Optimisation. Progress photos are metadata-only (date, label, notes, optional image URL reference) with a visual "image slot" placeholder — no base64 or binary image data is written to localStorage. Includes a clear future placeholder noting AI photo analysis and real image storage are not yet built.
+
+Added a compact Appearance / Looks preview card to index.html (looks score, skin score, skincare completion %, grooming completion %, current improvement focus) linking to the full page. The bento tile and sidebar link already existed and needed no changes.
+
+Tracking and general appearance optimisation only — no diagnosis or treatment claims anywhere in the app.
+
+Files affected:
+
+scripts/appearance-data.js (new), pages/appearance.html, index.html, docs/DATA_SCHEMA.md, docs/TODO.md, docs/ROADMAP.md
+
+Commit:
+
+Add Appearance / Looks
+
+---
+
 ## Future Entries
 
 Example

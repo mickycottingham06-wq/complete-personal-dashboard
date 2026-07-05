@@ -6,99 +6,550 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
 <title>Appearance / Looks · Micky's Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/appearance-data.js"></script>
 <style>
 :root {
+  --bg: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-secondary: rgba(255, 255, 255, 0.035);
+  --bg-input: rgba(0, 0, 0, 0.28);
+  --bg-input-focus: rgba(0, 0, 0, 0.36);
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+
+  --accent: #A78BFA;
+  --accent-glow: rgba(167, 139, 250, 0.35);
+  --warning: #FF8A4D;
+  --warning-bg: rgba(163, 45, 45, 0.10);
+
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: var(--bg);
   color: var(--text-secondary);
   font-family: var(--font);
+  font-size: 15px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
 }
-body {
-  min-height: 100vh; position: relative; overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
-}
+body { min-height: 100vh; position: relative; overflow-x: hidden; }
+
 body::before {
   content: ''; position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
+    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
+    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
+  filter: blur(40px);
+  pointer-events: none; z-index: 0;
   animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: ''; position: fixed; inset: 0;
   background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
+  background-size: 3px 3px;
+  pointer-events: none; z-index: 1;
 }
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
 
-.page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 14px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+main {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: 56px 20px 80px;
+  padding-top: max(56px, env(safe-area-inset-top, 56px));
+}
+
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 4px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: '≡'; font-size: 14px; opacity: 0.5; }
+
+.stack-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+
+::selection { background: rgba(224, 118, 88, 0.3); color: var(--text-primary); }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ====== APPEARANCE / LOOKS — same card/field language as Hormone
+   Optimisation / Health HQ / Boxing HQ so the whole dashboard reads
+   as one system. ====== */
+.lk-title {
+  margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
   background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.lk-subtitle {
+  font-size: 12.5px; color: var(--text-tertiary); margin: 0 4px 24px; line-height: 1.6; max-width: 520px;
+}
+.lk-section { margin-bottom: 32px; }
+.lk-field { margin-bottom: 14px; }
+.lk-field:last-child { margin-bottom: 0; }
+.lk-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.lk-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.lk-input::placeholder { color: var(--text-tertiary); }
+.lk-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.lk-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+select.lk-input { cursor: pointer; }
+select.lk-input option { background: #16161a; color: var(--text-primary); }
 
-.section-title {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-}
-.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
-.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+.lk-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .lk-grid2 { grid-template-columns: 1fr; } }
 
-.gm-card {
-  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
-  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+.lk-slider-row { display: flex; align-items: center; gap: 14px; }
+.lk-slider-row input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
+.lk-slider-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-primary); width: 30px; text-align: right; flex-shrink: 0; }
+
+.lk-score-card { text-align: center; padding: 26px 20px; }
+.lk-score-val { font-size: 52px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.lk-score-max { font-size: 16px; color: var(--text-tertiary); font-weight: 500; }
+.lk-score-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 8px; }
+.lk-score-card .lk-slider-row { margin-top: 18px; }
+
+.lk-check-list { list-style: none; margin: 0; padding: 0; }
+.lk-check-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s;
 }
-.placeholder-card { text-align: center; padding: 40px 20px; }
-.placeholder-icon { font-size: 40px; margin-bottom: 14px; filter: grayscale(15%); }
-.placeholder-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.placeholder-text { font-size: 13.5px; line-height: 1.6; color: var(--text-tertiary); max-width: 420px; margin: 0 auto 22px; }
-.placeholder-back {
-  display: inline-block; padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-primary);
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+.lk-check-row:hover { background: rgba(255,255,255,0.06); }
+.lk-check-row.is-done { opacity: 0.55; background: rgba(107,227,164,0.04); }
+.lk-check-row.is-done .lk-check-text { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.lk-check-text { flex: 1; font-size: 14px; color: var(--text-primary); }
+.lk-checkbox {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
 }
-.placeholder-back:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+.lk-checkbox:checked { background: #6BE3A4; border-color: #6BE3A4; box-shadow: 0 0 12px rgba(107,227,164,0.35); }
+.lk-checkbox:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.lk-check-del {
+  border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 4px 6px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.lk-check-row:hover .lk-check-del { opacity: 1; }
+.lk-check-del:hover { color: #FF6B6B; }
+.lk-check-add { display: flex; gap: 8px; margin-top: 10px; }
+.lk-check-add .lk-input { padding: 9px 11px; font-size: 13px; }
+.lk-add-btn {
+  padding: 9px 14px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.lk-add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+
+.lk-photo-row {
+  padding: 14px 15px; margin-bottom: 8px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+}
+.lk-photo-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
+.lk-photo-label { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.lk-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+@media (max-width: 480px) { .lk-photo-grid { grid-template-columns: 1fr; } }
+.lk-photo-slot {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 64px; margin-bottom: 8px;
+  border: 1px dashed rgba(255,255,255,0.14); border-radius: 10px;
+  color: var(--text-quaternary); font-size: 20px;
+}
+
+.lk-ai-card { border: 1px solid rgba(167,139,250,0.20); }
+.lk-ai-note {
+  font-size: 12px; color: var(--text-tertiary); line-height: 1.6; margin: 0;
+  padding: 12px 14px; background: rgba(167,139,250,0.08); border-left: 2px solid var(--accent); border-radius: 0 10px 10px 0;
+}
+
+.lk-tracking-note {
+  font-size: 12px; color: var(--text-tertiary); line-height: 1.6; margin: 0 0 14px;
+  padding: 12px 14px; background: rgba(163,45,45,0.08); border-left: 2px solid var(--warning); border-radius: 0 10px 10px 0;
+}
 
 @media (max-width: 480px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .gm-card { padding: 16px; }
+  .lk-title { font-size: 21px; }
+  .stack-card { padding: 18px 16px 14px; }
+  .lk-score-val { font-size: 42px; }
 }
 </style>
 </head>
 <body>
-<div class="page">
 
-  <h1 class="dash-title">Appearance / Looks</h1>
+<main>
 
-  <div class="section-title">Coming Soon</div>
-  <div class="gm-card placeholder-card">
-    <div class="placeholder-icon">✨</div>
-    <div class="placeholder-title">Appearance / Looks isn't built yet</div>
-    <p class="placeholder-text">A place to track physique, style, grooming, and overall appearance progress over time.</p>
-    <a class="placeholder-back" href="/index.html">← Back to Main</a>
+  <!-- ===== APPEARANCE / LOOKS — personal looks optimisation tracking:
+       scores, skin/acne notes, body composition, hair/beard/teeth,
+       posture/style, skincare + grooming routines, progress photo
+       placeholders. Reads/writes through window.Appearance
+       (scripts/appearance-data.js) so the preview card on index.html
+       always agrees. Tracking & general appearance optimisation only —
+       never diagnoses or treats acne, scarring, hormones, or health
+       conditions. ===== -->
+  <h1 class="lk-title">Appearance / Looks</h1>
+  <p class="lk-subtitle">Personal looks optimisation tracking — scores, routines, and notes over time. This is a tracking tool, not a diagnosis: see a dermatologist or doctor for anything skin or health related that concerns you.</p>
+
+  <div class="lk-section">
+    <div class="section-title">Overall Looks Score</div>
+    <div class="stack-card lk-score-card">
+      <div><span class="lk-score-val" id="lkScoreVal">5</span><span class="lk-score-max">/10</span></div>
+      <div class="lk-score-label">Looks Score (manual rating)</div>
+      <div class="lk-slider-row">
+        <input type="range" id="lkLooksScore" min="1" max="10" step="1">
+      </div>
+    </div>
   </div>
 
-</div>
+  <div class="lk-section">
+    <div class="section-title">Skin &amp; Face</div>
+    <div class="stack-card">
+      <p class="lk-tracking-note">Tracking only — not a diagnosis. This is a personal record, not a dermatology assessment.</p>
+      <div class="lk-field">
+        <label class="lk-label">Skin Score</label>
+        <div class="lk-slider-row">
+          <input type="range" id="lkSkinScore" min="1" max="10" step="1">
+          <span class="lk-slider-val" id="lkSkinVal">5</span>
+        </div>
+      </div>
+      <div class="lk-grid2">
+        <div class="lk-field">
+          <label class="lk-label">Acne Status</label>
+          <select class="lk-input" id="lkAcneStatus">
+            <option>Clear</option>
+            <option>Mild</option>
+            <option>Moderate</option>
+            <option>Active Breakout</option>
+            <option>Improving</option>
+          </select>
+        </div>
+        <div class="lk-field">
+          <label class="lk-label">Face Bloating</label>
+          <div class="lk-slider-row">
+            <input type="range" id="lkFaceBloating" min="1" max="10" step="1">
+            <span class="lk-slider-val" id="lkBloatVal">5</span>
+          </div>
+        </div>
+      </div>
+      <div class="lk-field" style="margin-top:16px; margin-bottom:0">
+        <label class="lk-label">Acne Scarring Notes</label>
+        <textarea class="lk-input" id="lkAcneScarringNotes" rows="3" placeholder="Notes on scarring, texture, anything you're tracking…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Body Composition</div>
+    <div class="stack-card">
+      <textarea class="lk-input" id="lkBodyCompositionNotes" rows="3" placeholder="Leanness, muscle, weight trend, anything you're noticing…"></textarea>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Hair, Beard &amp; Teeth</div>
+    <div class="stack-card">
+      <div class="lk-field">
+        <label class="lk-label">Haircut / Hairstyle Notes</label>
+        <textarea class="lk-input" id="lkHairstyleNotes" rows="2" placeholder="Cut due, style working, product notes…"></textarea>
+      </div>
+      <div class="lk-field">
+        <label class="lk-label">Beard / Facial Hair Notes</label>
+        <textarea class="lk-input" id="lkBeardNotes" rows="2" placeholder="Trim schedule, growth, shape…"></textarea>
+      </div>
+      <div class="lk-field" style="margin-bottom:0">
+        <label class="lk-label">Teeth / Smile Notes</label>
+        <textarea class="lk-input" id="lkTeethSmileNotes" rows="2" placeholder="Whitening, check-up due, confidence in smile…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Posture &amp; Style</div>
+    <div class="stack-card">
+      <div class="lk-field">
+        <label class="lk-label">Posture Notes</label>
+        <textarea class="lk-input" id="lkPostureNotes" rows="2" placeholder="Standing/sitting posture, mobility work…"></textarea>
+      </div>
+      <div class="lk-field" style="margin-bottom:0">
+        <label class="lk-label">Style / Clothing Notes</label>
+        <textarea class="lk-input" id="lkStyleNotes" rows="2" placeholder="Fit, wardrobe gaps, what's working…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Skincare Routine</div>
+    <div class="stack-card">
+      <ul class="lk-check-list" id="lkSkincareList"></ul>
+      <div class="lk-check-add">
+        <input class="lk-input" id="lkSkincareAddInput" type="text" placeholder="Add a step…">
+        <button class="lk-add-btn" id="lkSkincareAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Grooming Routine</div>
+    <div class="stack-card">
+      <ul class="lk-check-list" id="lkGroomingList"></ul>
+      <div class="lk-check-add">
+        <input class="lk-input" id="lkGroomingAddInput" type="text" placeholder="Add a step…">
+        <button class="lk-add-btn" id="lkGroomingAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Progress Photos</div>
+    <div class="stack-card">
+      <p class="lk-tracking-note">Metadata only — dates, labels, and notes are saved here. Image files themselves are not stored in this browser storage; use the image reference field only if you have a link from your own photo storage.</p>
+      <div id="lkPhotosList"></div>
+      <button class="lk-add-btn" id="lkPhotoAddBtn" type="button" style="margin-top:4px">+ Add Progress Photo Slot</button>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">AI Photo Analysis</div>
+    <div class="stack-card lk-ai-card">
+      <p class="lk-ai-note">AI photo analysis coming later. Progress photo storage and analysis will need image storage/API integration.</p>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Weekly Looks Notes</div>
+    <div class="stack-card">
+      <textarea class="lk-input" id="lkWeeklyNotes" rows="4" placeholder="What's working, what to adjust next week…"></textarea>
+    </div>
+  </div>
+
+  <div class="lk-section">
+    <div class="section-title">Next Improvement Focus</div>
+    <div class="stack-card">
+      <input class="lk-input" id="lkNextImprovementFocus" type="text" placeholder="e.g. Consistent SPF, haircut booking, posture work…">
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+
+    var a = window.Appearance.load();
+    function save() { window.Appearance.save(a); }
+
+    var fieldTimer = null;
+    function bindText(id, key) {
+      var el = $(id);
+      el.value = a[key] || '';
+      el.addEventListener('input', function () {
+        a[key] = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 300);
+      });
+    }
+    function bindSelect(id, key) {
+      var el = $(id);
+      el.value = a[key] || el.options[0].value;
+      el.addEventListener('change', function () { a[key] = el.value; save(); });
+    }
+    function bindSlider(id, valId, key, onSave) {
+      var el = $(id);
+      el.value = a[key] != null ? a[key] : el.min;
+      if ($(valId)) $(valId).textContent = el.value;
+      el.addEventListener('input', function () {
+        a[key] = Number(el.value) || 0;
+        if ($(valId)) $(valId).textContent = el.value;
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(save, 250);
+        if (onSave) onSave();
+      });
+    }
+
+    function renderScore() {
+      $('lkScoreVal').textContent = a.looksScore;
+    }
+    bindSlider('lkLooksScore', null, 'looksScore', renderScore);
+    renderScore();
+
+    bindSlider('lkSkinScore', 'lkSkinVal', 'skinScore');
+    bindSelect('lkAcneStatus', 'acneStatus');
+    bindSlider('lkFaceBloating', 'lkBloatVal', 'faceBloatingRating');
+    bindText('lkAcneScarringNotes', 'acneScarringNotes');
+    bindText('lkBodyCompositionNotes', 'bodyCompositionNotes');
+    bindText('lkHairstyleNotes', 'hairstyleNotes');
+    bindText('lkBeardNotes', 'beardNotes');
+    bindText('lkTeethSmileNotes', 'teethSmileNotes');
+    bindText('lkPostureNotes', 'postureNotes');
+    bindText('lkStyleNotes', 'styleNotes');
+    bindText('lkWeeklyNotes', 'weeklyNotes');
+    bindText('lkNextImprovementFocus', 'nextImprovementFocus');
+
+    // ---- Generic checklist renderer used by Skincare / Grooming ----
+    function renderChecklist(listId, items, onToggle, onDelete) {
+      var wrap = $(listId);
+      wrap.innerHTML = '';
+      items.forEach(function (item) {
+        var li = document.createElement('li');
+        li.className = 'lk-check-row' + (item.completed ? ' is-done' : '');
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.className = 'lk-checkbox'; cb.checked = !!item.completed;
+        cb.addEventListener('change', function () { onToggle(item, cb.checked); });
+
+        var text = document.createElement('span');
+        text.className = 'lk-check-text'; text.textContent = item.label;
+
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'lk-check-del'; del.textContent = '×';
+        del.addEventListener('click', function () { onDelete(item); });
+
+        li.appendChild(cb); li.appendChild(text); li.appendChild(del);
+        wrap.appendChild(li);
+      });
+    }
+
+    function renderSkincare() {
+      renderChecklist('lkSkincareList', a.skincareRoutine,
+        function (item, checked) { item.completed = checked; save(); renderSkincare(); },
+        function (item) { a.skincareRoutine = a.skincareRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderSkincare(); });
+    }
+    function renderGrooming() {
+      renderChecklist('lkGroomingList', a.groomingRoutine,
+        function (item, checked) { item.completed = checked; save(); renderGrooming(); },
+        function (item) { a.groomingRoutine = a.groomingRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderGrooming(); });
+    }
+    renderSkincare(); renderGrooming();
+
+    function wireAdd(inputId, btnId, pushFn, renderFn) {
+      var input = $(inputId);
+      function add() {
+        var v = input.value.trim();
+        if (!v) return;
+        pushFn(v);
+        input.value = '';
+        save(); renderFn();
+      }
+      $(btnId).addEventListener('click', add);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+    }
+    wireAdd('lkSkincareAddInput', 'lkSkincareAddBtn', function (v) { a.skincareRoutine.push({ id: window.Appearance.uid(), label: v, completed: false }); }, renderSkincare);
+    wireAdd('lkGroomingAddInput', 'lkGroomingAddBtn', function (v) { a.groomingRoutine.push({ id: window.Appearance.uid(), label: v, completed: false }); }, renderGrooming);
+
+    // ---- Progress photo placeholders (metadata only, no image storage) ----
+    var photoTimer = null;
+    function renderPhotos() {
+      var wrap = $('lkPhotosList');
+      wrap.innerHTML = '';
+      a.progressPhotos.forEach(function (entry) {
+        var row = document.createElement('div');
+        row.className = 'lk-photo-row';
+
+        var head = document.createElement('div');
+        head.className = 'lk-photo-head';
+        var label = document.createElement('input');
+        label.className = 'lk-input lk-photo-label'; label.type = 'text';
+        label.style.flex = '1'; label.placeholder = 'Label (e.g. Front, Side, Progress)';
+        label.value = entry.label || '';
+        label.addEventListener('input', function () {
+          entry.label = label.value;
+          clearTimeout(photoTimer);
+          photoTimer = setTimeout(save, 300);
+        });
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'lk-check-del'; del.textContent = '×';
+        del.addEventListener('click', function () {
+          a.progressPhotos = a.progressPhotos.filter(function (e) { return e.id !== entry.id; });
+          save(); renderPhotos();
+        });
+        head.appendChild(label); head.appendChild(del);
+
+        var slot = document.createElement('div');
+        slot.className = 'lk-photo-slot';
+        slot.textContent = '🖼 Image slot — coming later';
+
+        var grid = document.createElement('div');
+        grid.className = 'lk-photo-grid';
+
+        var dateInput = document.createElement('input');
+        dateInput.className = 'lk-input'; dateInput.type = 'date'; dateInput.value = entry.date || '';
+        dateInput.addEventListener('input', function () {
+          entry.date = dateInput.value;
+          clearTimeout(photoTimer);
+          photoTimer = setTimeout(save, 300);
+        });
+
+        var urlInput = document.createElement('input');
+        urlInput.className = 'lk-input'; urlInput.type = 'text';
+        urlInput.placeholder = 'Image URL / reference (optional)'; urlInput.value = entry.imageUrl || '';
+        urlInput.addEventListener('input', function () {
+          entry.imageUrl = urlInput.value;
+          clearTimeout(photoTimer);
+          photoTimer = setTimeout(save, 300);
+        });
+
+        grid.appendChild(dateInput); grid.appendChild(urlInput);
+
+        var notes = document.createElement('textarea');
+        notes.className = 'lk-input'; notes.rows = 2;
+        notes.placeholder = 'Notes…'; notes.value = entry.notes || '';
+        notes.addEventListener('input', function () {
+          entry.notes = notes.value;
+          clearTimeout(photoTimer);
+          photoTimer = setTimeout(save, 300);
+        });
+
+        row.appendChild(head); row.appendChild(slot); row.appendChild(grid); row.appendChild(notes);
+        wrap.appendChild(row);
+      });
+    }
+    renderPhotos();
+    $('lkPhotoAddBtn').addEventListener('click', function () {
+      a.progressPhotos.push({ id: window.Appearance.uid(), date: '', label: '', notes: '', imageUrl: '' });
+      save(); renderPhotos();
+    });
+
+    // Re-render if another tab / device changes appearance data.
+    window.addEventListener('storage', function () {
+      a = window.Appearance.load();
+      renderScore();
+      renderSkincare(); renderGrooming(); renderPhotos();
+    });
+  })();
+  </script>
+
+</main>
 </body>
 </html>
