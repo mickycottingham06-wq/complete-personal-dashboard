@@ -11,6 +11,7 @@
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/integrations-data.js"></script>
 <script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
 <script src="../scripts/weather-service.js"></script>
 <script src="../scripts/google-calendar-service.js"></script>
 <script src="../scripts/backup-data.js"></script>
@@ -301,6 +302,68 @@ body::after {
     </div>
   </div>
 
+  <!-- ===== ACCOUNT ===== -->
+  <div class="section">
+    <div class="section-title">Account</div>
+    <div class="gm-card">
+      <div class="int-card-head">
+        <div class="int-card-title"><span class="int-icon">👤</span> Account</div>
+        <span class="int-status" id="authStatus"><span class="dot"></span><span class="txt">Not configured</span></span>
+      </div>
+      <p class="int-card-note">
+        Signing in only creates your Supabase account and session — it does not move any dashboard
+        data. Local Storage stays the active storage system; cloud data sync is not enabled yet.
+      </p>
+
+      <div id="authNotConfigured" class="int-card-note" style="margin-top:-4px;">
+        Set <b>NEXT_PUBLIC_SUPABASE_URL</b> and <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> (see SETUP.md)
+        to enable sign up / sign in.
+      </div>
+
+      <div id="authErrBox" class="int-err-box" style="display:none"></div>
+
+      <!-- Logged out: sign up / sign in -->
+      <div id="authLoggedOut" style="display:none">
+        <div class="seg" id="authTabSeg" style="margin-bottom:14px;">
+          <button type="button" data-tab="signin" class="on">Sign in</button>
+          <button type="button" data-tab="signup">Sign up</button>
+        </div>
+
+        <form id="authSigninForm">
+          <div class="field">
+            <label class="field-label">Email</label>
+            <input class="set-input" id="authSigninEmail" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label class="field-label">Password</label>
+            <input class="set-input" id="authSigninPassword" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="int-sync-btn" id="authSigninBtn" type="submit">Sign in</button>
+        </form>
+
+        <form id="authSignupForm" style="display:none">
+          <div class="field">
+            <label class="field-label">Email</label>
+            <input class="set-input" id="authSignupEmail" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label class="field-label">Password</label>
+            <input class="set-input" id="authSignupPassword" type="password" autocomplete="new-password" minlength="6" required>
+          </div>
+          <button class="int-sync-btn" id="authSignupBtn" type="submit">Sign up</button>
+        </form>
+      </div>
+
+      <!-- Logged in -->
+      <div id="authLoggedIn" style="display:none">
+        <div class="int-row">
+          <span class="int-sync-time" id="authUserEmail">—</span>
+        </div>
+        <button class="int-sync-btn" id="authSignoutBtn" type="button">Sign out</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== CLOUD SYNC ===== -->
   <div class="section">
     <div class="section-title">Cloud Sync</div>
@@ -476,6 +539,82 @@ body::after {
   $('intAiNotes').addEventListener('input', (e) => autoSaveField('aiApi', 'notes', e.target.value));
   $('intAiSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('aiApi'); renderAi(); });
 
+  /* ---------- Account (Supabase Auth) ---------- */
+  function renderAuth(state) {
+    const st = state || (window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false });
+    const statusEl = $('authStatus');
+    const notConfigured = $('authNotConfigured');
+    const loggedOut = $('authLoggedOut');
+    const loggedIn = $('authLoggedIn');
+    const errBox = $('authErrBox');
+
+    if (!st.configured) {
+      renderStatus(statusEl, 'Not configured');
+      notConfigured.style.display = '';
+      loggedOut.style.display = 'none';
+      loggedIn.style.display = 'none';
+      errBox.style.display = 'none';
+      return;
+    }
+    notConfigured.style.display = 'none';
+
+    if (st.error) {
+      errBox.style.display = '';
+      errBox.textContent = st.error;
+    } else {
+      errBox.style.display = 'none';
+    }
+
+    if (st.user) {
+      renderStatus(statusEl, 'Signed in');
+      loggedOut.style.display = 'none';
+      loggedIn.style.display = '';
+      $('authUserEmail').textContent = st.user.email || st.user.id || 'Signed in';
+    } else {
+      renderStatus(statusEl, st.loading ? 'Checking…' : 'Not signed in');
+      loggedOut.style.display = '';
+      loggedIn.style.display = 'none';
+    }
+
+    ['authSigninBtn', 'authSignupBtn', 'authSignoutBtn'].forEach((id) => {
+      const btn = $(id);
+      if (btn) btn.disabled = !!st.loading;
+    });
+  }
+
+  if (window.SupabaseAuth) {
+    window.SupabaseAuth.init();
+    window.SupabaseAuth.subscribe((s) => { renderAuth(s); renderCloud(); });
+  } else {
+    renderAuth({ configured: false });
+  }
+
+  // authTabSeg buttons use data-tab, not data-v like other segs, so this is
+  // wired directly rather than via wireToggle().
+  $('authTabSeg').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      $('authTabSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+      const signup = b.dataset.tab === 'signup';
+      $('authSigninForm').style.display = signup ? 'none' : '';
+      $('authSignupForm').style.display = signup ? '' : 'none';
+    });
+  });
+
+  $('authSigninForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!window.SupabaseAuth) return;
+    await window.SupabaseAuth.signIn($('authSigninEmail').value.trim(), $('authSigninPassword').value);
+  });
+  $('authSignupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!window.SupabaseAuth) return;
+    await window.SupabaseAuth.signUp($('authSignupEmail').value.trim(), $('authSignupPassword').value);
+  });
+  $('authSignoutBtn').addEventListener('click', async () => {
+    if (!window.SupabaseAuth) return;
+    await window.SupabaseAuth.signOut();
+  });
+
   /* ---------- Cloud Sync ---------- */
   function renderCloud() {
     const c = window.Integrations.load().cloudSync;
@@ -491,14 +630,17 @@ body::after {
     const envEl = $('intCloudEnvStatus');
     if (envEl) {
       const st = window.SupabaseFoundation ? window.SupabaseFoundation.getStatus() : { configured: false };
+      const authState = window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false, user: null };
       const legacyConfigured = !!(window.DASH_SUPABASE_URL && window.DASH_SUPABASE_KEY);
       const legacyEnabled = legacyConfigured && window.DASH_SYNC_ENABLED === true;
       envEl.innerHTML = [
         'Storage: <b>Local Storage active</b> (source of truth).',
-        'Supabase project: <b>' + (st.configured ? 'configured' : 'not configured') + '</b> (foundation only — no auth, no database sync active).',
+        'Supabase project: <b>' + (st.configured ? 'configured' : 'not configured') + '</b>.',
+        'Auth: <b>' + (st.authEnabled ? 'enabled' : 'not enabled — set env vars first') + '</b>' +
+          (st.authEnabled ? (authState.user ? ', signed in as ' + (authState.user.email || authState.user.id) : ', signed out') : '') + '.',
         'Legacy blob-sync (sync.js/topbar.js/gym.html): <b>' + (legacyEnabled ? 'enabled' : 'disabled') + '</b>' +
           (legacyEnabled ? '' : legacyConfigured ? ' (configured but not explicitly enabled)' : ' (no Supabase env vars set)') + '.',
-        'Full auth / database sync: <b>not built yet</b>. Data migration: <b>none has happened</b>.',
+        'Cloud database sync: <b>not active yet</b>. Data migration: <b>none has happened</b>.',
       ].map((l) => '<span style="display:block;">' + l + '</span>').join('');
     }
   }

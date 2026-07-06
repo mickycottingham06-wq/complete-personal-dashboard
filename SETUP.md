@@ -72,6 +72,21 @@ Redeploy. The app reads these automatically via `/api/config`.
 > ⚠️ Only the **anon** key (public) is used here. **Never** put the `service_role` key in code
 > or in these env vars.
 
+### Auth foundation (sign up / sign in) — optional, separate from the legacy sync above
+
+A newer, separate foundation (`scripts/supabase-status.js` + `scripts/supabase-auth.js`) adds
+account sign up / sign in / sign out on the Command Centre and Integrations pages. It uses its
+own env vars — set both in Vercel → **Settings → Environment Variables**, then redeploy:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | your Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your anon / publishable key |
+
+Without these, sign up/sign in are simply unavailable — the app works exactly as before, no
+crash, no login prompt. This is **auth only**: no dashboard data is stored in or synced from
+Supabase yet. See `docs/SUPABASE_PLAN.md` §16.
+
 ---
 
 ## 3. Weather (works out of the box, no key needed)

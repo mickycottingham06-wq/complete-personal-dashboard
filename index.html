@@ -10,6 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="scripts/sync.js" defer></script>
 <script src="scripts/topbar.js" defer></script>
+<script src="scripts/supabase-status.js"></script>
+<script src="scripts/supabase-auth.js"></script>
 <script src="scripts/daily-snapshot-data.js"></script>
 <script src="scripts/streaks-data.js"></script>
 <script src="scripts/business-data.js"></script>
@@ -180,6 +182,16 @@ body::after {
 /* ===== Header row + gear ===== */
 .hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .hub-head .dash-title { margin: 0; }
+.hub-head-right { display: flex; align-items: center; gap: 10px; }
+.acct-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 600; color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.acct-indicator .dot { width: 6px; height: 6px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
+.acct-indicator.signed-in { color: var(--success); }
+.acct-indicator.signed-in .dot { background: var(--success); box-shadow: 0 0 6px rgba(107,227,164,0.6); }
+.acct-indicator.configured .dot { background: var(--warning); }
 .gear-btn {
   width: 42px; height: 42px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -259,12 +271,15 @@ body::after {
 
   <div class="hub-head">
     <h1 class="dash-title">Command Centre</h1>
-    <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
+    <div class="hub-head-right">
+      <span class="acct-indicator" id="acctIndicator" title="Account status"><span class="dot"></span><span class="txt">Local only</span></span>
+      <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <!-- ===== TODAY BAR — compact status strip: date, completion %,
@@ -1219,6 +1234,39 @@ body::after {
   renderPreviews();
   window.addEventListener('storage', renderPreviews);
   window.addEventListener('focus', renderPreviews);
+})();
+</script>
+
+<!-- ===== Account indicator (Supabase foundation — see docs/SUPABASE_PLAN.md) =====
+     Subtle status only: local-only / configured / signed in / not signed in.
+     Never blocks the page — safe if SupabaseAuth/SupabaseFoundation are absent. -->
+<script>
+(function () {
+  'use strict';
+  const el = document.getElementById('acctIndicator');
+  if (!el) return;
+  const txt = el.querySelector('.txt');
+
+  function render(state) {
+    const st = state || (window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false });
+    el.classList.remove('configured', 'signed-in');
+    if (!st.configured) {
+      txt.textContent = 'Local only';
+    } else if (st.user) {
+      el.classList.add('signed-in');
+      txt.textContent = 'Signed in';
+    } else {
+      el.classList.add('configured');
+      txt.textContent = 'Not signed in';
+    }
+  }
+
+  if (window.SupabaseAuth) {
+    window.SupabaseAuth.init();
+    window.SupabaseAuth.subscribe(render);
+  } else {
+    render({ configured: false });
+  }
 })();
 </script>
 </body>

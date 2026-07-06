@@ -51,14 +51,16 @@
     const configured = isConfigured();
     return {
       configured: configured,
-      // No auth flow is implemented anywhere in this foundation yet.
-      authEnabled: false,
+      // Auth (sign up/in/out) is implemented in scripts/supabase-auth.js
+      // and works whenever the client is configured. Whether a user is
+      // actually signed in is a separate question — see SupabaseAuth.getState().
+      authEnabled: configured,
       // True once env vars are present — the client can be created,
-      // but nothing reads/writes through it yet.
+      // but no dashboard data reads/writes through it yet.
       readyForFutureSync: configured,
       code: configured ? 'configured' : 'not_configured',
       label: configured
-        ? 'Supabase configured — foundation ready, auth not enabled, cloud sync not active'
+        ? 'Supabase configured — auth enabled, cloud database sync not active'
         : 'Supabase not configured — Local Storage is the only storage system',
     };
   }

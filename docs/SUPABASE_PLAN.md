@@ -312,3 +312,43 @@ touch RLS. That remains future work, not required before Phase 1.
 
 **Next step unchanged from §14:** Phase 1 env var setup, then Phase 2 auth before RLS can be
 tightened.
+
+## 16. Auth foundation added (2026-07-06)
+
+Phase 2 (§13) built: sign up / sign in / sign out, on top of the existing `SupabaseFoundation`
+client (§14). No dashboard data reads/writes through this — auth only.
+
+**Added:**
+- `scripts/supabase-auth.js` — new module, `window.SupabaseAuth`. Wraps
+  `SupabaseFoundation.getClient()`'s `auth.signUp` / `auth.signInWithPassword` / `auth.signOut` /
+  `auth.getSession` / `auth.onAuthStateChange`. Exposes `getState()` (`{ configured, loading,
+  error, user, session }`), `subscribe(fn)`, and the three action methods. Every method resolves
+  `{ error }` instead of throwing when Supabase isn't configured — same fail-safe pattern as
+  `SupabaseFoundation.getClient()`.
+- Integrations page — new **Account** card (above Cloud Sync): shows configured/not-configured,
+  sign in/sign up forms when logged out, email + sign out button when logged in, and a fixed note
+  that this does not move any dashboard data. Cloud Sync card's env-status line now also reports
+  auth enabled/not and signed-in/signed-out.
+- Command Centre (`index.html`) — small subtle indicator next to the settings gear: **Local
+  only** (not configured) / **Not signed in** (configured, logged out) / **Signed in** (logged
+  in). Purely a status readout, no click behaviour.
+- `scripts/supabase-status.js`'s `getStatus().authEnabled` now reflects reality (`true` once
+  configured, since sign in actually works) instead of the previous hardcoded `false`.
+
+**What auth does now:**
+- Creates/signs in/out of a real Supabase Auth user (email + password) when
+  `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set.
+- Persists the Supabase session (via supabase-js's own storage) across reloads on Command Centre
+  and Integrations, the two pages that load `supabase-auth.js`.
+
+**What it does not do yet:**
+- No dashboard data (any HQ page) is read from or written to Supabase — Local Storage remains the
+  only active storage system, unchanged, per §3.
+- No `user_id` scoping, no RLS changes, no structured tables (§5) — those are Phase 3+.
+- No data migration (§11) has run or been triggered from this UI.
+- Auth isn't required to use the app — every page works exactly as before with no one signed in.
+- Not wired into every page — only Command Centre and Integrations load `supabase-auth.js` today;
+  the rest of the Life OS doesn't reference auth state at all.
+
+**Next phase:** Local Storage → Supabase migration/sync (§11, Phase 3+) — still not started, and
+should not start without a separate go-ahead per §13.
