@@ -122,6 +122,22 @@ Commit:
 
 Add Streaks
 
+## 2026-07-06
+
+### Daily Control Panel visible on Command Centre
+
+Renamed the user-facing "Daily Snapshot" label to "Daily Control Panel" in the sidebar (`scripts/topbar.js`) and on its full page (`pages/daily-snapshot.html`) to reflect that it's the main daily operating area of the Life OS. The `dailySnapshot` localStorage key, `window.DailySnapshot` API, and file name are unchanged — display label only.
+
+Rebuilt the Command Centre preview card on index.html from a thin 3-stat summary into a genuinely useful compact control panel: named top-3 priorities with completion marks, a habits/checklist progress line, energy level and recovery-or-sleep score mini-stats, and a status-chip row (Business / Training / Money logged / Evening review) showing done vs pending. Added helpful empty-state prompts ("Set today's focus →", "Choose top priorities →", "Log today's status →") instead of blank 0/0% boxes, plus an explicit "Open Daily Control Panel →" link at the bottom of the card. All fields read live from `window.DailySnapshot` — no new data or API added.
+
+Files affected:
+
+index.html, scripts/topbar.js, pages/daily-snapshot.html, docs/PROJECT.md, docs/DATA_SCHEMA.md
+
+Commit:
+
+Make Daily Control Panel visible and useful from Command Centre
+
 ## 2026-07-03
 
 ### Navigation & Layout — Sidebar, Preview Cards, Section Pages

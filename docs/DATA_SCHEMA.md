@@ -48,6 +48,8 @@ Never mix unrelated data.
 
 # Daily Snapshot Data
 
+User-facing label is "Daily Control Panel" (sidebar and Command Centre heading) as of 2026-07-06 — the `dailySnapshot` localStorage key, `window.DailySnapshot` API, and `pages/daily-snapshot.html` filename are unchanged, this is a display-label rename only.
+
 Implemented as the Life OS's daily control panel. Lives in `localStorage` under the key `dailySnapshot`. The read/rollover/upgrade/save logic lives in `scripts/daily-snapshot-data.js` (shared business logic, not yet split into a `data/` file) so every reader — the full page at `pages/daily-snapshot.html`, the Command Centre preview card on index.html, Streaks, and Heatmap — sees the same rolled-over data instead of re-implementing the rollover.
 
 Shape:
@@ -96,7 +98,7 @@ Resets to defaults automatically when `date` no longer matches the active day. S
 
 **Cross-feeds (safe one-way updates, not two-way sync):** `energyLevel` and `stress` are pushed into `window.Health`'s `energyLevel`/`stressLevel` fields on change, since both use the same 0-10 scale — Health HQ's own preview card picks this up automatically with no extra code. `currentWeight` is pushed via the existing `window.Core.setCurrentWeight()` helper, which already keeps `window.Health.currentWeight` and `window.Boxing.currentWeight` in sync. `sleepQuality` and `recovery` are intentionally **not** pushed anywhere — Health HQ's own `sleepQuality` (a text category) and `recoveryScore` (a WHOOP 0-100 percentage) use different scales and would silently corrupt on overwrite, so they stay local to Daily Snapshot only. The five execution booleans (`trainingCompleted`, `businessTaskCompleted`, `healthRoutineCompleted`, `spendingLogged`, `goalActionCompleted`) are read directly by `scripts/heatmap-data.js` (replacing its old free-text-field inference) and surfaced as small read-only "✓ done today" lines on the Business HQ, Boxing HQ, Health HQ, Money HQ, and Goals preview cards on index.html — those HQ pages' own data shapes are untouched; the flags are read, never duplicated into them.
 
-The full interactive UI lives at `pages/daily-snapshot.html`, split into four cards: Morning Plan, Execution, Body / Mind Status, Evening Review. index.html's Command Centre shows a compact preview card (main focus, daily completion %, current streak, today's score, tomorrow's priority if set) that links to it.
+The full interactive UI lives at `pages/daily-snapshot.html`, split into four cards: Morning Plan, Execution, Body / Mind Status, Evening Review. index.html's Command Centre shows a compact "Daily Control Panel" preview card (main focus, named top-3 priorities with completion state, habit/checklist progress line, daily completion %, current streak, today's score, energy level, recovery-or-sleep score, status chips for business/training/money-logged/evening-review, tomorrow's priority if set) with helpful empty-state prompts when a section has no data yet, that links to it.
 
 ---
 

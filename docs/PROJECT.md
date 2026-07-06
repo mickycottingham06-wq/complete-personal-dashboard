@@ -140,7 +140,7 @@ Current and planned pages include:
 
 Command Centre (index.html — the home page: Today top bar, compact preview cards, bento quick-nav grid. Formerly labelled "Main" in the sidebar/bottom bar; that label is retired)
 
-Daily Snapshot (pages/daily-snapshot.html)
+Daily Control Panel (pages/daily-snapshot.html — user-facing label renamed from "Daily Snapshot"; file/data key unchanged)
 
 Streaks (pages/streaks.html)
 

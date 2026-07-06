@@ -124,6 +124,21 @@ body::after {
 .preview-rev-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #F2C063, #FDE68A); transition: width 0.3s ease; }
 .preview-rev-pct { margin-top: 6px; font-size: 12px; color: var(--text-tertiary); }
 
+/* ===== Daily Control Panel preview extras (priorities, status chips, CTA) ===== */
+.preview-priorities { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.preview-priority { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.preview-priority .pp-mark { width: 14px; flex-shrink: 0; font-size: 12px; color: var(--text-tertiary); }
+.preview-priority.done { color: var(--text-tertiary); text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.25); }
+.preview-priority.done .pp-mark { color: var(--success); }
+.preview-priority.is-empty { color: var(--text-tertiary); font-style: italic; }
+.preview-sub.is-empty { font-style: italic; }
+.status-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.status-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 20px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); }
+.status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
+.status-chip.done { color: var(--text-secondary); }
+.status-chip.done .dot { background: var(--success); box-shadow: 0 0 8px rgba(107,227,164,0.6); }
+.preview-cta { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+
 /* ===== BENTO GRID ===== */
 .bento {
   display: grid;
@@ -322,10 +337,10 @@ body::after {
     </div>
   </div>
 
-  <!-- ===== DAILY SNAPSHOT PREVIEW — compact entry point, full view lives at
+  <!-- ===== DAILY CONTROL PANEL PREVIEW — compact entry point, full view lives at
        pages/daily-snapshot.html so it no longer dominates the main page ===== -->
   <div class="section" id="dailySnapshotPreview">
-    <div class="section-title">Daily Snapshot <span class="snap-date" id="previewSnapDate"></span></div>
+    <div class="section-title">Daily Control Panel <span class="snap-date" id="previewSnapDate"></span></div>
     <a class="gm-card preview-card" href="pages/daily-snapshot.html">
       <div class="preview-top">
         <div>
@@ -334,12 +349,26 @@ body::after {
         </div>
         <span class="preview-arrow">→</span>
       </div>
-      <div class="streak-stats">
+
+      <ul class="preview-priorities" id="previewPriorities"></ul>
+
+      <div class="preview-sub" id="previewChecklistLine" style="margin-top:10px">—</div>
+
+      <div class="streak-stats" style="margin-top:12px">
         <div class="streak-stat"><div class="v" id="previewCompletionPct">0%</div><div class="l">Completion</div></div>
         <div class="streak-stat"><div class="v" id="previewSnapStreak">0</div><div class="l">Streak</div></div>
         <div class="streak-stat"><div class="v" id="previewSnapScore">—</div><div class="l">Score</div></div>
       </div>
+
+      <div class="streak-stats-2">
+        <div class="streak-stat"><div class="v" id="previewEnergy">—</div><div class="l">Energy</div></div>
+        <div class="streak-stat"><div class="v" id="previewRecovery">—</div><div class="l" id="previewRecoveryLabel">Recovery</div></div>
+      </div>
+
+      <div class="status-chip-row" id="previewStatusChips"></div>
+
       <div class="preview-sub" id="previewTomorrowPriority" style="margin-top:12px"></div>
+      <div class="preview-cta">Open Daily Control Panel →</div>
     </a>
   </div>
 
@@ -1054,6 +1083,28 @@ body::after {
     focusEl.textContent = hasFocus ? snap.mainFocus.trim() : 'Set today’s focus →';
     focusEl.classList.toggle('is-empty', !hasFocus);
 
+    const prioritiesWrap = $('previewPriorities');
+    prioritiesWrap.innerHTML = '';
+    const namedPriorities = snap.priorities.filter((p) => p.text && p.text.trim());
+    if (!namedPriorities.length) {
+      const li = document.createElement('li');
+      li.className = 'preview-priority is-empty';
+      li.textContent = 'Choose top priorities →';
+      prioritiesWrap.appendChild(li);
+    } else {
+      namedPriorities.forEach((p) => {
+        const li = document.createElement('li');
+        li.className = 'preview-priority' + (p.completed ? ' done' : '');
+        const mark = document.createElement('span');
+        mark.className = 'pp-mark';
+        mark.textContent = p.completed ? '✓' : '○';
+        const txt = document.createElement('span');
+        txt.textContent = p.text.trim();
+        li.append(mark, txt);
+        prioritiesWrap.appendChild(li);
+      });
+    }
+
     const habitsTotal = snap.habits.length;
     const habitsDone = snap.habits.filter((h) => h.completed).length;
     const prioritiesTotal = snap.priorities.length;
@@ -1064,9 +1115,54 @@ body::after {
     const doneTotal = habitsDone + prioritiesDone + execDone;
     $('previewCompletionPct').textContent = itemsTotal ? Math.round(doneTotal / itemsTotal * 100) + '%' : '0%';
 
+    const checklistEl = $('previewChecklistLine');
+    if (habitsDone + execDone === 0) {
+      checklistEl.textContent = 'Log today’s status →';
+      checklistEl.classList.add('is-empty');
+    } else {
+      checklistEl.textContent = habitsDone + '/' + habitsTotal + ' habits · ' + execDone + '/' + execKeys.length + ' checklist';
+      checklistEl.classList.remove('is-empty');
+    }
+
     const streaks = window.Streaks.recompute();
     $('previewSnapStreak').textContent = String(streaks.data.currentStreak);
     $('previewSnapScore').textContent = Number(snap.dayScore) ? String(snap.dayScore) : '—';
+
+    $('previewEnergy').textContent = Number(snap.energyLevel) ? snap.energyLevel + '/10' : '—';
+    const recoveryEl = $('previewRecovery');
+    const recoveryLabelEl = $('previewRecoveryLabel');
+    if (Number(snap.recovery)) {
+      recoveryEl.textContent = snap.recovery + '/10';
+      recoveryLabelEl.textContent = 'Recovery';
+    } else if (Number(snap.sleepQuality)) {
+      recoveryEl.textContent = snap.sleepQuality + '/10';
+      recoveryLabelEl.textContent = 'Sleep';
+    } else {
+      recoveryEl.textContent = '—';
+      recoveryLabelEl.textContent = 'Recovery';
+    }
+
+    const chipsWrap = $('previewStatusChips');
+    chipsWrap.innerHTML = '';
+    const eveningDone = Number(snap.dayScore) > 0
+      || !!(snap.wentWell && snap.wentWell.trim())
+      || !!(snap.slipped && snap.slipped.trim())
+      || !!(snap.lesson && snap.lesson.trim());
+    [
+      ['Business', !!snap.businessTaskCompleted],
+      ['Training', !!snap.trainingCompleted],
+      ['Money logged', !!snap.spendingLogged],
+      ['Evening review', eveningDone],
+    ].forEach(([label, done]) => {
+      const chip = document.createElement('span');
+      chip.className = 'status-chip' + (done ? ' done' : '');
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      const txt = document.createElement('span');
+      txt.textContent = label;
+      chip.append(dot, txt);
+      chipsWrap.appendChild(chip);
+    });
 
     const tomorrowEl = $('previewTomorrowPriority');
     const hasTomorrow = !!(snap.tomorrowPriority && snap.tomorrowPriority.trim());

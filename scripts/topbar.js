@@ -291,7 +291,7 @@ body.topbar-modal-open {
   // Full navigation list — same set on every page, opened by the hamburger.
   const SIDEBAR_LINKS = [
     { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/index.html' },
-    { key: 'snapshot',    icon: '📋', label: 'Daily Snapshot',        href: '/pages/daily-snapshot.html' },
+    { key: 'snapshot',    icon: '📋', label: 'Daily Control Panel',   href: '/pages/daily-snapshot.html' },
     { key: 'streaks',     icon: '🔥', label: 'Streaks',               href: '/pages/streaks.html' },
     { key: 'business',    icon: '💼', label: 'Business HQ',          href: '/pages/business-hq.html' },
     { key: 'money-hq',    icon: '📊', label: 'Money HQ',             href: '/pages/money-hq.html' },
