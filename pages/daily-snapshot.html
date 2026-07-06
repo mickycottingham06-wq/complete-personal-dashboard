@@ -10,6 +10,10 @@
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/streaks-data.js"></script>
+<script src="../scripts/heatmap-data.js"></script>
+<script src="../scripts/health-data.js"></script>
+<script src="../scripts/core-data.js"></script>
 <script src="../scripts/integrations-data.js"></script>
 <script src="../scripts/google-calendar-service.js"></script>
 <style>
@@ -61,7 +65,8 @@ body::after {
 }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
-.section { margin-top: 8px; }
+.section { margin-top: 20px; }
+.section:first-of-type { margin-top: 8px; }
 .section-title {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
@@ -80,6 +85,11 @@ body::after {
 .snap-status.good { color: var(--success); }
 .snap-status.warn { color: var(--warning); }
 
+.streak-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.streak-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+.streak-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.streak-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+
 .snap-label {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
   color: var(--text-tertiary); margin: 18px 0 8px;
@@ -97,6 +107,7 @@ body::after {
 .set-input::placeholder { color: var(--text-tertiary); }
 .set-input:focus { border-color: rgba(255,255,255,0.28); }
 textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; }
 
 .goal-list { list-style: none; margin: 0; padding: 0; }
 .gm-row {
@@ -121,8 +132,19 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
 .gm-text[contenteditable="true"]:focus { outline: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); }
 .gm-text[contenteditable="true"]:empty::before { content: attr(data-placeholder); color: var(--text-tertiary); }
 
-.snap-grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 18px; }
-@media (max-width: 620px) { .snap-grid3 { grid-template-columns: 1fr; } }
+.snap-grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.snap-grid2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px 20px; }
+@media (max-width: 620px) { .snap-grid3, .snap-grid2 { grid-template-columns: 1fr; } }
+
+.rate-field { margin-bottom: 16px; }
+.rate-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.rate-value { font-size: 12px; font-weight: 700; color: var(--text-primary); background: rgba(255,255,255,0.07); padding: 2px 9px; border-radius: 20px; min-width: 30px; text-align: center; }
+.rate-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 6px; background: rgba(255,255,255,0.09); outline: none; margin: 0; }
+.rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--text-primary); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+.rate-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--text-primary); border: none; cursor: pointer; }
+
+.snap-hint { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: var(--text-tertiary); }
+.snap-hint a { color: var(--text-secondary); font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
@@ -139,49 +161,131 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
     <div class="section-title">Today <span class="snap-date" id="snapDate"></span><span class="snap-weather" id="snapWeatherChip"></span><span class="snap-weather" id="snapCalendarChip"></span></div>
     <div class="gm-card">
       <div class="snap-status" id="snapStatus">—</div>
+      <div class="streak-stats">
+        <div class="streak-stat"><div class="v" id="snapCompletionPct">0%</div><div class="l">Completion</div></div>
+        <div class="streak-stat"><div class="v" id="snapStreak">0</div><div class="l">Streak</div></div>
+        <div class="streak-stat"><div class="v" id="snapScore">—</div><div class="l">Today's Score</div></div>
+      </div>
+    </div>
+  </div>
 
+  <!-- ===== MORNING PLAN ===== -->
+  <div class="section">
+    <div class="section-title">Morning Plan</div>
+    <div class="gm-card">
       <div class="field">
         <label class="field-label">Main Focus</label>
         <input class="set-input" id="snapMainFocus" type="text" placeholder="What matters most today?" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label">One Thing That Would Make Today Successful</label>
+        <input class="set-input" id="snapSuccessTarget" type="text" placeholder="If nothing else happens, what wins the day?" autocomplete="off">
       </div>
 
       <div class="snap-label">Top 3 Priorities</div>
       <ul class="goal-list" id="snapPriorities"></ul>
 
-      <div class="snap-label">Today's Habits</div>
+      <div class="field" style="margin-top:18px">
+        <label class="field-label">Schedule / Notes</label>
+        <textarea class="set-input" id="snapSchedule" rows="3" placeholder="Meetings, appointments, anything time-boxed today…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EXECUTION ===== -->
+  <div class="section">
+    <div class="section-title">Execution</div>
+    <div class="gm-card">
+      <div class="snap-label" style="margin-top:0">Today's Habits</div>
       <ul class="goal-list" id="snapHabits"></ul>
 
-      <div class="snap-grid3">
-        <div class="field">
-          <label class="field-label">Training</label>
-          <input class="set-input" id="snapTraining" type="text" placeholder="e.g. Sparring done" autocomplete="off">
+      <div class="snap-label">Today's Checklist</div>
+      <ul class="goal-list" id="snapExecution"></ul>
+    </div>
+  </div>
+
+  <!-- ===== BODY / MIND STATUS ===== -->
+  <div class="section">
+    <div class="section-title">Body / Mind Status</div>
+    <div class="gm-card">
+      <div class="snap-grid2">
+        <div class="rate-field">
+          <div class="rate-head"><label class="field-label" style="margin:0">Energy Level</label><span class="rate-value" id="snapEnergyVal">—</span></div>
+          <input class="rate-slider" id="snapEnergy" type="range" min="0" max="10" step="1">
         </div>
-        <div class="field">
-          <label class="field-label">Business Focus</label>
-          <input class="set-input" id="snapBusiness" type="text" placeholder="e.g. Client outreach" autocomplete="off">
+        <div class="rate-field">
+          <div class="rate-head"><label class="field-label" style="margin:0">Sleep Quality</label><span class="rate-value" id="snapSleepVal">—</span></div>
+          <input class="rate-slider" id="snapSleep" type="range" min="0" max="10" step="1">
         </div>
-        <div class="field">
-          <label class="field-label">Health / Recovery</label>
-          <input class="set-input" id="snapHealth" type="text" placeholder="e.g. Recovered, 8h sleep" autocomplete="off">
+        <div class="rate-field">
+          <div class="rate-head"><label class="field-label" style="margin:0">Recovery</label><span class="rate-value" id="snapRecoveryVal">—</span></div>
+          <input class="rate-slider" id="snapRecovery" type="range" min="0" max="10" step="1">
+        </div>
+        <div class="rate-field">
+          <div class="rate-head"><label class="field-label" style="margin:0">Stress</label><span class="rate-value" id="snapStressVal">—</span></div>
+          <input class="rate-slider" id="snapStress" type="range" min="0" max="10" step="1">
         </div>
       </div>
 
-      <div class="field" style="margin-top:18px">
-        <label class="field-label">Quick Notes</label>
+      <div class="snap-grid3" style="margin-top:4px">
+        <div class="field">
+          <label class="field-label">Mood</label>
+          <select class="set-input" id="snapMood">
+            <option value="">—</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Current Weight (kg)</label>
+          <input class="set-input" id="snapWeight" type="number" min="0" step="0.1" placeholder="e.g. 78.5" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:4px">
+        <label class="field-label">Notes</label>
         <textarea class="set-input" id="snapNotes" rows="3" placeholder="Anything else on your mind…"></textarea>
       </div>
+    </div>
+  </div>
 
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);font-size:12px;color:var(--text-tertiary)">
-        Today's habit completion feeds <a href="streaks.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Streaks</a> and the <a href="heatmap.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Heatmap</a> automatically.
+  <!-- ===== EVENING REVIEW ===== -->
+  <div class="section">
+    <div class="section-title">Evening Review</div>
+    <div class="gm-card">
+      <div class="field">
+        <label class="field-label">What Went Well</label>
+        <textarea class="set-input" id="snapWentWell" rows="2" placeholder="Wins, however small…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">What Slipped</label>
+        <textarea class="set-input" id="snapSlipped" rows="2" placeholder="What didn't go to plan?"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Lesson Learned</label>
+        <textarea class="set-input" id="snapLesson" rows="2" placeholder="What will you do differently?"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Tomorrow's Priority</label>
+        <input class="set-input" id="snapTomorrow" type="text" placeholder="The one thing to lead with tomorrow" autocomplete="off">
+      </div>
+      <div class="rate-field" style="margin-bottom:0">
+        <div class="rate-head"><label class="field-label" style="margin:0">Daily Score</label><span class="rate-value" id="snapDayScoreVal">—</span></div>
+        <input class="rate-slider" id="snapDayScore" type="range" min="0" max="10" step="1">
+      </div>
+
+      <div class="snap-hint">
+        Habits and execution feed <a href="streaks.html">Streaks</a> and the <a href="heatmap.html">Heatmap</a> automatically. Energy, stress and weight update <a href="health.html">Health HQ</a>.
       </div>
     </div>
   </div>
 
 </div>
 
-<!-- ===== Daily Snapshot logic — reads/writes through window.DailySnapshot
-     (scripts/daily-snapshot-data.js) so Streaks and the preview card on the
-     main dashboard always see the same data. ===== -->
+<!-- ===== Daily Snapshot / Daily Control Panel logic — reads/writes through
+     window.DailySnapshot (scripts/daily-snapshot-data.js) so Streaks, Heatmap
+     and the Command Centre preview always see the same data. Energy, stress
+     and weight are safely pushed one-way into window.Health / window.Core
+     since they share the same scale — sleep quality and recovery stay local
+     to Daily Snapshot since Health HQ's own fields use a different scale. ===== -->
 <script>
 (function () {
   'use strict';
@@ -214,19 +318,42 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
     chip.textContent = next ? '· Next: ' + next.title + ' ' + next.time : '';
   }
 
+  const EXECUTION_ITEMS = [
+    { key: 'trainingCompleted', label: 'Training completed' },
+    { key: 'businessTaskCompleted', label: 'Business task completed' },
+    { key: 'healthRoutineCompleted', label: 'Health routine completed' },
+    { key: 'spendingLogged', label: 'Money / spending logged' },
+    { key: 'goalActionCompleted', label: 'Goal action completed' },
+  ];
+
   function renderStatus() {
     const habitsDone = snap.habits.filter((h) => h.completed).length;
     const habitsTotal = snap.habits.length;
     const pDone = snap.priorities.filter((p) => p.completed).length;
     const pTotal = snap.priorities.length;
+    const execDone = EXECUTION_ITEMS.filter((item) => snap[item.key]).length;
+    const execTotal = EXECUTION_ITEMS.length;
+
+    const doneTotal = habitsDone + pDone + execDone;
+    const itemsTotal = habitsTotal + pTotal + execTotal;
+    const ratio = itemsTotal ? doneTotal / itemsTotal : 0;
+    const pct = Math.round(ratio * 100);
+
     const el = $('snapStatus');
     el.classList.remove('good', 'warn');
-    const ratio = (habitsDone + pDone) / (habitsTotal + pTotal);
-    const summary = habitsDone + '/' + habitsTotal + ' habits · ' + pDone + '/' + pTotal + ' priorities done';
-    if (habitsDone === 0 && pDone === 0) { el.textContent = 'Nothing logged yet — set today\'s focus below.'; return; }
-    if (ratio >= 0.75) { el.classList.add('good'); el.textContent = 'Strong day — ' + summary + '.'; }
+    const summary = habitsDone + '/' + habitsTotal + ' habits · ' + pDone + '/' + pTotal + ' priorities · ' + execDone + '/' + execTotal + ' checklist';
+    if (doneTotal === 0) { el.textContent = 'Nothing logged yet — set today\'s focus below.'; }
+    else if (ratio >= 0.75) { el.classList.add('good'); el.textContent = 'Strong day — ' + summary + '.'; }
     else if (ratio >= 0.4) { el.classList.add('warn'); el.textContent = 'On pace — ' + summary + '.'; }
     else { el.textContent = summary + ' — plenty of day left.'; }
+
+    $('snapCompletionPct').textContent = pct + '%';
+    const streaks = window.Streaks ? window.Streaks.recompute() : null;
+    $('snapStreak').textContent = streaks ? String(streaks.data.currentStreak) : '0';
+    const score = Number(snap.dayScore) || 0;
+    $('snapScore').textContent = score ? String(score) : '—';
+
+    if (window.Heatmap) window.Heatmap.recompute();
   }
 
   function renderPriorities() {
@@ -272,6 +399,83 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
     });
   }
 
+  function renderExecution() {
+    const wrap = $('snapExecution');
+    wrap.innerHTML = '';
+    EXECUTION_ITEMS.forEach((item) => {
+      const li = document.createElement('li');
+      li.className = 'gm-row' + (snap[item.key] ? ' gm-row-done' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'gm-check'; cb.checked = !!snap[item.key];
+      cb.addEventListener('change', () => {
+        snap[item.key] = cb.checked; save(); renderStatus();
+        li.classList.toggle('gm-row-done', cb.checked);
+      });
+      const txt = document.createElement('div');
+      txt.className = 'gm-text'; txt.textContent = item.label;
+      li.append(cb, txt);
+      wrap.appendChild(li);
+    });
+  }
+
+  function renderMoodOptions() {
+    const sel = $('snapMood');
+    (window.DailySnapshot.MOODS || []).forEach((m) => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      sel.appendChild(opt);
+    });
+    sel.value = snap.mood || '';
+    sel.addEventListener('change', () => { snap.mood = sel.value; save(); });
+  }
+
+  // Pushes energy/stress into Health HQ (same 1-10 scale) and weight into
+  // both Health HQ and Boxing HQ via window.Core — safe one-way updates,
+  // never read back, so Daily Snapshot stays the only place these are typed.
+  function pushHealthField(field, value) {
+    if (!window.Health) return;
+    const h = window.Health.load();
+    h[field] = value;
+    window.Health.save(h);
+  }
+
+  function bindRating(id, valId, key, healthField) {
+    const el = $(id);
+    const valEl = $(valId);
+    const val = Number(snap[key]) || 0;
+    el.value = String(val);
+    valEl.textContent = val ? String(val) : '—';
+    el.addEventListener('input', () => {
+      const v = Number(el.value) || 0;
+      snap[key] = v;
+      valEl.textContent = v ? String(v) : '—';
+      save();
+      if (key === 'dayScore') renderStatus();
+    });
+    if (healthField) {
+      el.addEventListener('change', () => {
+        const v = Number(el.value) || 0;
+        if (v > 0) pushHealthField(healthField, v);
+      });
+    }
+  }
+
+  function bindWeight() {
+    const el = $('snapWeight');
+    el.value = snap.currentWeight ? String(snap.currentWeight) : '';
+    let timer = null;
+    el.addEventListener('input', () => {
+      const v = Number(el.value) || 0;
+      snap.currentWeight = v;
+      clearTimeout(timer);
+      timer = setTimeout(save, 400);
+    });
+    el.addEventListener('change', () => {
+      const v = Number(el.value) || 0;
+      if (v > 0 && window.Core) window.Core.setCurrentWeight(v);
+    });
+  }
+
   // Plain text fields, debounced so typing doesn't thrash storage.
   let fieldTimer = null;
   function bindField(id, key) {
@@ -287,19 +491,30 @@ textarea.set-input { resize: vertical; min-height: 72px; line-height: 1.5; font-
   renderDate();
   renderWeatherChip();
   renderCalendarChip();
-  renderStatus();
   renderPriorities();
   renderHabits();
+  renderExecution();
+  renderMoodOptions();
   bindField('snapMainFocus', 'mainFocus');
-  bindField('snapTraining', 'trainingStatus');
-  bindField('snapBusiness', 'businessFocus');
-  bindField('snapHealth', 'healthStatus');
+  bindField('snapSuccessTarget', 'successTarget');
+  bindField('snapSchedule', 'scheduleNotes');
   bindField('snapNotes', 'notes');
+  bindField('snapWentWell', 'wentWell');
+  bindField('snapSlipped', 'slipped');
+  bindField('snapLesson', 'lesson');
+  bindField('snapTomorrow', 'tomorrowPriority');
+  bindRating('snapEnergy', 'snapEnergyVal', 'energyLevel', 'energyLevel');
+  bindRating('snapSleep', 'snapSleepVal', 'sleepQuality', null);
+  bindRating('snapRecovery', 'snapRecoveryVal', 'recovery', null);
+  bindRating('snapStress', 'snapStressVal', 'stress', 'stressLevel');
+  bindRating('snapDayScore', 'snapDayScoreVal', 'dayScore', null);
+  bindWeight();
+  renderStatus();
 
   // Re-render if another tab / device changes today's snapshot.
   window.addEventListener('storage', () => {
     snap = window.DailySnapshot.loadOrInit();
-    renderStatus(); renderPriorities(); renderHabits(); renderWeatherChip(); renderCalendarChip();
+    renderStatus(); renderPriorities(); renderHabits(); renderExecution(); renderWeatherChip(); renderCalendarChip();
   });
 })();
 </script>

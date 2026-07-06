@@ -64,8 +64,10 @@
       mainFocus: (snap.mainFocus || '').trim(),
       activeGoal: (activeGoals[0] && activeGoals[0].title) || '',
       businessFocus: (business.currentFocus || '').trim(),
-      healthStatus: (snap.healthStatus || '').trim(),
-      trainingStatus: (snap.trainingStatus || '').trim(),
+      healthStatus: snap.healthRoutineCompleted ? 'Health routine done' : '',
+      trainingStatus: snap.trainingCompleted ? 'Training done' : '',
+      tomorrowPriority: (snap.tomorrowPriority || '').trim(),
+      dayScore: Number(snap.dayScore) || 0,
       lastUpdated: core.lastUpdated || '',
     };
   }

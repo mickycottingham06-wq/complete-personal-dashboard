@@ -333,10 +333,12 @@ body::after {
         </div>
         <span class="preview-arrow">→</span>
       </div>
-      <div class="streak-stats-2">
-        <div class="streak-stat"><div class="v" id="previewHabitsPct">0%</div><div class="l">Habits Done</div></div>
-        <div class="streak-stat"><div class="v" id="previewPrioritiesPct">0%</div><div class="l">Priorities Done</div></div>
+      <div class="streak-stats">
+        <div class="streak-stat"><div class="v" id="previewCompletionPct">0%</div><div class="l">Completion</div></div>
+        <div class="streak-stat"><div class="v" id="previewSnapStreak">0</div><div class="l">Streak</div></div>
+        <div class="streak-stat"><div class="v" id="previewSnapScore">—</div><div class="l">Score</div></div>
       </div>
+      <div class="preview-sub" id="previewTomorrowPriority" style="margin-top:12px"></div>
     </a>
   </div>
 
@@ -373,6 +375,7 @@ body::after {
       <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBizRevFill" style="width:0%"></div></div>
       <div class="preview-rev-pct" id="previewBizRevPct">£0 of £0</div>
       <div class="preview-sub" id="previewBizTask" style="margin-top:12px">—</div>
+      <div class="preview-sub" id="previewBizDsFlag" style="margin-top:4px"></div>
     </a>
   </div>
 
@@ -395,6 +398,7 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewMoneyRate">0%</div><div class="l">Savings Rate</div></div>
       </div>
       <div class="preview-sub" id="previewMoneyBill" style="margin-top:12px">—</div>
+      <div class="preview-sub" id="previewMoneyDsFlag" style="margin-top:4px"></div>
     </a>
   </div>
 
@@ -434,6 +438,7 @@ body::after {
       <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBoxSessFill" style="width:0%"></div></div>
       <div class="preview-rev-pct" id="previewBoxSessPct">0 / 0 sessions this week</div>
       <div class="preview-sub" id="previewBoxFocus" style="margin-top:12px">—</div>
+      <div class="preview-sub" id="previewBoxDsFlag" style="margin-top:4px"></div>
     </a>
   </div>
 
@@ -452,6 +457,7 @@ body::after {
         <div class="streak-stat"><div class="v" id="previewHealthWater">—</div><div class="l">Water</div></div>
         <div class="streak-stat"><div class="v" id="previewHealthEnergy">—</div><div class="l">Energy</div></div>
       </div>
+      <div class="preview-sub" id="previewHealthDsFlag" style="margin-top:12px"></div>
     </a>
   </div>
 
@@ -507,6 +513,7 @@ body::after {
       <div class="preview-rev-track"><div class="preview-rev-fill" id="previewGoalProgressFill" style="width:0%"></div></div>
       <div class="preview-rev-pct" id="previewGoalProgressPct">0% average progress</div>
       <div class="preview-sub" id="previewGoalCount" style="margin-top:12px">0 active goals</div>
+      <div class="preview-sub" id="previewGoalDsFlag" style="margin-top:4px"></div>
     </a>
   </div>
 
@@ -1016,8 +1023,19 @@ body::after {
     const habitsDone = snap.habits.filter((h) => h.completed).length;
     const prioritiesTotal = snap.priorities.length;
     const prioritiesDone = snap.priorities.filter((p) => p.completed).length;
-    $('previewHabitsPct').textContent = habitsTotal ? Math.round(habitsDone / habitsTotal * 100) + '%' : '—';
-    $('previewPrioritiesPct').textContent = prioritiesTotal ? Math.round(prioritiesDone / prioritiesTotal * 100) + '%' : '—';
+    const execKeys = ['trainingCompleted', 'businessTaskCompleted', 'healthRoutineCompleted', 'spendingLogged', 'goalActionCompleted'];
+    const execDone = execKeys.filter((k) => snap[k]).length;
+    const itemsTotal = habitsTotal + prioritiesTotal + execKeys.length;
+    const doneTotal = habitsDone + prioritiesDone + execDone;
+    $('previewCompletionPct').textContent = itemsTotal ? Math.round(doneTotal / itemsTotal * 100) + '%' : '0%';
+
+    const streaks = window.Streaks.recompute();
+    $('previewSnapStreak').textContent = String(streaks.data.currentStreak);
+    $('previewSnapScore').textContent = Number(snap.dayScore) ? String(snap.dayScore) : '—';
+
+    const tomorrowEl = $('previewTomorrowPriority');
+    const hasTomorrow = !!(snap.tomorrowPriority && snap.tomorrowPriority.trim());
+    tomorrowEl.textContent = hasTomorrow ? 'Tomorrow: ' + snap.tomorrowPriority.trim() : '';
   }
 
   function renderStreaksPreview() {
@@ -1051,6 +1069,9 @@ body::after {
     const taskEl = $('previewBizTask');
     const hasTask = !!(biz.todayTask && biz.todayTask.trim());
     taskEl.textContent = hasTask ? 'Today: ' + biz.todayTask.trim() : 'No task set for today';
+
+    const snap = window.DailySnapshot.loadOrInit();
+    $('previewBizDsFlag').textContent = snap.businessTaskCompleted ? '✓ Marked done in Daily Snapshot' : '';
   }
 
   function renderMoneyPreview() {
@@ -1063,6 +1084,9 @@ body::after {
     $('previewMoneyBill').textContent = summary.nextBill
       ? 'Next bill: ' + summary.nextBill.name + ' (' + fmtMoney(summary.nextBill.amount) + ')'
       : 'No upcoming bills';
+
+    const snap = window.DailySnapshot.loadOrInit();
+    $('previewMoneyDsFlag').textContent = snap.spendingLogged ? '✓ Spending logged today' : '';
   }
 
   function renderAiCeoPreview() {
@@ -1099,6 +1123,9 @@ body::after {
     const focusEl = $('previewBoxFocus');
     const hasFocus = !!(box.currentFocus && box.currentFocus.trim());
     focusEl.textContent = hasFocus ? 'Focus: ' + box.currentFocus.trim() : 'No focus set';
+
+    const snap = window.DailySnapshot.loadOrInit();
+    $('previewBoxDsFlag').textContent = snap.trainingCompleted ? '✓ Training completed today' : '';
   }
 
   // Manual scores default to 0 until the user has logged anything —
@@ -1111,6 +1138,9 @@ body::after {
     $('previewHealthRecovery').textContent = fmtScore(health.recoveryScore, '');
     $('previewHealthWater').textContent = fmtScore(health.waterIntake, 'L');
     $('previewHealthEnergy').textContent = fmtScore(health.energyLevel, '/10');
+
+    const snap = window.DailySnapshot.loadOrInit();
+    $('previewHealthDsFlag').textContent = snap.healthRoutineCompleted ? '✓ Health routine completed today' : '';
   }
 
   function renderHormonePreview() {
@@ -1153,6 +1183,9 @@ body::after {
     $('previewGoalProgressFill').style.width = avgPct + '%';
     $('previewGoalProgressPct').textContent = avgPct + '% average progress';
     $('previewGoalCount').textContent = count + (count === 1 ? ' active goal' : ' active goals');
+
+    const snap = window.DailySnapshot.loadOrInit();
+    $('previewGoalDsFlag').textContent = snap.goalActionCompleted ? '✓ Goal action completed today' : '';
   }
 
   function renderLifeStatsPreview() {

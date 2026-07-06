@@ -48,34 +48,55 @@ Never mix unrelated data.
 
 # Daily Snapshot Data
 
-Implemented. Lives in `localStorage` under the key `dailySnapshot`. The read/rollover/save logic lives in `scripts/daily-snapshot-data.js` (shared business logic, not yet split into a `data/` file) so every reader — the full page at `pages/daily-snapshot.html`, the preview card on index.html, and Streaks — sees the same rolled-over data instead of re-implementing the rollover.
+Implemented as the Life OS's daily control panel. Lives in `localStorage` under the key `dailySnapshot`. The read/rollover/upgrade/save logic lives in `scripts/daily-snapshot-data.js` (shared business logic, not yet split into a `data/` file) so every reader — the full page at `pages/daily-snapshot.html`, the Command Centre preview card on index.html, Streaks, and Heatmap — sees the same rolled-over data instead of re-implementing the rollover.
 
 Shape:
 
 ```
 dailySnapshot: {
   date: string,               // YYYY-MM-DD, 6 AM rollover — same convention as goals:
+  // Morning plan
   mainFocus: string,
+  successTarget: string,       // "one thing that would make today successful"
   priorities: [
     { id: string, text: string, completed: boolean },
     { id: string, text: string, completed: boolean },
     { id: string, text: string, completed: boolean }
   ],
+  scheduleNotes: string,
+  // Execution
   habits: [
     { id: string, label: string, completed: boolean }
   ],
-  trainingStatus: string,
-  businessFocus: string,
-  healthStatus: string,
-  notes: string
+  trainingCompleted: boolean,
+  businessTaskCompleted: boolean,
+  healthRoutineCompleted: boolean,
+  spendingLogged: boolean,
+  goalActionCompleted: boolean,
+  // Body / mind status
+  energyLevel: number,          // 0-10, 0 = not logged yet
+  mood: string,                 // one of window.DailySnapshot.MOODS, or ''
+  sleepQuality: number,         // 0-10
+  recovery: number,             // 0-10
+  stress: number,               // 0-10
+  currentWeight: number,        // kg
+  notes: string,
+  // Evening review
+  wentWell: string,
+  slipped: string,
+  lesson: string,
+  tomorrowPriority: string,
+  dayScore: number,             // 0-10 manual rating, 0 = not logged yet
 }
 ```
 
-Default habits: Drink water after waking, Morning sunlight, Training completed, Steps / movement, Protein target, Sleep routine, No wasted scrolling.
+Default habits: Drink water after waking, Morning sunlight, Training completed, Steps / movement, Protein target, Sleep routine, No wasted scrolling. Default moods (`window.DailySnapshot.MOODS`): Great, Good, Okay, Low, Rough.
 
-Resets to defaults automatically when `date` no longer matches the active day. `window.DailySnapshot.get()` returns the raw stored value (may be null or stale); `window.DailySnapshot.loadOrInit()` reads, rolls over if needed, persists, and returns today's snapshot — this is what pages should call. `window.DailySnapshot.save(snap)` persists changes.
+Resets to defaults automatically when `date` no longer matches the active day. Same-day loads also upgrade in any fields missing against the current default shape (schema-upgrade pattern shared with every other section), so older saved snapshots from before this shape existed don't lose data mid-day. `window.DailySnapshot.get()` returns the raw stored value (may be null or stale); `window.DailySnapshot.loadOrInit()` reads, rolls over/upgrades if needed, persists, and returns today's snapshot — this is what pages should call. `window.DailySnapshot.save(snap)` persists changes.
 
-The full interactive UI lives at `pages/daily-snapshot.html`. index.html shows a compact preview card (main focus, habit completion %, priority completion %) that links to it.
+**Cross-feeds (safe one-way updates, not two-way sync):** `energyLevel` and `stress` are pushed into `window.Health`'s `energyLevel`/`stressLevel` fields on change, since both use the same 0-10 scale — Health HQ's own preview card picks this up automatically with no extra code. `currentWeight` is pushed via the existing `window.Core.setCurrentWeight()` helper, which already keeps `window.Health.currentWeight` and `window.Boxing.currentWeight` in sync. `sleepQuality` and `recovery` are intentionally **not** pushed anywhere — Health HQ's own `sleepQuality` (a text category) and `recoveryScore` (a WHOOP 0-100 percentage) use different scales and would silently corrupt on overwrite, so they stay local to Daily Snapshot only. The five execution booleans (`trainingCompleted`, `businessTaskCompleted`, `healthRoutineCompleted`, `spendingLogged`, `goalActionCompleted`) are read directly by `scripts/heatmap-data.js` (replacing its old free-text-field inference) and surfaced as small read-only "✓ done today" lines on the Business HQ, Boxing HQ, Health HQ, Money HQ, and Goals preview cards on index.html — those HQ pages' own data shapes are untouched; the flags are read, never duplicated into them.
+
+The full interactive UI lives at `pages/daily-snapshot.html`, split into four cards: Morning Plan, Execution, Body / Mind Status, Evening Review. index.html's Command Centre shows a compact preview card (main focus, daily completion %, current streak, today's score, tomorrow's priority if set) that links to it.
 
 ---
 
@@ -756,7 +777,7 @@ heatmap: {
 
 Today's entry is derived live rather than duplicated, reading (never owning):
 
-- `window.DailySnapshot` → habit completion (`habitsCompleted`/`habitsTotal`), `businessFocus`/`healthStatus` text as fallback signals
+- `window.DailySnapshot` → habit completion (`habitsCompleted`/`habitsTotal`), and its `trainingCompleted`/`businessTaskCompleted`/`healthRoutineCompleted` execution flags (primary signals, with habit/Boxing/Business fallbacks preserved for older data)
 - `window.Boxing` → `trainingLog` entries dated today (extra signal for `trainingCompleted` alongside the Daily Snapshot "training" habit)
 - `window.Business` → `todayTask` (fallback signal for `businessTaskCompleted`)
 - `window.Goals` → active goals with `status: 'In Progress'` and `progress > 0` (fallback signal for `goalsWorkedOn`)

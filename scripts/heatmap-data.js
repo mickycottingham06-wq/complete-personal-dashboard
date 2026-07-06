@@ -6,7 +6,7 @@
 // index.html.
 //
 // Today's entry is derived live (never duplicated) from:
-//   window.DailySnapshot  — habit completion, business/health focus text
+//   window.DailySnapshot  — habit completion, execution checklist flags
 //   window.Streaks        — current streak
 //   window.Boxing         — training log entries dated today
 //   window.Business       — today's task
@@ -65,30 +65,30 @@
   // a missing section or empty data just contributes its zero/false
   // default rather than throwing.
   function computeTodayDerived(dateKey) {
-    var snap = (window.DailySnapshot && window.DailySnapshot.loadOrInit) ? window.DailySnapshot.loadOrInit() : { habits: [], businessFocus: '', healthStatus: '' };
+    var snap = (window.DailySnapshot && window.DailySnapshot.loadOrInit) ? window.DailySnapshot.loadOrInit() : { habits: [], trainingCompleted: false, businessTaskCompleted: false, healthRoutineCompleted: false };
     var habits = Array.isArray(snap.habits) ? snap.habits : [];
     var habitsTotal = habits.length;
     var habitsCompleted = habits.filter(function (h) { return h.completed; }).length;
 
-    var trainingCompleted = habits.some(function (h) { return h.id === 'training' && h.completed; });
+    var trainingCompleted = !!snap.trainingCompleted || habits.some(function (h) { return h.id === 'training' && h.completed; });
     if (!trainingCompleted && window.Boxing) {
       var box = window.Boxing.load();
       trainingCompleted = (box.trainingLog || []).some(function (t) { return t.date === dateKey; });
     }
 
-    var businessTaskCompleted = !!(snap.businessFocus && snap.businessFocus.trim());
+    var businessTaskCompleted = !!snap.businessTaskCompleted;
     if (!businessTaskCompleted && window.Business) {
       var biz = window.Business.load();
       businessTaskCompleted = !!(biz.todayTask && biz.todayTask.trim());
     }
 
-    var healthHabits = habits.filter(function (h) { return HEALTH_HABIT_IDS.indexOf(h.id) !== -1; });
-    var healthRoutineCompleted;
-    if (healthHabits.length) {
-      var doneCount = healthHabits.filter(function (h) { return h.completed; }).length;
-      healthRoutineCompleted = (doneCount / healthHabits.length) >= 0.6;
-    } else {
-      healthRoutineCompleted = !!(snap.healthStatus && snap.healthStatus.trim());
+    var healthRoutineCompleted = !!snap.healthRoutineCompleted;
+    if (!healthRoutineCompleted) {
+      var healthHabits = habits.filter(function (h) { return HEALTH_HABIT_IDS.indexOf(h.id) !== -1; });
+      if (healthHabits.length) {
+        var doneCount = healthHabits.filter(function (h) { return h.completed; }).length;
+        healthRoutineCompleted = (doneCount / healthHabits.length) >= 0.6;
+      }
     }
 
     var goalsWorkedOn = false;

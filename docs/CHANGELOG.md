@@ -392,6 +392,28 @@ Command Centre cleanup, navigation cleanup, and shared core data foundation
 
 ---
 
+## 2026-07-06
+
+### Daily Snapshot → Daily Control Panel
+
+Upgraded Daily Snapshot from a single-card daily form into the Life OS's main daily control panel: Morning Plan, Execution, Body / Mind Status, and Evening Review, each its own card on `pages/daily-snapshot.html`, still built from the existing `.gm-card` / `.gm-row` / `.gm-check` / `.set-input` components plus a small new rating-slider component for 0-10 status inputs.
+
+`scripts/daily-snapshot-data.js`'s `dailySnapshot` shape grew: `successTarget`, `scheduleNotes` (Morning Plan); the free-text `trainingStatus`/`businessFocus`/`healthStatus` fields were replaced with five execution booleans — `trainingCompleted`, `businessTaskCompleted`, `healthRoutineCompleted`, `spendingLogged`, `goalActionCompleted`; `energyLevel`, `mood`, `sleepQuality`, `recovery`, `stress`, `currentWeight` (Body / Mind Status); `wentWell`, `slipped`, `lesson`, `tomorrowPriority`, `dayScore` (Evening Review). `loadOrInit()` now upgrades same-day snapshots against the current default shape (not just on day-rollover), so no data is lost by the schema change.
+
+Added safe one-way cross-feeds, never two-way sync: `energyLevel`/`stress` push into `window.Health`'s same-scale fields on change (Health HQ's preview picks this up with no extra code); `currentWeight` pushes through the existing `window.Core.setCurrentWeight()` helper into both Health HQ and Boxing HQ. `sleepQuality`/`recovery` are deliberately kept local only — Health HQ's own `sleepQuality` (text) and `recoveryScore` (WHOOP 0-100%) use incompatible scales. `scripts/heatmap-data.js` now reads the new execution booleans directly instead of inferring completion from free text (same completion-score formula, same `heatmap` shape — Heatmap itself was not rebuilt).
+
+Rebuilt the Command Centre (index.html) Daily Snapshot preview card: main focus, daily completion % (habits + priorities + execution checklist combined), current streak, today's score, and tomorrow's priority if set. Added small read-only "✓ done today" lines to the Business HQ, Boxing HQ, Health HQ, Money HQ, and Goals preview cards, reading the new execution flags — those sections' own data shapes are untouched.
+
+Files affected:
+
+scripts/daily-snapshot-data.js, scripts/heatmap-data.js, scripts/core-data.js, pages/daily-snapshot.html, index.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Upgrade Daily Snapshot into the Life OS daily control panel
+
+---
+
 ## Future Entries
 
 Example
