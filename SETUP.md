@@ -87,6 +87,38 @@ Without these, sign up/sign in are simply unavailable — the app works exactly 
 crash, no login prompt. This is **auth only**: no dashboard data is stored in or synced from
 Supabase yet. See `docs/SUPABASE_PLAN.md` §16.
 
+### Real Cloud Sync (Phase 1) — requires auth above, run one more SQL block
+
+Uses the same `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` as auth above — no
+extra env vars. Run this in Supabase **SQL Editor** to create the table:
+
+```sql
+create table if not exists public.life_os_state (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null unique references auth.users(id) on delete cascade,
+  data        jsonb not null default '{}'::jsonb,
+  data_version text,
+  updated_at  timestamptz not null default now(),
+  created_at  timestamptz not null default now()
+);
+
+alter table public.life_os_state enable row level security;
+
+create policy "select own life_os_state" on public.life_os_state
+  for select to authenticated using (auth.uid() = user_id);
+create policy "insert own life_os_state" on public.life_os_state
+  for insert to authenticated with check (auth.uid() = user_id);
+create policy "update own life_os_state" on public.life_os_state
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "delete own life_os_state" on public.life_os_state
+  for delete to authenticated using (auth.uid() = user_id);
+```
+
+Once this table exists, the Integrations page's **Cloud Sync** card gets a "Real Cloud Sync
+(Phase 1)" section: Push local → cloud, Pull cloud → this device, and Sync now, all manual
+(nothing runs automatically) and all requiring you to be signed in. Local Storage remains the
+active/offline storage system either way — see `docs/SUPABASE_PLAN.md` §17.
+
 ---
 
 ## 3. Weather (works out of the box, no key needed)

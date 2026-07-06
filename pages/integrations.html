@@ -15,6 +15,7 @@
 <script src="../scripts/weather-service.js"></script>
 <script src="../scripts/google-calendar-service.js"></script>
 <script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -373,9 +374,10 @@ body::after {
         <span class="int-status" id="intCloudStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
       </div>
       <p class="int-card-note" id="intCloudFoundationNote">
-        Local Storage is the active storage system — nothing here changes that. Supabase is
-        foundation/planning only: no login, no database sync, and no data has been migrated.
-        Login and real database sync are a future build step.
+        Local Storage is the active storage system and always stays that way. Phase 1 real cloud
+        sync is now available below when Supabase is configured and you're signed in — it's
+        manual only (you click a button), one JSON record per account, never automatic or in the
+        background.
       </p>
       <div class="int-row">
         <div class="seg" id="intCloudToggle">
@@ -394,6 +396,38 @@ body::after {
       </div>
       <button class="int-sync-btn" id="intCloudSyncBtn" type="button">Check foundation status (demo)</button>
       <p class="int-card-note" id="intCloudEnvStatus" style="margin-top:8px;"></p>
+
+      <div style="border-top:1px solid rgba(255,255,255,0.08); margin:18px 0 16px;"></div>
+      <div class="int-card-title" style="font-size:15px; margin-bottom:8px;">Real Cloud Sync (Phase 1)</div>
+      <p class="int-card-note">
+        Your full Life OS dataset as one JSON record per account, synced only when you click a
+        button below. Requires Supabase to be configured and you to be signed in (see Account
+        card above). Nothing here removes or replaces backup/export — it stays your safety net.
+      </p>
+
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="csSignedIn">—</div><div class="l">Signed in as</div></div>
+        <div class="int-stat"><div class="v" id="csLocalActive">—</div><div class="l">Local Storage</div></div>
+      </div>
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="csLocalUpdated">—</div><div class="l">Last local update</div></div>
+        <div class="int-stat"><div class="v" id="csCloudUpdated">—</div><div class="l">Last cloud sync</div></div>
+      </div>
+
+      <div class="int-err-box" id="csErrBox" style="display:none"></div>
+      <div class="bk-msg" id="csMsgBox" style="display:none"></div>
+
+      <div class="bk-btn-row">
+        <button class="int-sync-btn" id="csPushBtn" type="button" disabled>⬆ Push local → cloud</button>
+        <button class="int-sync-btn" id="csPullBtn" type="button" disabled>⬇ Pull cloud → this device</button>
+        <button class="int-sync-btn" id="csSyncBtn" type="button" disabled>⟳ Sync now</button>
+      </div>
+
+      <p class="int-card-note" style="margin-bottom:0;">
+        ⚠️ Push overwrites your cloud data with this device's Local Storage. Pull overwrites this
+        device's Local Storage with your cloud data. Both ask you to confirm first and show both
+        timestamps — export a backup above before either one if you're unsure.
+      </p>
     </div>
   </div>
 
@@ -584,7 +618,7 @@ body::after {
 
   if (window.SupabaseAuth) {
     window.SupabaseAuth.init();
-    window.SupabaseAuth.subscribe((s) => { renderAuth(s); renderCloud(); });
+    window.SupabaseAuth.subscribe((s) => { renderAuth(s); renderCloud(); renderCloudSyncReal(); });
   } else {
     renderAuth({ configured: false });
   }
@@ -640,7 +674,9 @@ body::after {
           (st.authEnabled ? (authState.user ? ', signed in as ' + (authState.user.email || authState.user.id) : ', signed out') : '') + '.',
         'Legacy blob-sync (sync.js/topbar.js/gym.html): <b>' + (legacyEnabled ? 'enabled' : 'disabled') + '</b>' +
           (legacyEnabled ? '' : legacyConfigured ? ' (configured but not explicitly enabled)' : ' (no Supabase env vars set)') + '.',
-        'Cloud database sync: <b>not active yet</b>. Data migration: <b>none has happened</b>.',
+        'Cloud database sync (Phase 1, manual, single JSON record): <b>' +
+          (st.configured && authState.user ? 'available — use the controls below' : 'requires sign-in') + '</b>. ' +
+          'Data migration: <b>only when you click Push/Pull/Sync now below</b>.',
       ].map((l) => '<span style="display:block;">' + l + '</span>').join('');
     }
   }
@@ -648,6 +684,112 @@ body::after {
   $('intCloudProvider').addEventListener('input', (e) => autoSaveField('cloudSync', 'provider', e.target.value));
   $('intCloudNotes').addEventListener('input', (e) => autoSaveField('cloudSync', 'notes', e.target.value));
   $('intCloudSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('cloudSync'); renderCloud(); });
+
+  /* ---------- Real Cloud Sync (Phase 1) ---------- */
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + ' min ago';
+    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+    return Math.floor(s / 86400) + ' d ago';
+  }
+  function showCsMsg(text, isError) {
+    const errBox = $('csErrBox'), okBox = $('csMsgBox');
+    if (isError) { errBox.style.display = ''; errBox.textContent = text; okBox.style.display = 'none'; }
+    else { okBox.style.display = ''; okBox.textContent = text; errBox.style.display = 'none'; }
+  }
+  async function renderCloudSyncReal() {
+    if (!window.CloudSync) return;
+    const authState = window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false, user: null };
+    $('csSignedIn').textContent = authState.user ? (authState.user.email || authState.user.id) : 'Not signed in';
+    $('csLocalActive').textContent = window.CloudSync.hasLocalData() ? 'Active' : 'Empty';
+    $('csLocalUpdated').textContent = fmtTime(window.CloudSync.latestLocalTimestamp());
+
+    const canUse = window.CloudSync.isAvailable();
+    $('csPushBtn').disabled = !canUse;
+    $('csPullBtn').disabled = !canUse;
+    $('csSyncBtn').disabled = !canUse;
+
+    if (!window.CloudSync.isConfigured()) { $('csCloudUpdated').textContent = 'Not configured'; return; }
+    if (!authState.user) { $('csCloudUpdated').textContent = 'Sign in to check'; return; }
+    const status = await window.CloudSync.getCloudStatus();
+    if (!status.ok) { $('csCloudUpdated').textContent = 'Error'; return; }
+    $('csCloudUpdated').textContent = status.exists ? fmtTime(status.updatedAt) : 'No cloud data yet';
+  }
+
+  $('csPushBtn').addEventListener('click', async () => {
+    const status = await window.CloudSync.getCloudStatus();
+    const cloudTime = status.exists ? fmtTime(status.updatedAt) : 'no cloud data yet';
+    const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
+    const confirmed = window.confirm(
+      'Push this device\'s Local Storage data to the cloud?\n\n' +
+      'Local last update: ' + localTime + '\nCloud last sync: ' + cloudTime + '\n\n' +
+      'This will OVERWRITE your cloud data for this account. Consider exporting a backup above first. Continue?'
+    );
+    if (!confirmed) return;
+    $('csPushBtn').disabled = true;
+    const result = await window.CloudSync.pushToCloud();
+    if (!result.ok) { showCsMsg(result.error, true); renderCloudSyncReal(); return; }
+    showCsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
+    renderCloudSyncReal();
+  });
+
+  $('csPullBtn').addEventListener('click', async () => {
+    const status = await window.CloudSync.getCloudStatus();
+    if (!status.exists) { showCsMsg('No cloud data found for this account yet — push from a device first.', true); return; }
+    const cloudTime = fmtTime(status.updatedAt);
+    const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
+    const confirmed = window.confirm(
+      'Pull cloud data down to this device?\n\n' +
+      'Cloud last sync: ' + cloudTime + '\nLocal last update: ' + localTime + '\n\n' +
+      'This will OVERWRITE this device\'s Local Storage. Export a backup above first if you\'re unsure. Continue?'
+    );
+    if (!confirmed) return;
+    $('csPullBtn').disabled = true;
+    const result = await window.CloudSync.pullToLocal();
+    if (!result.ok) { showCsMsg(result.error, true); renderCloudSyncReal(); return; }
+    showCsMsg('Pulled from cloud (' + (result.keyCount || 0) + ' keys). Reloading…', false);
+    setTimeout(() => window.location.reload(), 900);
+  });
+
+  $('csSyncBtn').addEventListener('click', async () => {
+    const status = await window.CloudSync.getCloudStatus();
+    if (!status.ok) { showCsMsg(status.error || 'Could not reach Supabase.', true); return; }
+    if (!status.exists) {
+      const confirmedFirst = window.confirm('No cloud data exists yet for this account. Push this device\'s Local Storage to the cloud now?');
+      if (!confirmedFirst) return;
+      $('csSyncBtn').disabled = true;
+      const pushResult = await window.CloudSync.pushToCloud();
+      if (!pushResult.ok) { showCsMsg(pushResult.error, true); renderCloudSyncReal(); return; }
+      showCsMsg('Pushed to cloud (' + (pushResult.keyCount || 0) + ' keys).', false);
+      renderCloudSyncReal();
+      return;
+    }
+    const localTime = window.CloudSync.latestLocalTimestamp();
+    const cloudTime = status.updatedAt;
+    const localNewer = !!(localTime && (!cloudTime || localTime > cloudTime));
+    const direction = localNewer ? 'push (local → cloud)' : 'pull (cloud → local)';
+    const confirmed = window.confirm(
+      'Sync now compares timestamps and recommends: ' + direction + '.\n\n' +
+      'Local last update: ' + fmtTime(localTime) + '\nCloud last sync: ' + fmtTime(cloudTime) + '\n\n' +
+      (localNewer
+        ? 'This will OVERWRITE your cloud data with this device\'s Local Storage.'
+        : 'This will OVERWRITE this device\'s Local Storage with your cloud data.') +
+      ' Export a backup above first if you\'re unsure. Continue with ' + direction + '?'
+    );
+    if (!confirmed) return;
+    $('csSyncBtn').disabled = true;
+    const result = localNewer ? await window.CloudSync.pushToCloud() : await window.CloudSync.pullToLocal();
+    if (!result.ok) { showCsMsg(result.error, true); renderCloudSyncReal(); return; }
+    if (localNewer) {
+      showCsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
+      renderCloudSyncReal();
+    } else {
+      showCsMsg('Pulled from cloud (' + (result.keyCount || 0) + ' keys). Reloading…', false);
+      setTimeout(() => window.location.reload(), 900);
+    }
+  });
 
   /* ---------- Data & Backup ---------- */
   function relBackupTime(iso) {
@@ -723,7 +865,7 @@ body::after {
     reader.readAsText(file);
   });
 
-  function renderAll() { renderBackup(); renderWeather(); renderCal(); renderAi(); renderCloud(); }
+  function renderAll() { renderBackup(); renderWeather(); renderCal(); renderAi(); renderCloud(); renderCloudSyncReal(); }
 
   renderAll();
   window.addEventListener('storage', renderAll);

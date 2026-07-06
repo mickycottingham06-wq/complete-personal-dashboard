@@ -352,3 +352,66 @@ client (§14). No dashboard data reads/writes through this — auth only.
 
 **Next phase:** Local Storage → Supabase migration/sync (§11, Phase 3+) — still not started, and
 should not start without a separate go-ahead per §13.
+
+## 17. Phase 1 cloud sync added (2026-07-06)
+
+A manual cloud sync foundation was built on top of §14's `SupabaseFoundation` and §16's
+`SupabaseAuth` — the first real cross-device sync in the Life OS. This is a deliberate
+simplification of §4/§5's full per-section table plan: **one JSON blob per user**, not the ~25
+structured tables in §5. Those tables are still the eventual destination (§13 Phase 3+); this is
+the safe, minimal first step.
+
+**Single JSON state approach:**
+- Table `public.life_os_state`: `id` (uuid PK), `user_id` (uuid, unique, FK to `auth.users`),
+  `data` (jsonb — the entire Local Storage key/value map, same shape as
+  `window.Backup.buildExport().data`), `data_version`, `updated_at`, `created_at`.
+- One row per user. RLS scoped to `auth.uid() = user_id` for select/insert/update/delete — this
+  is the pattern §9 said every new table should use, and the first table to actually use it
+  (unlike `app_state` in §2, which stays wide-open `anon` access, untouched).
+- Full SQL is in `SETUP.md` under "Real Cloud Sync (Phase 1)".
+
+**Added:**
+- `scripts/cloud-sync.js` — new module, `window.CloudSync`. Wraps `SupabaseFoundation.getClient()`
+  and reuses `window.Backup.buildExport()` / `.apply()` for the actual data shape (no new
+  export/import format — cloud sync moves the exact same payload backup/export already uses,
+  to/from one Supabase row instead of a downloaded file). Exposes `isAvailable()`,
+  `getCloudStatus()` (row exists? last updated?), `pushToCloud()`, `pullToLocal()`, and a
+  best-effort `latestLocalTimestamp()` (scans Local Storage for the newest ISO timestamp found,
+  since no single "last modified" field is tracked across every HQ section yet).
+- Integrations page — Cloud Sync card gained a "Real Cloud Sync (Phase 1)" section below the
+  existing demo controls (untouched): signed-in user, Local Storage active/empty, last local
+  update, last cloud sync time, and three buttons — Push local → cloud, Pull cloud → this device,
+  Sync now. All three are disabled unless Supabase is configured and the user is signed in.
+
+**What sync does now:**
+- Push: uploads the full current Local Storage dataset to the user's `life_os_state` row
+  (upsert, overwrites whatever was there).
+- Pull: downloads the user's row and applies it via `window.Backup.apply()` (same
+  validate/overwrite path as restoring a backup file), then reloads the page.
+- Sync now: checks cloud status first; if no cloud row exists yet, offers to push; otherwise
+  compares `latestLocalTimestamp()` against the cloud row's `updated_at` and recommends a
+  direction (push if local looks newer, pull if cloud looks newer) — the user still confirms
+  before anything happens.
+- Every action shows both timestamps and requires an explicit confirm dialog before overwriting
+  either side — no silent overwrite in either direction, per §10's offline/fallback principle.
+- Local Storage keeps working exactly as before regardless of any of this — not configured, not
+  signed in, or a Supabase request fails, and every page's existing `load()/save()` calls are
+  completely unaffected.
+
+**What remains future (unchanged from §13):**
+- Full relational tables (§5) — the ~25 structured, per-entity tables (`daily_entries`,
+  `money_spending`, `business_pipeline`, etc.) instead of one JSON blob. Still Phase 3+.
+- Supabase Storage (§6) — no bucket created or wired up by this pass.
+- Receipt images / progress photos — still never written anywhere but discarded client-side
+  metadata, per §7. Not part of the `life_os_state` blob.
+- Offline conflict resolution beyond "ask the user and show both timestamps" — no automatic
+  merge, no operational-transform/CRDT logic, no retry queue (§7 of the roadmap, formerly labelled
+  Phase 7).
+- Multi-device automatic background sync — everything above is manual/button-triggered only, on
+  purpose. No realtime channel, no interval polling, no sync-on-save hook.
+- Migrating the legacy `sync.js`/`app_state` blob-sync pages (§2) onto this or the future
+  structured schema — still explicitly out of scope, per §2 and §11.
+
+**Next step:** none required — Phase 1 manual sync is usable as soon as the SQL in `SETUP.md` is
+run and the user is signed in. Any further phase (structured tables, Storage, background sync)
+needs a separate go-ahead per §13.
