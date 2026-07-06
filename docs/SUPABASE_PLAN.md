@@ -415,3 +415,28 @@ the safe, minimal first step.
 **Next step:** none required — Phase 1 manual sync is usable as soon as the SQL in `SETUP.md` is
 run and the user is signed in. Any further phase (structured tables, Storage, background sync)
 needs a separate go-ahead per §13.
+
+## 18. Phase 1 setup/status polish (2026-07-06)
+
+A follow-up pass made Phase 1 (§17) easier to configure, verify, and use safely. No new tables,
+no background sync, no Storage — setup, status, and sync-safety polish only.
+
+**Added:**
+- `supabase/life_os_state.sql` — the §17 table/RLS SQL extracted into its own idempotent file
+  (safe to re-run). `SETUP.md` now links to it instead of only inlining the SQL.
+- `SETUP.md` gained a Phase 1 setup checklist, a Vercel deployment-notes block (env vars belong in
+  Project Settings not just `.env.local`; redeploy after changing them; Preview deployments need
+  their own copy), and a manual testing checklist covering the not-configured / configured / sign
+  in / push / pull / second-device / backup-still-works paths.
+- `scripts/cloud-sync.js` now persists the last push/pull failure (`lastError`/`lastErrorAt` in the
+  existing `cloudSyncMeta` Local Storage key), cleared automatically on the next success. Previously
+  a sync error only appeared in the moment; it's now visible again after a reload until the next
+  successful push/pull.
+- Integrations page's Real Cloud Sync section now reads that persisted error on render and shows
+  it, so a stale/forgotten sync error is never silently lost.
+
+**Unchanged:** the `life_os_state` table shape, RLS policies, push/pull/sync-now behaviour,
+confirm-before-overwrite dialogs, and env var names — all exactly as §17 left them.
+
+**Next step:** none required. Still Phase 1 only — no further phase without a separate go-ahead
+per §13.

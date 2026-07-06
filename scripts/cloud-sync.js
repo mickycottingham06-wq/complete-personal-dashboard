@@ -41,12 +41,21 @@
 
   function errMsg(e) { return (e && e.message) ? e.message : String(e); }
 
-  function loadMeta() { return loadJSON(META_KEY, { lastPushedAt: '', lastPulledAt: '' }); }
+  function loadMeta() { return loadJSON(META_KEY, { lastPushedAt: '', lastPulledAt: '', lastError: '', lastErrorAt: '' }); }
   function setMeta(patch) {
     var m = loadMeta();
     Object.keys(patch).forEach(function (k) { m[k] = patch[k]; });
     saveJSON(META_KEY, m);
     return m;
+  }
+  // Records the most recent push/pull failure so the Integrations status
+  // block can still show it after a reload, not just in the moment.
+  // Cleared automatically the next time a push/pull succeeds.
+  function recordError(message) {
+    setMeta({ lastError: message, lastErrorAt: new Date().toISOString() });
+  }
+  function clearError() {
+    setMeta({ lastError: '', lastErrorAt: '' });
   }
 
   // Scans every Local Storage value for ISO-8601 UTC timestamps and
@@ -120,10 +129,12 @@
         data_version: payload.meta.dataVersion,
         updated_at: nowIso,
       }, { onConflict: 'user_id' });
-      if (res.error) return { ok: false, error: errMsg(res.error) };
+      if (res.error) { recordError(errMsg(res.error)); return { ok: false, error: errMsg(res.error) }; }
       setMeta({ lastPushedAt: nowIso });
+      clearError();
       return { ok: true, updatedAt: nowIso, keyCount: payload.meta.keyCount };
     } catch (e) {
+      recordError(errMsg(e));
       return { ok: false, error: errMsg(e) };
     }
   }
@@ -141,13 +152,19 @@
     try {
       var user = currentUser();
       var res = await c.from(TABLE).select('data, data_version, updated_at').eq('user_id', user.id).maybeSingle();
-      if (res.error) return { ok: false, error: errMsg(res.error) };
-      if (!res.data) return { ok: false, error: 'No cloud data found for this account yet — push from a device first.' };
+      if (res.error) { recordError(errMsg(res.error)); return { ok: false, error: errMsg(res.error) }; }
+      if (!res.data) {
+        var noDataMsg = 'No cloud data found for this account yet — push from a device first.';
+        recordError(noDataMsg);
+        return { ok: false, error: noDataMsg };
+      }
       var applied = window.Backup.apply({ meta: { dataVersion: res.data.data_version }, data: res.data.data });
-      if (!applied.ok) return { ok: false, error: applied.error };
+      if (!applied.ok) { recordError(applied.error); return { ok: false, error: applied.error }; }
       setMeta({ lastPulledAt: new Date().toISOString() });
+      clearError();
       return { ok: true, keyCount: applied.keyCount, updatedAt: res.data.updated_at };
     } catch (e) {
+      recordError(errMsg(e));
       return { ok: false, error: errMsg(e) };
     }
   }

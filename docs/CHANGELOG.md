@@ -476,6 +476,33 @@ Simplify Command Centre layout and group sidebar navigation
 
 ---
 
+## 2026-07-06 (4)
+
+### Supabase Cloud Sync Phase 1 — setup, status, and safety polish
+
+Extracted the `life_os_state` table/RLS SQL from `SETUP.md` into a standalone, idempotent
+`supabase/life_os_state.sql` file. Added a Phase 1 setup checklist, a Vercel deployment-notes
+block (env vars in Project Settings not just `.env.local`, redeploy after changes, Preview
+deployments need their own copy), and a manual testing checklist to `SETUP.md`.
+
+`scripts/cloud-sync.js` now persists the last push/pull error in the existing `cloudSyncMeta`
+Local Storage key (cleared on the next success), so a sync failure is still visible on the
+Integrations page after a reload instead of disappearing once the moment passes.
+
+No change to the `life_os_state` table shape, RLS policies, or push/pull/sync-now behaviour —
+this was setup docs and status-visibility polish only, per `docs/SUPABASE_PLAN.md` §18.
+
+Files affected:
+
+supabase/life_os_state.sql, SETUP.md, scripts/cloud-sync.js, pages/integrations.html,
+docs/SUPABASE_PLAN.md
+
+Commit:
+
+Supabase Cloud Sync Phase 1 — setup docs, SQL file, and sync error visibility
+
+---
+
 ## Future Entries
 
 Example

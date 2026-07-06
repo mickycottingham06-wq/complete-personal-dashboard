@@ -90,16 +90,18 @@ Supabase yet. See `docs/SUPABASE_PLAN.md` §16.
 ### Real Cloud Sync (Phase 1) — requires auth above, run one more SQL block
 
 Uses the same `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` as auth above — no
-extra env vars. Run this in Supabase **SQL Editor** to create the table:
+extra env vars. Run **[`supabase/life_os_state.sql`](supabase/life_os_state.sql)** in Supabase
+**SQL Editor → New query → Run** to create the table (safe to re-run, every statement is
+idempotent):
 
 ```sql
 create table if not exists public.life_os_state (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null unique references auth.users(id) on delete cascade,
-  data        jsonb not null default '{}'::jsonb,
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null unique references auth.users(id) on delete cascade,
+  data         jsonb not null default '{}'::jsonb,
   data_version text,
-  updated_at  timestamptz not null default now(),
-  created_at  timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
 );
 
 alter table public.life_os_state enable row level security;
@@ -118,6 +120,41 @@ Once this table exists, the Integrations page's **Cloud Sync** card gets a "Real
 (Phase 1)" section: Push local → cloud, Pull cloud → this device, and Sync now, all manual
 (nothing runs automatically) and all requiring you to be signed in. Local Storage remains the
 active/offline storage system either way — see `docs/SUPABASE_PLAN.md` §17.
+
+### Setup checklist (Phase 1 cloud sync)
+
+- [ ] Create a Supabase project at supabase.com
+- [ ] Run [`supabase/life_os_state.sql`](supabase/life_os_state.sql) in Supabase SQL Editor
+- [ ] Add `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` locally (e.g. a `.env.local`
+      picked up by however you run the site) if you test outside Vercel
+- [ ] Add the same two env vars in Vercel → Project Settings → Environment Variables
+- [ ] Confirm Supabase Auth → Providers → **Email** is enabled (on by default for new projects)
+- [ ] Redeploy on Vercel
+- [ ] Open Integrations page → Account card → sign up, then sign in
+- [ ] Push local data to the cloud (Cloud Sync card → "Push local → cloud")
+- [ ] On a second browser/device, sign in with the same account and pull cloud data down
+
+### Vercel deployment notes
+
+- Env vars must be added under Vercel → **Project Settings → Environment Variables**, not just
+  `.env.local` — `.env.local` only affects local dev, never what's deployed.
+- **Redeploy** after adding or changing env vars — Vercel does not hot-reload existing deployments
+  when you save new environment variables.
+- If you use Vercel **Preview** deployments (PRs, branches), add the env vars to the Preview
+  environment too, not just Production — otherwise previews will report "Supabase not configured".
+
+### Testing checklist (Phase 1 cloud sync)
+
+- [ ] **No env vars set** — app works local-only; Integrations Cloud Sync card reports "Supabase
+      not configured"; no crash, no login prompt
+- [ ] **Env vars added + redeployed** — Cloud Sync card reports "Supabase configured"
+- [ ] **Sign up / sign in** works from the Account card
+- [ ] **Push** local data to cloud succeeds and shows a last-cloud-sync time
+- [ ] **Pull** cloud data down succeeds on the same device (after making a local change, to confirm
+      it actually overwrites)
+- [ ] **Second browser or device**, same account, signed in → **Pull** restores the data
+- [ ] **Backup/export/import** (Integrations → Data & Backup) still works unchanged, independent of
+      any of the above
 
 ---
 

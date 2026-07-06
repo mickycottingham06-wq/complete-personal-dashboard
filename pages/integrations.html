@@ -706,6 +706,11 @@ body::after {
     $('csLocalActive').textContent = window.CloudSync.hasLocalData() ? 'Active' : 'Empty';
     $('csLocalUpdated').textContent = fmtTime(window.CloudSync.latestLocalTimestamp());
 
+    // Surfaces the last push/pull failure even after a reload, not just in
+    // the moment it happened, so a sync error is never silently forgotten.
+    const meta = window.CloudSync.loadMeta();
+    if (meta.lastError) showCsMsg('Last sync error: ' + meta.lastError, true);
+
     const canUse = window.CloudSync.isAvailable();
     $('csPushBtn').disabled = !canUse;
     $('csPullBtn').disabled = !canUse;
