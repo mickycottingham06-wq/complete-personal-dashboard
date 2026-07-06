@@ -328,9 +328,9 @@ Lives in
 
 Behaviour
 
-Slide-in drawer from the left, dark overlay behind it, closes on overlay click / Escape / link click. Highlights the active page. Lists every section: Main, Daily Snapshot, Streaks, Business HQ, AI CEO, Boxing HQ, Health HQ, Hormone Optimisation, Appearance / Looks, Goals, Life Stats, Heatmap, Settings.
+Slide-in drawer from the left, dark overlay behind it, closes on overlay click / Escape / link click. Highlights the active page. Links are grouped under five collapsible headers — Today (Command Centre, Daily Control Panel, Weekly Review), Progress (Streaks, Goals, Life Stats, Heatmap), Performance (Boxing HQ, Health HQ, Hormone Optimisation, Appearance / Looks), Wealth (Money HQ, Business HQ, AI CEO), System (Integrations, Settings). Each group header toggles a `.collapsed` class and persists that choice in `localStorage` (`sidebar_collapsed_groups_v1`); the group containing the active page is always forced open regardless of saved state.
 
-Never build a second nav drawer elsewhere — extend `SIDEBAR_LINKS` in topbar.js instead.
+Never build a second nav drawer elsewhere — extend `SIDEBAR_GROUPS` in topbar.js instead (a flat `SIDEBAR_LINKS` is derived from it for active-page lookups).
 
 ---
 
@@ -342,11 +342,13 @@ A compact, clickable entry point into a full page — used so a heavy section (D
 
 Structure
 
-A `.gm-card.preview-card` wrapped in an `<a>`, containing a short label/value and 2–3 `.streak-stat` tiles, with a `.preview-arrow` that nudges on hover (same interaction as bento tiles).
+A `.gm-card.preview-card` wrapped in an `<a>`, containing a short label/value and 2–3 `.streak-stat` tiles, with a `.preview-arrow` that nudges on hover.
 
 Rule
 
 If a section has both a "full" page and a dashboard summary, the summary should be a Preview Card, not a shrunk copy of the full UI.
+
+On Command Centre, only the 6 core priority Preview Cards (Money HQ, Business HQ, Boxing HQ, Health HQ, Goals, Weekly Review) sit in the main `.core-grid`. Secondary Preview Cards (Streaks, AI CEO, Hormone Optimisation, Appearance / Looks, Life Stats, Heatmap, Integrations) live inside the collapsed `<details class="more-details">` "More sections" block further down the page — same markup, just relocated, so they stay reachable without competing for attention.
 
 ---
 

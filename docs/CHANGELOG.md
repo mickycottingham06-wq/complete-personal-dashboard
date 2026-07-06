@@ -454,6 +454,28 @@ Cross-section data polish — shared weight, AI CEO context, Money↔Life Stats/
 
 ---
 
+## 2026-07-06 (3)
+
+### Command Centre Layout Simplification & Grouped Sidebar
+
+Command Centre no longer tries to be a full section directory. Restructured index.html into: Today bar (unchanged) → trimmed Daily Control Panel summary (Main Focus, priorities, checklist line, Business/Training/Health/Money status chips, CTA — dropped the redundant completion %/streak/score/energy/recovery/tomorrow-priority stats since the Today bar and full page already cover them) → a `.core-grid` of the 6 priority previews (Money HQ, Business HQ, Boxing HQ, Health HQ, Goals, Weekly Review; Health HQ's stat row dropped from 4 to 3 tiles) → a Quick Actions row (Log spending, Open Daily Control Panel, Add training note, Open Weekly Review, Open AI CEO — plain navigation links, no new logic) → a collapsed `<details class="more-details">` "More sections" block holding the secondary previews (Streaks, AI CEO, Hormone Optimisation, Appearance/Looks, Life Stats, Heatmap, Integrations) exactly as they were, just relocated.
+
+Removed the 13-tile bento quick-nav grid entirely — it duplicated navigation already covered by the preview cards, Quick Actions, and sidebar, and was the main source of visual clutter. Its `#bentoSettingsTile` click handler was removed too; Settings still opens via the header gear icon and the sidebar's Settings link.
+
+Sidebar navigation (`scripts/topbar.js`) restructured from one flat 16-item list into 5 collapsible groups — Today, Progress, Performance, Wealth, System — matching the Command Centre's own priority split. `SIDEBAR_LINKS` is now derived from a new `SIDEBAR_GROUPS` array; each group header toggles a `.collapsed` state persisted in `localStorage` (`sidebar_collapsed_groups_v1`), and the group containing the active page is always forced open on load.
+
+No section internals, data shapes, or Local Storage keys changed — this was layout/navigation only.
+
+Files affected:
+
+index.html, scripts/topbar.js, docs/PROJECT.md, docs/COMPONENT_LIBRARY.md
+
+Commit:
+
+Simplify Command Centre layout and group sidebar navigation
+
+---
+
 ## Future Entries
 
 Example

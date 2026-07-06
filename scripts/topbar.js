@@ -89,7 +89,21 @@
   font-size: 24px; line-height: 1; cursor: pointer; padding: 2px 6px;
 }
 .sidebar-close:hover { color: var(--text-primary, #FAFAFA); }
-.sidebar-links { display: flex; flex-direction: column; padding: 8px 10px; gap: 2px; }
+.sidebar-links { display: flex; flex-direction: column; padding: 8px 10px 10px; gap: 10px; }
+.sidebar-group { display: flex; flex-direction: column; }
+.sidebar-group-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; border: 0; background: transparent; cursor: pointer;
+  padding: 6px 8px; margin-bottom: 2px;
+  font-family: inherit; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-tertiary, #76746E);
+  -webkit-tap-highlight-color: transparent;
+}
+.sidebar-group-toggle:hover { color: var(--text-secondary, #B8B6B0); }
+.sidebar-group-arrow { font-size: 11px; transition: transform 0.18s ease; }
+.sidebar-group.collapsed .sidebar-group-arrow { transform: rotate(-90deg); }
+.sidebar-group-links { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-group.collapsed .sidebar-group-links { display: none; }
 .sidebar-link {
   display: flex; align-items: center; gap: 12px;
   padding: 11px 12px;
@@ -288,25 +302,62 @@ body.topbar-modal-open {
 </header>
 `;
 
-  // Full navigation list — same set on every page, opened by the hamburger.
-  const SIDEBAR_LINKS = [
-    { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/index.html' },
-    { key: 'snapshot',    icon: '📋', label: 'Daily Control Panel',   href: '/pages/daily-snapshot.html' },
-    { key: 'streaks',     icon: '🔥', label: 'Streaks',               href: '/pages/streaks.html' },
-    { key: 'business',    icon: '💼', label: 'Business HQ',          href: '/pages/business-hq.html' },
-    { key: 'money-hq',    icon: '📊', label: 'Money HQ',             href: '/pages/money-hq.html' },
-    { key: 'ai-ceo',      icon: '🤖', label: 'AI CEO',               href: '/pages/ai-ceo.html' },
-    { key: 'boxing',      icon: '🥊', label: 'Boxing HQ',            href: '/pages/boxing-hq.html' },
-    { key: 'health',      icon: '💊', label: 'Health HQ',            href: '/pages/health.html' },
-    { key: 'hormone',     icon: '🧬', label: 'Hormone Optimisation', href: '/pages/hormone-optimisation.html' },
-    { key: 'appearance',  icon: '✨', label: 'Appearance / Looks',   href: '/pages/appearance.html' },
-    { key: 'goals',       icon: '🎯', label: 'Goals',                href: '/pages/goals.html' },
-    { key: 'life-stats',  icon: '📈', label: 'Life Stats',           href: '/pages/life-stats.html' },
-    { key: 'heatmap',     icon: '🗓️', label: 'Heatmap',              href: '/pages/heatmap.html' },
-    { key: 'weekly-review', icon: '🗒️', label: 'Weekly Review',      href: '/pages/weekly-review.html' },
-    { key: 'integrations', icon: '🔌', label: 'Integrations',        href: '/pages/integrations.html' },
-    { key: 'settings',    icon: '⚙️', label: 'Settings',             href: '/index.html?openSettings=1', id: 'sidebarSettingsLink' },
+  // Full navigation list, grouped by theme — same set on every page, opened
+  // by the hamburger. Groups are collapsible; state persists in localStorage.
+  const SIDEBAR_GROUPS = [
+    {
+      key: 'today', label: 'Today',
+      links: [
+        { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/index.html' },
+        { key: 'snapshot',       icon: '📋', label: 'Daily Control Panel', href: '/pages/daily-snapshot.html' },
+        { key: 'weekly-review',  icon: '🗒️', label: 'Weekly Review',     href: '/pages/weekly-review.html' },
+      ],
+    },
+    {
+      key: 'progress', label: 'Progress',
+      links: [
+        { key: 'streaks',    icon: '🔥', label: 'Streaks',     href: '/pages/streaks.html' },
+        { key: 'goals',      icon: '🎯', label: 'Goals',       href: '/pages/goals.html' },
+        { key: 'life-stats', icon: '📈', label: 'Life Stats',  href: '/pages/life-stats.html' },
+        { key: 'heatmap',    icon: '🗓️', label: 'Heatmap',     href: '/pages/heatmap.html' },
+      ],
+    },
+    {
+      key: 'performance', label: 'Performance',
+      links: [
+        { key: 'boxing',      icon: '🥊', label: 'Boxing HQ',            href: '/pages/boxing-hq.html' },
+        { key: 'health',      icon: '💊', label: 'Health HQ',            href: '/pages/health.html' },
+        { key: 'hormone',     icon: '🧬', label: 'Hormone Optimisation', href: '/pages/hormone-optimisation.html' },
+        { key: 'appearance',  icon: '✨', label: 'Appearance / Looks',   href: '/pages/appearance.html' },
+      ],
+    },
+    {
+      key: 'wealth', label: 'Wealth',
+      links: [
+        { key: 'money-hq', icon: '📊', label: 'Money HQ',    href: '/pages/money-hq.html' },
+        { key: 'business', icon: '💼', label: 'Business HQ', href: '/pages/business-hq.html' },
+        { key: 'ai-ceo',    icon: '🤖', label: 'AI CEO',      href: '/pages/ai-ceo.html' },
+      ],
+    },
+    {
+      key: 'system', label: 'System',
+      links: [
+        { key: 'integrations', icon: '🔌', label: 'Integrations', href: '/pages/integrations.html' },
+        { key: 'settings',     icon: '⚙️', label: 'Settings',     href: '/index.html?openSettings=1', id: 'sidebarSettingsLink' },
+      ],
+    },
   ];
+  // Flat view of every link — kept for active-page lookup and any code that
+  // just needs "all links" rather than the grouping.
+  const SIDEBAR_LINKS = SIDEBAR_GROUPS.reduce((all, g) => all.concat(g.links), []);
+
+  const SIDEBAR_COLLAPSE_KEY = 'sidebar_collapsed_groups_v1';
+  function loadCollapsedGroups() {
+    try { return JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSE_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveCollapsedGroups(state) {
+    try { localStorage.setItem(SIDEBAR_COLLAPSE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
 
   const sidebarHtml = `
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -316,7 +367,15 @@ body.topbar-modal-open {
     <button class="sidebar-close" id="sidebarClose" aria-label="Close menu" type="button">&times;</button>
   </div>
   <div class="sidebar-links">
-    ${SIDEBAR_LINKS.map((l) => `<a class="sidebar-link" data-page="${l.key}" href="${l.href}"${l.id ? ` id="${l.id}"` : ''}><span class="sidebar-link-icon">${l.icon}</span>${l.label}</a>`).join('\n    ')}
+    ${SIDEBAR_GROUPS.map((g) => `<div class="sidebar-group" data-group="${g.key}">
+      <button class="sidebar-group-toggle" type="button" data-group-toggle="${g.key}" aria-expanded="true">
+        <span>${g.label}</span>
+        <span class="sidebar-group-arrow">▾</span>
+      </button>
+      <div class="sidebar-group-links">
+        ${g.links.map((l) => `<a class="sidebar-link" data-page="${l.key}" href="${l.href}"${l.id ? ` id="${l.id}"` : ''}><span class="sidebar-link-icon">${l.icon}</span>${l.label}</a>`).join('\n        ')}
+      </div>
+    </div>`).join('\n    ')}
   </div>
 </nav>
 `;
@@ -412,6 +471,20 @@ body.topbar-modal-open {
       l.classList.toggle('active', !!activeSidebar && l.getAttribute('data-page') === activeSidebar);
     });
 
+    // Collapse/expand sidebar groups from saved state, but always force the
+    // group containing the active page open so the user never lands on a
+    // sidebar that hides where they currently are.
+    const collapsed = loadCollapsedGroups();
+    const activeGroup = SIDEBAR_GROUPS.find((g) => g.links.some((l) => l.key === activeSidebar));
+    document.querySelectorAll('.sidebar-group').forEach((g) => {
+      const key = g.getAttribute('data-group');
+      const isActiveGroup = !!activeGroup && activeGroup.key === key;
+      const isCollapsed = !isActiveGroup && !!collapsed[key];
+      g.classList.toggle('collapsed', isCollapsed);
+      const toggle = g.querySelector('.sidebar-group-toggle');
+      if (toggle) toggle.setAttribute('aria-expanded', String(!isCollapsed));
+    });
+
     // Reserve room above the fixed bottom bar so page content can scroll
     // past it without being hidden.
     document.body.classList.add('has-bottombar');
@@ -473,6 +546,22 @@ body.topbar-modal-open {
     // Any other link just closes the drawer before the browser navigates.
     document.querySelectorAll('.sidebar-link:not(#sidebarSettingsLink)').forEach((l) => {
       l.addEventListener('click', closeSidebar);
+    });
+
+    // Collapsible groups — click the group header to fold/unfold it, state
+    // persists in localStorage so it stays how the user left it.
+    document.querySelectorAll('.sidebar-group-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const group = btn.closest('.sidebar-group');
+        if (!group) return;
+        const key = group.getAttribute('data-group');
+        const nowCollapsed = !group.classList.contains('collapsed');
+        group.classList.toggle('collapsed', nowCollapsed);
+        btn.setAttribute('aria-expanded', String(!nowCollapsed));
+        const collapsed = loadCollapsedGroups();
+        if (nowCollapsed) collapsed[key] = true; else delete collapsed[key];
+        saveCollapsedGroups(collapsed);
+      });
     });
   }
 

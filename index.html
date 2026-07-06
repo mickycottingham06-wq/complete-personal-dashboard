@@ -139,83 +139,43 @@ body::after {
 .status-chip.done .dot { background: var(--success); box-shadow: 0 0 8px rgba(107,227,164,0.6); }
 .preview-cta { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
 
-/* ===== BENTO GRID ===== */
-.bento {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 168px;
-  grid-auto-flow: dense;
-  gap: 14px;
+/* ===== Core priority grid — 4-6 focused cards, 2-up on wider screens ===== */
+.core-grid { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 860px) {
+  .core-grid { grid-template-columns: repeat(2, 1fr); column-gap: 18px; }
 }
-.tile {
-  --accent: #6BE3A4;                 /* each tile overrides this */
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column;
-  padding: 20px;
-  border-radius: 18px;
-  text-decoration: none;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-/* The "its own style" bit — a faint accent glow per tile. */
-.tile::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 78% 18%,
-              color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%);
-  opacity: 0.7; transition: opacity 0.18s ease;
-}
-.tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
-}
-.tile:hover::before { opacity: 1; }
 
-/* Tile sizes */
-.tile.big  { grid-column: span 2; grid-row: span 2; }
-.tile.wide { grid-column: span 2; }
+/* ===== Quick actions — compact pill row, navigates only, no new logic ===== */
+.quick-actions-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.quick-action {
+  flex: 1 1 auto; min-width: 132px; text-align: center;
+  padding: 12px 14px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.035);
+  color: var(--text-secondary); text-decoration: none;
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.01em;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.quick-action:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.quick-action:active { transform: scale(0.97); }
 
-/* Tile contents */
-.tile-top { display: flex; align-items: flex-start; justify-content: space-between; }
-.tile-num {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.08em; color: var(--text-tertiary);
+/* ===== More sections — collapsed by default, native <details> so the
+   secondary pages (Streaks, AI CEO, Hormone, Appearance, Life Stats,
+   Heatmap, Integrations) stay reachable without dominating the homepage. ===== */
+.more-details { border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; background: rgba(255,255,255,0.02); overflow: hidden; }
+.more-summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; font-size: 13px; font-weight: 700; color: var(--text-secondary);
+  -webkit-tap-highlight-color: transparent;
 }
-.tile-emoji {
-  font-size: 26px; line-height: 1;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent));
-}
-.tile-spacer { flex: 1; }
-.tile-title {
-  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
-  color: var(--text-primary); margin: 0 0 4px;
-}
-.tile.big .tile-title { font-size: 28px; }
-.tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.tile-sub {
-  font-size: 13px; color: var(--text-tertiary);
-}
-.tile-arrow {
-  font-size: 18px; color: var(--accent);
-  transition: transform 0.18s ease; flex-shrink: 0;
-}
-.tile:hover .tile-arrow { transform: translateX(4px); }
-
-/* ===== Responsive: collapse the bento on small screens ===== */
-@media (max-width: 720px) {
-  .bento { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
-  .tile.big { grid-column: span 2; grid-row: span 1; }
-  .tile.big .tile-title { font-size: 22px; }
-}
-@media (max-width: 440px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .bento { grid-template-columns: 1fr; grid-auto-rows: 132px; }
-  .tile.big, .tile.wide { grid-column: span 1; }
-}
+.more-summary::-webkit-details-marker { display: none; }
+.more-summary:hover { color: var(--text-primary); }
+.more-summary-arrow { color: var(--text-tertiary); transition: transform 0.18s ease; font-size: 13px; }
+.more-details[open] .more-summary-arrow { transform: rotate(180deg); }
+.more-body { padding: 4px 18px 18px; }
+.more-body .section { margin-bottom: 14px; }
+.more-body .section:last-child { margin-bottom: 0; }
 
 /* ===== Header row + gear ===== */
 .hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
@@ -354,448 +314,300 @@ body::after {
 
       <div class="preview-sub" id="previewChecklistLine" style="margin-top:10px">—</div>
 
-      <div class="streak-stats" style="margin-top:12px">
-        <div class="streak-stat"><div class="v" id="previewCompletionPct">0%</div><div class="l">Completion</div></div>
-        <div class="streak-stat"><div class="v" id="previewSnapStreak">0</div><div class="l">Streak</div></div>
-        <div class="streak-stat"><div class="v" id="previewSnapScore">—</div><div class="l">Score</div></div>
-      </div>
+      <div class="status-chip-row" id="previewStatusChips" style="margin-top:14px"></div>
 
-      <div class="streak-stats-2">
-        <div class="streak-stat"><div class="v" id="previewEnergy">—</div><div class="l">Energy</div></div>
-        <div class="streak-stat"><div class="v" id="previewRecovery">—</div><div class="l" id="previewRecoveryLabel">Recovery</div></div>
-      </div>
-
-      <div class="status-chip-row" id="previewStatusChips"></div>
-
-      <div class="preview-sub" id="previewTomorrowPriority" style="margin-top:12px"></div>
       <div class="preview-cta">Open Daily Control Panel →</div>
     </a>
   </div>
 
-  <!-- ===== STREAKS PREVIEW — compact entry point, full view lives at
-       pages/streaks.html ===== -->
-  <div class="section" id="streaksPreview">
-    <div class="section-title">Streaks</div>
-    <a class="gm-card preview-card" href="pages/streaks.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow">Consistency</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-        <div class="streak-stat"><div class="v" id="previewStreakCurrent">0</div><div class="l">Current</div></div>
-        <div class="streak-stat"><div class="v" id="previewStreakBest">0</div><div class="l">Best</div></div>
-        <div class="streak-stat"><div class="v" id="previewStreakToday">0%</div><div class="l">Today</div></div>
-      </div>
-    </a>
-  </div>
+  <!-- ===== CORE PRIORITY CARDS — the 6 sections that matter every day.
+       Everything else lives in Quick Actions / More Sections below so this
+       stays a focused overview, not a full section directory. ===== -->
+  <div class="core-grid">
 
-  <!-- ===== BUSINESS HQ PREVIEW — compact entry point, full view lives at
-       pages/business-hq.html ===== -->
-  <div class="section" id="businessPreview">
-    <div class="section-title">Business HQ</div>
-    <a class="gm-card preview-card" href="pages/business-hq.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Current Focus</div>
-          <div class="preview-focus" id="previewBizFocus">—</div>
-          <div class="preview-sub" id="previewBizProject">—</div>
+    <!-- ===== MONEY HQ PREVIEW — compact entry point, full view lives at
+         pages/money-hq.html ===== -->
+    <div class="section" id="moneyPreview">
+      <div class="section-title">Money HQ</div>
+      <a class="gm-card preview-card" href="pages/money-hq.html">
+        <div class="preview-top">
+          <div>
+            <div class="gm-eyebrow" style="margin-bottom:4px">Net Worth</div>
+            <div class="preview-focus" id="previewMoneyNetWorth">£0</div>
+            <div class="preview-sub" id="previewMoneySavings">—</div>
+          </div>
+          <span class="preview-arrow">→</span>
         </div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBizRevFill" style="width:0%"></div></div>
-      <div class="preview-rev-pct" id="previewBizRevPct">£0 of £0</div>
-      <div class="preview-sub" id="previewBizTask" style="margin-top:12px">—</div>
-      <div class="preview-sub" id="previewBizDsFlag" style="margin-top:4px"></div>
-    </a>
-  </div>
-
-  <!-- ===== MONEY HQ PREVIEW — compact entry point, full view lives at
-       pages/money-hq.html ===== -->
-  <div class="section" id="moneyPreview">
-    <div class="section-title">Money HQ</div>
-    <a class="gm-card preview-card" href="pages/money-hq.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Net Worth</div>
-          <div class="preview-focus" id="previewMoneyNetWorth">£0</div>
-          <div class="preview-sub" id="previewMoneySavings">—</div>
+        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+          <div class="streak-stat"><div class="v" id="previewMoneyIncome">£0</div><div class="l">Income</div></div>
+          <div class="streak-stat"><div class="v" id="previewMoneySpending">£0</div><div class="l">Spending</div></div>
+          <div class="streak-stat"><div class="v" id="previewMoneyRate">0%</div><div class="l">Savings Rate</div></div>
         </div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-        <div class="streak-stat"><div class="v" id="previewMoneyIncome">£0</div><div class="l">Income</div></div>
-        <div class="streak-stat"><div class="v" id="previewMoneySpending">£0</div><div class="l">Spending</div></div>
-        <div class="streak-stat"><div class="v" id="previewMoneyRate">0%</div><div class="l">Savings Rate</div></div>
-      </div>
-      <div class="preview-sub" id="previewMoneyBill" style="margin-top:12px">—</div>
-      <div class="preview-sub" id="previewMoneyDsFlag" style="margin-top:4px"></div>
-    </a>
-  </div>
+        <div class="preview-sub" id="previewMoneyBill" style="margin-top:12px">—</div>
+        <div class="preview-sub" id="previewMoneyDsFlag" style="margin-top:4px"></div>
+      </a>
+    </div>
 
-  <!-- ===== AI CEO PREVIEW — compact entry point, full view lives at
-       pages/ai-ceo.html ===== -->
-  <div class="section" id="aiCeoPreview">
-    <div class="section-title">AI CEO</div>
-    <a class="gm-card preview-card" href="pages/ai-ceo.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Mode</div>
-          <div class="preview-focus" id="previewCeoMode">—</div>
-          <div class="preview-sub" id="previewCeoBlocker">—</div>
+    <!-- ===== BUSINESS HQ PREVIEW — compact entry point, full view lives at
+         pages/business-hq.html ===== -->
+    <div class="section" id="businessPreview">
+      <div class="section-title">Business HQ</div>
+      <a class="gm-card preview-card" href="pages/business-hq.html">
+        <div class="preview-top">
+          <div>
+            <div class="gm-eyebrow" style="margin-bottom:4px">Current Focus</div>
+            <div class="preview-focus" id="previewBizFocus">—</div>
+            <div class="preview-sub" id="previewBizProject">—</div>
+          </div>
+          <span class="preview-arrow">→</span>
         </div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats" style="margin-top:10px;margin-bottom:0;grid-template-columns:1fr">
-        <div class="streak-stat"><div class="v" id="previewCeoOpenActions">0</div><div class="l">Open Actions</div></div>
-      </div>
-      <div class="preview-sub" id="previewCeoNextAction" style="margin-top:12px">—</div>
-    </a>
-  </div>
+        <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBizRevFill" style="width:0%"></div></div>
+        <div class="preview-rev-pct" id="previewBizRevPct">£0 of £0</div>
+        <div class="preview-sub" id="previewBizTask" style="margin-top:12px">—</div>
+        <div class="preview-sub" id="previewBizDsFlag" style="margin-top:4px"></div>
+      </a>
+    </div>
 
-  <!-- ===== BOXING HQ PREVIEW — compact entry point, full view lives at
-       pages/boxing-hq.html ===== -->
-  <div class="section" id="boxingPreview">
-    <div class="section-title">Boxing HQ</div>
-    <a class="gm-card preview-card" href="pages/boxing-hq.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Training Phase</div>
-          <div class="preview-focus" id="previewBoxPhase">—</div>
-          <div class="preview-sub" id="previewBoxWeight">—</div>
+    <!-- ===== BOXING HQ PREVIEW — compact entry point, full view lives at
+         pages/boxing-hq.html ===== -->
+    <div class="section" id="boxingPreview">
+      <div class="section-title">Boxing HQ</div>
+      <a class="gm-card preview-card" href="pages/boxing-hq.html">
+        <div class="preview-top">
+          <div>
+            <div class="gm-eyebrow" style="margin-bottom:4px">Training Phase</div>
+            <div class="preview-focus" id="previewBoxPhase">—</div>
+            <div class="preview-sub" id="previewBoxWeight">—</div>
+          </div>
+          <span class="preview-arrow">→</span>
         </div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBoxSessFill" style="width:0%"></div></div>
-      <div class="preview-rev-pct" id="previewBoxSessPct">0 / 0 sessions this week</div>
-      <div class="preview-sub" id="previewBoxFocus" style="margin-top:12px">—</div>
-      <div class="preview-sub" id="previewBoxDsFlag" style="margin-top:4px"></div>
-    </a>
-  </div>
+        <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBoxSessFill" style="width:0%"></div></div>
+        <div class="preview-rev-pct" id="previewBoxSessPct">0 / 0 sessions this week</div>
+        <div class="preview-sub" id="previewBoxFocus" style="margin-top:12px">—</div>
+        <div class="preview-sub" id="previewBoxDsFlag" style="margin-top:4px"></div>
+      </a>
+    </div>
 
-  <!-- ===== HEALTH HQ PREVIEW — compact entry point, full view lives at
-       pages/health.html ===== -->
-  <div class="section" id="healthPreview">
-    <div class="section-title">Health HQ</div>
-    <a class="gm-card preview-card" href="pages/health.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow">Today</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats-4" style="margin-top:10px">
-        <div class="streak-stat"><div class="v" id="previewHealthSleep">—</div><div class="l">Sleep</div></div>
-        <div class="streak-stat"><div class="v" id="previewHealthRecovery">—</div><div class="l">Recovery</div></div>
-        <div class="streak-stat"><div class="v" id="previewHealthWater">—</div><div class="l">Water</div></div>
-        <div class="streak-stat"><div class="v" id="previewHealthEnergy">—</div><div class="l">Energy</div></div>
-      </div>
-      <div class="preview-sub" id="previewHealthDsFlag" style="margin-top:12px"></div>
-    </a>
-  </div>
-
-  <!-- ===== HORMONE OPTIMISATION PREVIEW — compact entry point, full view lives
-       at pages/hormone-optimisation.html ===== -->
-  <div class="section" id="hormonePreview">
-    <div class="section-title">Hormone Optimisation</div>
-    <a class="gm-card preview-card" href="pages/hormone-optimisation.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow">Today</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats-4" style="margin-top:10px">
-        <div class="streak-stat"><div class="v" id="previewHormoneScore">—</div><div class="l">Hor. Score</div></div>
-        <div class="streak-stat"><div class="v" id="previewHormoneEnergy">—</div><div class="l">Energy</div></div>
-        <div class="streak-stat"><div class="v" id="previewHormoneSleep">—</div><div class="l">Sleep</div></div>
-        <div class="streak-stat"><div class="v" id="previewHormoneStress">—</div><div class="l">Stress</div></div>
-      </div>
-    </a>
-  </div>
-
-  <!-- ===== APPEARANCE / LOOKS PREVIEW — compact entry point, full view lives
-       at pages/appearance.html ===== -->
-  <div class="section" id="appearancePreview">
-    <div class="section-title">Appearance / Looks</div>
-    <a class="gm-card preview-card" href="pages/appearance.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow" id="previewAppearanceFocus">No focus set</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats-4" style="margin-top:10px">
-        <div class="streak-stat"><div class="v" id="previewLooksScore">—</div><div class="l">Looks</div></div>
-        <div class="streak-stat"><div class="v" id="previewSkinScore">—</div><div class="l">Skin</div></div>
-        <div class="streak-stat"><div class="v" id="previewSkincarePct">—</div><div class="l">Skincare</div></div>
-        <div class="streak-stat"><div class="v" id="previewGroomingPct">—</div><div class="l">Grooming</div></div>
-      </div>
-    </a>
-  </div>
-
-  <!-- ===== GOALS PREVIEW — compact entry point, full view lives at
-       pages/goals.html ===== -->
-  <div class="section" id="goalsPreview">
-    <div class="section-title">Goals</div>
-    <a class="gm-card preview-card" href="pages/goals.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Main Life Goal</div>
-          <div class="preview-focus" id="previewGoalMain">—</div>
-          <div class="preview-sub" id="previewGoalNinetyDay">—</div>
+    <!-- ===== HEALTH HQ PREVIEW — compact entry point, full view lives at
+         pages/health.html ===== -->
+    <div class="section" id="healthPreview">
+      <div class="section-title">Health HQ</div>
+      <a class="gm-card preview-card" href="pages/health.html">
+        <div class="preview-top">
+          <div class="gm-eyebrow">Today</div>
+          <span class="preview-arrow">→</span>
         </div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="preview-rev-track"><div class="preview-rev-fill" id="previewGoalProgressFill" style="width:0%"></div></div>
-      <div class="preview-rev-pct" id="previewGoalProgressPct">0% average progress</div>
-      <div class="preview-sub" id="previewGoalCount" style="margin-top:12px">0 active goals</div>
-      <div class="preview-sub" id="previewGoalDsFlag" style="margin-top:4px"></div>
-    </a>
-  </div>
-
-  <!-- ===== LIFE STATS PREVIEW — compact entry point, full view lives at
-       pages/life-stats.html ===== -->
-  <div class="section" id="lifeStatsPreview">
-    <div class="section-title">Life Stats</div>
-    <a class="gm-card preview-card" href="pages/life-stats.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow">Life OS Overview</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-        <div class="streak-stat"><div class="v" id="previewLifeStatsOverall">—</div><div class="l">Overall</div></div>
-        <div class="streak-stat"><div class="v" id="previewLifeStatsStreak">—</div><div class="l">Streak</div></div>
-        <div class="streak-stat"><div class="v" id="previewLifeStatsGoals">—</div><div class="l">Goals</div></div>
-      </div>
-      <div class="preview-sub" id="previewLifeStatsAttention" style="margin-top:12px">No areas flagged</div>
-    </a>
-  </div>
-
-  <!-- ===== HEATMAP PREVIEW — compact entry point, full view lives at
-       pages/heatmap.html ===== -->
-  <div class="section" id="heatmapPreview">
-    <div class="section-title">Heatmap</div>
-    <a class="gm-card preview-card" href="pages/heatmap.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow">Daily Consistency</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats-4" style="margin-top:10px">
-        <div class="streak-stat"><div class="v" id="previewHeatmapToday">0</div><div class="l">Today</div></div>
-        <div class="streak-stat"><div class="v" id="previewHeatmapStreak">0</div><div class="l">Streak</div></div>
-        <div class="streak-stat"><div class="v" id="previewHeatmapWeekAvg">0</div><div class="l">Week Avg</div></div>
-        <div class="streak-stat"><div class="v" id="previewHeatmapBestDay">—</div><div class="l">Best Day</div></div>
-      </div>
-    </a>
-  </div>
-
-  <!-- ===== WEEKLY REVIEW PREVIEW — compact entry point, full view lives at
-       pages/weekly-review.html ===== -->
-  <div class="section" id="weeklyReviewPreview">
-    <div class="section-title">Weekly Review <span class="snap-date" id="previewWeekRange"></span></div>
-    <a class="gm-card preview-card" href="pages/weekly-review.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Next Week Focus</div>
-          <div class="preview-focus" id="previewWeekFocus">—</div>
+        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+          <div class="streak-stat"><div class="v" id="previewHealthSleep">—</div><div class="l">Sleep</div></div>
+          <div class="streak-stat"><div class="v" id="previewHealthRecovery">—</div><div class="l">Recovery</div></div>
+          <div class="streak-stat"><div class="v" id="previewHealthWater">—</div><div class="l">Water</div></div>
         </div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-        <div class="streak-stat"><div class="v" id="previewWeekScore">—</div><div class="l">Week Score</div></div>
-        <div class="streak-stat"><div class="v" id="previewWeekHabitAvg">0%</div><div class="l">Habit Avg</div></div>
-        <div class="streak-stat"><div class="v" id="previewWeekPriorities">0</div><div class="l">Priorities Set</div></div>
-      </div>
-      <div class="preview-sub" id="previewWeekProblem" style="margin-top:12px"></div>
-    </a>
-  </div>
+        <div class="preview-sub" id="previewHealthDsFlag" style="margin-top:12px"></div>
+      </a>
+    </div>
 
-  <!-- ===== INTEGRATIONS PREVIEW — compact entry point, full view lives at
-       pages/integrations.html ===== -->
-  <div class="section" id="integrationsPreview">
-    <div class="section-title">Integrations</div>
-    <a class="gm-card preview-card" href="pages/integrations.html">
-      <div class="preview-top">
-        <div class="gm-eyebrow">Connected Services</div>
-        <span class="preview-arrow">→</span>
-      </div>
-      <div class="streak-stats-4" style="margin-top:10px">
-        <div class="streak-stat"><div class="v" id="previewIntWeather">Off</div><div class="l">Weather</div></div>
-        <div class="streak-stat"><div class="v" id="previewIntCalendar">Off</div><div class="l">Calendar</div></div>
-        <div class="streak-stat"><div class="v" id="previewIntAi">Off</div><div class="l">AI API</div></div>
-        <div class="streak-stat"><div class="v" id="previewIntCloud">Off</div><div class="l">Cloud Sync</div></div>
-      </div>
-      <div class="preview-sub" id="previewIntWeatherDetail" style="margin-top:10px"></div>
-      <div class="preview-sub" id="previewIntCalendarDetail" style="margin-top:4px"></div>
-    </a>
-  </div>
+    <!-- ===== GOALS PREVIEW — compact entry point, full view lives at
+         pages/goals.html ===== -->
+    <div class="section" id="goalsPreview">
+      <div class="section-title">Goals</div>
+      <a class="gm-card preview-card" href="pages/goals.html">
+        <div class="preview-top">
+          <div>
+            <div class="gm-eyebrow" style="margin-bottom:4px">Main Life Goal</div>
+            <div class="preview-focus" id="previewGoalMain">—</div>
+            <div class="preview-sub" id="previewGoalNinetyDay">—</div>
+          </div>
+          <span class="preview-arrow">→</span>
+        </div>
+        <div class="preview-rev-track"><div class="preview-rev-fill" id="previewGoalProgressFill" style="width:0%"></div></div>
+        <div class="preview-rev-pct" id="previewGoalProgressPct">0% average progress</div>
+        <div class="preview-sub" id="previewGoalCount" style="margin-top:12px">0 active goals</div>
+        <div class="preview-sub" id="previewGoalDsFlag" style="margin-top:4px"></div>
+      </a>
+    </div>
 
-  <div class="bento">
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/health.html" style="--accent:#A7F3D0">
-      <div class="tile-top">
-        <span class="tile-num">·01</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Health HQ</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Sleep, recovery & vitals</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/business-hq.html" style="--accent:#F2C063">
-      <div class="tile-top">
-        <span class="tile-num">·02</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Business HQ</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Revenue & growth</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/boxing-hq.html" style="--accent:#FF6B6B">
-      <div class="tile-top">
-        <span class="tile-num">·03</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Boxing HQ</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Fight camp</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/hormone-optimisation.html" style="--accent:#7DD3FC">
-      <div class="tile-top">
-        <span class="tile-num">·04</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Hormone Optimisation</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Energy, recovery & lifestyle</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/appearance.html" style="--accent:#A78BFA">
-      <div class="tile-top">
-        <span class="tile-num">·05</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Appearance / Looks</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Physique & style</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/goals.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·06</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Goals</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Long-term targets</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/life-stats.html" style="--accent:#60A5FA">
-      <div class="tile-top">
-        <span class="tile-num">·07</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Life Stats</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Life OS overview</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/heatmap.html" style="--accent:#C9A36B">
-      <div class="tile-top">
-        <span class="tile-num">·08</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Heatmap</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Consistency grid</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/integrations.html" style="--accent:#7DD3FC">
-      <div class="tile-top">
-        <span class="tile-num">·09</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Integrations</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Backup, Weather, Calendar, AI</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/ai-ceo.html" style="--accent:#A78BFA">
-      <div class="tile-top">
-        <span class="tile-num">·10</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">AI CEO</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Business advisor prompts</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile — opens the Settings modal in place instead of navigating -->
-    <a class="tile" href="#" id="bentoSettingsTile" style="--accent:#B8B6B0">
-      <div class="tile-top">
-        <span class="tile-num">·11</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Settings</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Profile & WHOOP</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/money-hq.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·12</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Money HQ</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Net worth, spending & budgeting</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="pages/weekly-review.html" style="--accent:#C9A36B">
-      <div class="tile-top">
-        <span class="tile-num">·13</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Weekly Review</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Reflect & plan next week</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
+    <!-- ===== WEEKLY REVIEW PREVIEW — compact entry point, full view lives at
+         pages/weekly-review.html ===== -->
+    <div class="section" id="weeklyReviewPreview">
+      <div class="section-title">Weekly Review <span class="snap-date" id="previewWeekRange"></span></div>
+      <a class="gm-card preview-card" href="pages/weekly-review.html">
+        <div class="preview-top">
+          <div>
+            <div class="gm-eyebrow" style="margin-bottom:4px">Next Week Focus</div>
+            <div class="preview-focus" id="previewWeekFocus">—</div>
+          </div>
+          <span class="preview-arrow">→</span>
+        </div>
+        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+          <div class="streak-stat"><div class="v" id="previewWeekScore">—</div><div class="l">Week Score</div></div>
+          <div class="streak-stat"><div class="v" id="previewWeekHabitAvg">0%</div><div class="l">Habit Avg</div></div>
+          <div class="streak-stat"><div class="v" id="previewWeekPriorities">0</div><div class="l">Priorities Set</div></div>
+        </div>
+        <div class="preview-sub" id="previewWeekProblem" style="margin-top:12px"></div>
+      </a>
+    </div>
 
   </div>
+
+  <!-- ===== QUICK ACTIONS — one tap to the actions used most often.
+       Every action just navigates to an existing section. ===== -->
+  <div class="section" id="quickActions">
+    <div class="section-title">Quick Actions</div>
+    <div class="gm-card">
+      <div class="quick-actions-row">
+        <a class="quick-action" href="pages/money-hq.html">Log spending</a>
+        <a class="quick-action" href="pages/daily-snapshot.html">Open Daily Control Panel</a>
+        <a class="quick-action" href="pages/boxing-hq.html">Add training note</a>
+        <a class="quick-action" href="pages/weekly-review.html">Open Weekly Review</a>
+        <a class="quick-action" href="pages/ai-ceo.html">Open AI CEO</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MORE SECTIONS — secondary pages, collapsed by default so they
+       don't compete with the core priority cards above. Still reachable
+       here or via the grouped sidebar. ===== -->
+  <div class="section" id="moreSectionsWrap">
+    <details class="more-details">
+      <summary class="more-summary">
+        <span>More sections</span>
+        <span class="more-summary-arrow">⌄</span>
+      </summary>
+      <div class="more-body">
+
+        <!-- ===== STREAKS PREVIEW — compact entry point, full view lives at
+             pages/streaks.html ===== -->
+        <div class="section" id="streaksPreview">
+          <div class="section-title">Streaks</div>
+          <a class="gm-card preview-card" href="pages/streaks.html">
+            <div class="preview-top">
+              <div class="gm-eyebrow">Consistency</div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+              <div class="streak-stat"><div class="v" id="previewStreakCurrent">0</div><div class="l">Current</div></div>
+              <div class="streak-stat"><div class="v" id="previewStreakBest">0</div><div class="l">Best</div></div>
+              <div class="streak-stat"><div class="v" id="previewStreakToday">0%</div><div class="l">Today</div></div>
+            </div>
+          </a>
+        </div>
+
+        <!-- ===== AI CEO PREVIEW — compact entry point, full view lives at
+             pages/ai-ceo.html ===== -->
+        <div class="section" id="aiCeoPreview">
+          <div class="section-title">AI CEO</div>
+          <a class="gm-card preview-card" href="pages/ai-ceo.html">
+            <div class="preview-top">
+              <div>
+                <div class="gm-eyebrow" style="margin-bottom:4px">Mode</div>
+                <div class="preview-focus" id="previewCeoMode">—</div>
+                <div class="preview-sub" id="previewCeoBlocker">—</div>
+              </div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats" style="margin-top:10px;margin-bottom:0;grid-template-columns:1fr">
+              <div class="streak-stat"><div class="v" id="previewCeoOpenActions">0</div><div class="l">Open Actions</div></div>
+            </div>
+            <div class="preview-sub" id="previewCeoNextAction" style="margin-top:12px">—</div>
+          </a>
+        </div>
+
+        <!-- ===== HORMONE OPTIMISATION PREVIEW — compact entry point, full view lives
+             at pages/hormone-optimisation.html ===== -->
+        <div class="section" id="hormonePreview">
+          <div class="section-title">Hormone Optimisation</div>
+          <a class="gm-card preview-card" href="pages/hormone-optimisation.html">
+            <div class="preview-top">
+              <div class="gm-eyebrow">Today</div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats-4" style="margin-top:10px">
+              <div class="streak-stat"><div class="v" id="previewHormoneScore">—</div><div class="l">Hor. Score</div></div>
+              <div class="streak-stat"><div class="v" id="previewHormoneEnergy">—</div><div class="l">Energy</div></div>
+              <div class="streak-stat"><div class="v" id="previewHormoneSleep">—</div><div class="l">Sleep</div></div>
+              <div class="streak-stat"><div class="v" id="previewHormoneStress">—</div><div class="l">Stress</div></div>
+            </div>
+          </a>
+        </div>
+
+        <!-- ===== APPEARANCE / LOOKS PREVIEW — compact entry point, full view lives
+             at pages/appearance.html ===== -->
+        <div class="section" id="appearancePreview">
+          <div class="section-title">Appearance / Looks</div>
+          <a class="gm-card preview-card" href="pages/appearance.html">
+            <div class="preview-top">
+              <div class="gm-eyebrow" id="previewAppearanceFocus">No focus set</div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats-4" style="margin-top:10px">
+              <div class="streak-stat"><div class="v" id="previewLooksScore">—</div><div class="l">Looks</div></div>
+              <div class="streak-stat"><div class="v" id="previewSkinScore">—</div><div class="l">Skin</div></div>
+              <div class="streak-stat"><div class="v" id="previewSkincarePct">—</div><div class="l">Skincare</div></div>
+              <div class="streak-stat"><div class="v" id="previewGroomingPct">—</div><div class="l">Grooming</div></div>
+            </div>
+          </a>
+        </div>
+
+        <!-- ===== LIFE STATS PREVIEW — compact entry point, full view lives at
+             pages/life-stats.html ===== -->
+        <div class="section" id="lifeStatsPreview">
+          <div class="section-title">Life Stats</div>
+          <a class="gm-card preview-card" href="pages/life-stats.html">
+            <div class="preview-top">
+              <div class="gm-eyebrow">Life OS Overview</div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+              <div class="streak-stat"><div class="v" id="previewLifeStatsOverall">—</div><div class="l">Overall</div></div>
+              <div class="streak-stat"><div class="v" id="previewLifeStatsStreak">—</div><div class="l">Streak</div></div>
+              <div class="streak-stat"><div class="v" id="previewLifeStatsGoals">—</div><div class="l">Goals</div></div>
+            </div>
+            <div class="preview-sub" id="previewLifeStatsAttention" style="margin-top:12px">No areas flagged</div>
+          </a>
+        </div>
+
+        <!-- ===== HEATMAP PREVIEW — compact entry point, full view lives at
+             pages/heatmap.html ===== -->
+        <div class="section" id="heatmapPreview">
+          <div class="section-title">Heatmap</div>
+          <a class="gm-card preview-card" href="pages/heatmap.html">
+            <div class="preview-top">
+              <div class="gm-eyebrow">Daily Consistency</div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats-4" style="margin-top:10px">
+              <div class="streak-stat"><div class="v" id="previewHeatmapToday">0</div><div class="l">Today</div></div>
+              <div class="streak-stat"><div class="v" id="previewHeatmapStreak">0</div><div class="l">Streak</div></div>
+              <div class="streak-stat"><div class="v" id="previewHeatmapWeekAvg">0</div><div class="l">Week Avg</div></div>
+              <div class="streak-stat"><div class="v" id="previewHeatmapBestDay">—</div><div class="l">Best Day</div></div>
+            </div>
+          </a>
+        </div>
+
+        <!-- ===== INTEGRATIONS PREVIEW — compact entry point, full view lives at
+             pages/integrations.html ===== -->
+        <div class="section" id="integrationsPreview">
+          <div class="section-title">Integrations</div>
+          <a class="gm-card preview-card" href="pages/integrations.html">
+            <div class="preview-top">
+              <div class="gm-eyebrow">Connected Services</div>
+              <span class="preview-arrow">→</span>
+            </div>
+            <div class="streak-stats-4" style="margin-top:10px">
+              <div class="streak-stat"><div class="v" id="previewIntWeather">Off</div><div class="l">Weather</div></div>
+              <div class="streak-stat"><div class="v" id="previewIntCalendar">Off</div><div class="l">Calendar</div></div>
+              <div class="streak-stat"><div class="v" id="previewIntAi">Off</div><div class="l">AI API</div></div>
+              <div class="streak-stat"><div class="v" id="previewIntCloud">Off</div><div class="l">Cloud Sync</div></div>
+            </div>
+            <div class="preview-sub" id="previewIntWeatherDetail" style="margin-top:10px"></div>
+            <div class="preview-sub" id="previewIntCalendarDetail" style="margin-top:4px"></div>
+          </a>
+        </div>
+
+      </div>
+    </details>
+  </div>
+
 </div>
 
 <!-- ===== Settings / Your Data ===== -->
@@ -959,7 +771,6 @@ body::after {
   function open() { populate(); renderWhoop(); $('settingsBg').classList.add('show'); syncWhoop(); }
   function close() { $('settingsBg').classList.remove('show'); }
   $('settingsOpen').addEventListener('click', open);
-  $('bentoSettingsTile').addEventListener('click', (e) => { e.preventDefault(); open(); });
 
   // Deep-link from the sidebar "Settings" item: /index.html?openSettings=1
   // opens this modal directly, then cleans the URL.
@@ -1107,13 +918,8 @@ body::after {
 
     const habitsTotal = snap.habits.length;
     const habitsDone = snap.habits.filter((h) => h.completed).length;
-    const prioritiesTotal = snap.priorities.length;
-    const prioritiesDone = snap.priorities.filter((p) => p.completed).length;
     const execKeys = ['trainingCompleted', 'businessTaskCompleted', 'healthRoutineCompleted', 'spendingLogged', 'goalActionCompleted'];
     const execDone = execKeys.filter((k) => snap[k]).length;
-    const itemsTotal = habitsTotal + prioritiesTotal + execKeys.length;
-    const doneTotal = habitsDone + prioritiesDone + execDone;
-    $('previewCompletionPct').textContent = itemsTotal ? Math.round(doneTotal / itemsTotal * 100) + '%' : '0%';
 
     const checklistEl = $('previewChecklistLine');
     if (habitsDone + execDone === 0) {
@@ -1124,35 +930,13 @@ body::after {
       checklistEl.classList.remove('is-empty');
     }
 
-    const streaks = window.Streaks.recompute();
-    $('previewSnapStreak').textContent = String(streaks.data.currentStreak);
-    $('previewSnapScore').textContent = Number(snap.dayScore) ? String(snap.dayScore) : '—';
-
-    $('previewEnergy').textContent = Number(snap.energyLevel) ? snap.energyLevel + '/10' : '—';
-    const recoveryEl = $('previewRecovery');
-    const recoveryLabelEl = $('previewRecoveryLabel');
-    if (Number(snap.recovery)) {
-      recoveryEl.textContent = snap.recovery + '/10';
-      recoveryLabelEl.textContent = 'Recovery';
-    } else if (Number(snap.sleepQuality)) {
-      recoveryEl.textContent = snap.sleepQuality + '/10';
-      recoveryLabelEl.textContent = 'Sleep';
-    } else {
-      recoveryEl.textContent = '—';
-      recoveryLabelEl.textContent = 'Recovery';
-    }
-
     const chipsWrap = $('previewStatusChips');
     chipsWrap.innerHTML = '';
-    const eveningDone = Number(snap.dayScore) > 0
-      || !!(snap.wentWell && snap.wentWell.trim())
-      || !!(snap.slipped && snap.slipped.trim())
-      || !!(snap.lesson && snap.lesson.trim());
     [
       ['Business', !!snap.businessTaskCompleted],
       ['Training', !!snap.trainingCompleted],
+      ['Health', !!snap.healthRoutineCompleted],
       ['Money logged', !!snap.spendingLogged],
-      ['Evening review', eveningDone],
     ].forEach(([label, done]) => {
       const chip = document.createElement('span');
       chip.className = 'status-chip' + (done ? ' done' : '');
@@ -1163,10 +947,6 @@ body::after {
       chip.append(dot, txt);
       chipsWrap.appendChild(chip);
     });
-
-    const tomorrowEl = $('previewTomorrowPriority');
-    const hasTomorrow = !!(snap.tomorrowPriority && snap.tomorrowPriority.trim());
-    tomorrowEl.textContent = hasTomorrow ? 'Tomorrow: ' + snap.tomorrowPriority.trim() : '';
   }
 
   function renderStreaksPreview() {
@@ -1268,7 +1048,6 @@ body::after {
     $('previewHealthSleep').textContent = fmtScore(health.lastNightSleep, 'h');
     $('previewHealthRecovery').textContent = fmtScore(health.recoveryScore, '');
     $('previewHealthWater').textContent = fmtScore(health.waterIntake, 'L');
-    $('previewHealthEnergy').textContent = fmtScore(health.energyLevel, '/10');
 
     const snap = window.DailySnapshot.loadOrInit();
     $('previewHealthDsFlag').textContent = snap.healthRoutineCompleted ? '✓ Health routine completed today' : '';

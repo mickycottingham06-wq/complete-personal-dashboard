@@ -138,7 +138,7 @@ Pages should display data rather than hardcoding values.
 
 Current and planned pages include:
 
-Command Centre (index.html — the home page: Today top bar, compact preview cards, bento quick-nav grid. Formerly labelled "Main" in the sidebar/bottom bar; that label is retired)
+Command Centre (index.html — the home page: Today top bar, a compact Daily Control Panel summary, a core-grid of the 6 priority previews — Money HQ, Business HQ, Boxing HQ, Health HQ, Goals, Weekly Review — a Quick Actions row, and a collapsed "More sections" area for everything secondary. The old 13-tile bento quick-nav grid was removed since the sidebar + preview cards + Quick Actions already cover navigation. Formerly labelled "Main" in the sidebar/bottom bar; that label is retired)
 
 Daily Control Panel (pages/daily-snapshot.html — user-facing label renamed from "Daily Snapshot"; file/data key unchanged)
 
@@ -184,7 +184,7 @@ Users should always know where they are.
 
 Do not redesign navigation unless specifically requested.
 
-A collapsible sidebar (three-line hamburger button) lists every primary page above and lives in `scripts/topbar.js`, so any page that already includes the top/bottom chrome gets it automatically. The sidebar's first entry is "Command Centre" (links to index.html) — the old "Main" label and its link to pages/main.html were retired. See COMPONENT_LIBRARY.md for the Sidebar Navigation and Preview Card components.
+A collapsible sidebar (three-line hamburger button) lists every primary page above, grouped under Today / Progress / Performance / Wealth / System, and lives in `scripts/topbar.js` (`SIDEBAR_GROUPS`), so any page that already includes the top/bottom chrome gets it automatically. Each group header can be folded/unfolded (state saved in `localStorage`); the group containing the active page always stays open. The sidebar's first entry is "Command Centre" (links to index.html) — the old "Main" label and its link to pages/main.html were retired. See COMPONENT_LIBRARY.md for the Sidebar Navigation and Preview Card components.
 
 ---
 
