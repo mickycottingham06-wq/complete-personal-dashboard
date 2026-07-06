@@ -10,6 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/health-data.js"></script>
+<script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/appearance-data.js"></script>
 <style>
 :root {
@@ -221,6 +223,7 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
        conditions. ===== -->
   <h1 class="lk-title">Appearance / Looks</h1>
   <p class="lk-subtitle">Personal looks optimisation tracking — scores, routines, and notes over time. This is a tracking tool, not a diagnosis: see a dermatologist or doctor for anything skin or health related that concerns you.</p>
+  <p class="lk-subtitle" id="lkWeightLine" style="margin-top:-14px;display:none;"></p>
 
   <div class="lk-section">
     <div class="section-title">Overall Looks Score</div>
@@ -402,6 +405,22 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
     }
     bindSlider('lkLooksScore', null, 'looksScore', renderScore);
     renderScore();
+
+    // Reads (never owns) the shared current weight from Boxing HQ / Health
+    // HQ so body-composition notes here line up with the same figure.
+    function renderWeight() {
+      var box = (window.Boxing && window.Boxing.load) ? window.Boxing.load() : {};
+      var health = (window.Health && window.Health.load) ? window.Health.load() : {};
+      var w = Number(box.currentWeight) || Number(health.currentWeight) || 0;
+      var line = $('lkWeightLine');
+      if (w > 0) {
+        line.textContent = 'Current weight: ' + w + 'kg (from Health HQ / Boxing HQ)';
+        line.style.display = '';
+      } else {
+        line.style.display = 'none';
+      }
+    }
+    renderWeight();
 
     bindSlider('lkSkinScore', 'lkSkinVal', 'skinScore');
     bindSelect('lkAcneStatus', 'acneStatus');

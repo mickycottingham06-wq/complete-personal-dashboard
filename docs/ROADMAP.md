@@ -156,6 +156,26 @@ Weekly Review ✅ (pages/weekly-review.html — `weeklyReview` localStorage key;
 
 ---
 
+## Phase 9 (future — not started)
+
+Supabase Cloud Stage
+
+Authentication / login
+
+Cloud database sync across devices
+
+Migration from Local Storage to cloud storage
+
+User data backup (cloud-side, in addition to the existing local export/import in Integrations)
+
+Supabase Storage for receipt images / progress photos (currently metadata-only placeholders in Money HQ receipts and Appearance progress photos)
+
+Local Storage stays as the offline/fallback storage layer where possible — this is an additive cloud stage, not a rewrite of the existing data layer. `scripts/sync.js` already mirrors a few keys (Health, Gym, Water) to Supabase as an early proof of concept; this phase generalises that pattern to the whole Life OS.
+
+No Supabase code, auth, or database wiring is implemented as part of this roadmap entry — planning note only.
+
+---
+
 ## Ultimate Goal
 
 A complete Life Operating System.

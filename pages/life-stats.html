@@ -17,6 +17,7 @@
 <script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/health-data.js"></script>
 <script src="../scripts/appearance-data.js"></script>
+<script src="../scripts/money-data.js"></script>
 <script src="../scripts/life-stats-data.js"></script>
 <style>
 :root {
@@ -276,6 +277,7 @@ textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
         <span class="ls-badge" id="lsWeightBadge">Weight —</span>
         <span class="ls-badge" id="lsLooksBadge">Looks —</span>
         <span class="ls-badge" id="lsSkinBadge">Skin —</span>
+        <span class="ls-badge" id="lsMoneyBadge">Money —</span>
       </div>
     </div>
   </div>
@@ -417,6 +419,7 @@ textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
         : 'Weight —';
       $('lsLooksBadge').textContent = 'Looks ' + (c.looksScore || '—') + '/10';
       $('lsSkinBadge').textContent = 'Skin ' + (c.skinScore || '—') + '/10';
+      $('lsMoneyBadge').textContent = 'Money £' + Math.round(c.netWorth).toLocaleString('en-GB') + ' net worth · ' + c.savingsRate + '% savings rate';
     }
     renderComputed();
 

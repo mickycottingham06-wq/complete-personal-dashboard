@@ -74,9 +74,10 @@
     };
   }
 
-  // Keeps Health.currentWeight and Boxing.currentWeight in sync — whichever
-  // page the user edits weight on, the other section picks up the same
-  // number on next load instead of drifting into two different numbers.
+  // Keeps Health.currentWeight, Boxing.currentWeight and today's Daily
+  // Snapshot currentWeight in sync — whichever page the user edits weight
+  // on, every other section picks up the same number on next load instead
+  // of drifting into different numbers.
   function setCurrentWeight(kg) {
     var w = Number(kg);
     if (!(w > 0)) return;
@@ -89,6 +90,13 @@
       var b = window.Boxing.load();
       b.currentWeight = w;
       window.Boxing.save(b);
+    }
+    if (window.DailySnapshot && window.DailySnapshot.loadOrInit && window.DailySnapshot.save) {
+      var snap = window.DailySnapshot.loadOrInit();
+      if (snap.currentWeight !== w) {
+        snap.currentWeight = w;
+        window.DailySnapshot.save(snap);
+      }
     }
     save(load());
   }

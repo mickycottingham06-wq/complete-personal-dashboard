@@ -69,6 +69,7 @@
       sleepHours: 0, recoveryScore: 0, hydrationLiters: 0, energyLevel: 0,
       weightCurrent: 0, weightTarget: 0,
       looksScore: 0, skinScore: 0,
+      netWorth: 0, monthlySavings: 0, savingsRate: 0,
     };
 
     if (window.Streaks) {
@@ -117,6 +118,13 @@
       var a = window.Appearance.load();
       out.looksScore = Number(a.looksScore) || 0;
       out.skinScore = Number(a.skinScore) || 0;
+    }
+
+    if (window.Money && window.Money.computeSummary) {
+      var m = window.Money.computeSummary();
+      out.netWorth = Number(m.netWorth) || 0;
+      out.monthlySavings = Number(m.monthlySavings) || 0;
+      out.savingsRate = Number(m.savingsRate) || 0;
     }
 
     return out;

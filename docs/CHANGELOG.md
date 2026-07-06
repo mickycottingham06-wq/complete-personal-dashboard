@@ -430,6 +430,30 @@ Upgrade Daily Snapshot into the Life OS daily control panel
 
 ---
 
+## 2026-07-06 (2)
+
+### Cross-Section Data Polish
+
+Closed a gap where `window.Core.setCurrentWeight()` only synced Health HQ and Boxing HQ — it now also updates today's Daily Snapshot `currentWeight`, and Hormone Optimisation / Appearance-Looks read the same Health/Boxing weight for a small read-only display, so one weight figure now shows consistently everywhere it's used. Added the missing script includes (`boxing-data.js`, `health-data.js`, `daily-snapshot-data.js`) to the pages that needed them for this to actually work — several pages were calling into sections whose scripts weren't loaded, silently no-oping.
+
+`window.AiCeo.buildContext()` / `generatePrompt()` now also read Goals, Money HQ (`computeSummary()`), and Weekly Review's `nextWeekFocus`, so the generated AI CEO prompt carries goal progress, net worth/savings rate, and next week's focus alongside the existing business/streak context.
+
+`window.LifeStats.computeStats()` now reads `window.Money.computeSummary()` (net worth, savings rate) — Life Stats previously had no finance data at all. Added a "Money" badge to `pages/life-stats.html` next to the existing Weight/Looks/Skin badges.
+
+Money HQ's Overview tab now shows a read-only "Business revenue (from Business HQ)" card next to the existing financial-goal-progress rollup — same pattern, Business HQ still owns `currentRevenue`/`revenueTarget`, Money HQ just references it.
+
+Added a Supabase future-stage entry to `docs/ROADMAP.md` (Phase 9 — auth, cloud sync, Local Storage migration, cloud backup, Storage for images) — planning note only, no Supabase code added.
+
+Files affected:
+
+scripts/core-data.js, scripts/ai-ceo-data.js, scripts/life-stats-data.js, pages/health.html, pages/boxing-hq.html, pages/daily-snapshot.html, pages/hormone-optimisation.html, pages/appearance.html, pages/money-hq.html, pages/life-stats.html, pages/ai-ceo.html, docs/DATA_SCHEMA.md, docs/ROADMAP.md
+
+Commit:
+
+Cross-section data polish — shared weight, AI CEO context, Money↔Life Stats/Business links
+
+---
+
 ## Future Entries
 
 Example

@@ -88,6 +88,9 @@
     var biz = (window.Business && window.Business.load) ? window.Business.load() : null;
     var snap = (window.DailySnapshot && window.DailySnapshot.loadOrInit) ? window.DailySnapshot.loadOrInit() : null;
     var streaks = (window.Streaks && window.Streaks.get) ? window.Streaks.get() : null;
+    var goals = (window.Goals && window.Goals.load) ? window.Goals.load() : null;
+    var money = (window.Money && window.Money.computeSummary) ? window.Money.computeSummary() : null;
+    var weeklyReview = (window.WeeklyReview && window.WeeklyReview.loadOrInit) ? window.WeeklyReview.loadOrInit() : null;
 
     var pipelineSummary = '';
     if (biz && Array.isArray(biz.pipeline) && biz.pipeline.length) {
@@ -97,10 +100,16 @@
         .join('; ');
     }
 
+    var activeGoals = (goals && Array.isArray(goals.activeGoals)) ? goals.activeGoals : [];
+
     return {
       business: biz,
       snapshot: snap,
       streaks: streaks,
+      goals: goals,
+      activeGoals: activeGoals,
+      money: money,
+      weeklyReview: weeklyReview,
       pipelineSummary: pipelineSummary,
     };
   }
@@ -131,6 +140,14 @@
     lines.push('- Current problem / blocker: ' + (ceo.currentBlocker || 'None stated'));
     if (snap && snap.mainFocus) lines.push('- Today\'s main focus (Daily Snapshot): ' + snap.mainFocus);
     if (ctx.streaks && typeof ctx.streaks.currentStreak === 'number') lines.push('- Current habit streak: ' + ctx.streaks.currentStreak + ' days');
+    if (ctx.activeGoals && ctx.activeGoals.length) {
+      var topGoal = ctx.activeGoals[0];
+      lines.push('- Active goals: ' + ctx.activeGoals.length + ' (top: ' + (topGoal.title || 'Untitled') + ', ' + (Number(topGoal.progress) || 0) + '% progress)');
+    }
+    if (ctx.money) {
+      lines.push('- Money: net worth ' + fmtMoney(ctx.money.netWorth) + ', monthly savings ' + fmtMoney(ctx.money.monthlySavings) + ' (' + (Number(ctx.money.savingsRate) || 0) + '% savings rate)');
+    }
+    if (ctx.weeklyReview && ctx.weeklyReview.nextWeekFocus) lines.push('- Next week\'s focus (Weekly Review): ' + ctx.weeklyReview.nextWeekFocus);
     lines.push('');
     lines.push('My question:');
     lines.push(ceo.currentQuestion || '(no question typed — give general advice based on the context above)');

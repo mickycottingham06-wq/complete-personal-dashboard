@@ -10,6 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/health-data.js"></script>
+<script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/hormone-data.js"></script>
 <style>
 :root {
@@ -223,6 +225,7 @@ select.hor-input option { background: #16161a; color: var(--text-primary); }
        not medical advice, diagnosis, or treatment. ===== -->
   <h1 class="hor-title">Hormone Optimisation</h1>
   <p class="hor-subtitle">Lifestyle tracking for energy, recovery, mood and general wellbeing. This is a tracking &amp; optimisation tool, not medical advice — see a professional for anything hormone-related that concerns you.</p>
+  <p class="hor-subtitle" id="horWeightLine" style="margin-top:-14px;display:none;"></p>
 
   <div class="hor-section">
     <div class="section-title">Overall Score</div>
@@ -425,6 +428,23 @@ select.hor-input option { background: #16161a; color: var(--text-primary); }
     function renderScore() {
       $('horScoreVal').textContent = h.hormoneScore;
     }
+
+    // Reads (never owns) the shared current weight from Boxing HQ / Health
+    // HQ — whichever was set most recently via window.Core.setCurrentWeight —
+    // so this page reflects the same figure instead of tracking its own.
+    function renderWeight() {
+      var box = (window.Boxing && window.Boxing.load) ? window.Boxing.load() : {};
+      var health = (window.Health && window.Health.load) ? window.Health.load() : {};
+      var w = Number(box.currentWeight) || Number(health.currentWeight) || 0;
+      var line = $('horWeightLine');
+      if (w > 0) {
+        line.textContent = 'Current weight: ' + w + 'kg (from Health HQ / Boxing HQ)';
+        line.style.display = '';
+      } else {
+        line.style.display = 'none';
+      }
+    }
+    renderWeight();
     bindSlider('horHormoneScore', null, 'hormoneScore', renderScore);
     renderScore();
 
