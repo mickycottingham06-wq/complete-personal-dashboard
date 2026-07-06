@@ -391,6 +391,11 @@ textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
 
     bindText('lsNotes', 'notes');
 
+    // Matches the Command Centre convention: these Health fields default to
+    // 0 when nothing has been logged yet, so show a clean dash instead of a
+    // misleading "0h" / "0/10".
+    function fmtScore(n, suffix) { var v = Number(n) || 0; return v ? v + suffix : '—'; }
+
     // ---- Computed live snapshot, read from other Life OS sections ----
     function renderComputed() {
       var c = window.LifeStats.computeStats();
@@ -409,10 +414,10 @@ textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
       $('lsBoxingPct').textContent = c.boxingPct + '%';
       $('lsBoxingFill').style.width = c.boxingPct + '%';
 
-      $('lsSleep').textContent = c.sleepHours + 'h';
-      $('lsRecovery').textContent = c.recoveryScore;
-      $('lsHydration').textContent = c.hydrationLiters + 'L';
-      $('lsEnergy').textContent = c.energyLevel + '/10';
+      $('lsSleep').textContent = fmtScore(c.sleepHours, 'h');
+      $('lsRecovery').textContent = fmtScore(c.recoveryScore, '');
+      $('lsHydration').textContent = fmtScore(c.hydrationLiters, 'L');
+      $('lsEnergy').textContent = fmtScore(c.energyLevel, '/10');
 
       $('lsWeightBadge').textContent = (c.weightCurrent || c.weightTarget)
         ? 'Weight ' + (c.weightCurrent || '—') + 'kg → ' + (c.weightTarget || '—') + 'kg'

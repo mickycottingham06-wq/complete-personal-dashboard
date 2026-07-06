@@ -174,7 +174,7 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
 .wr-list-row:hover { background: rgba(255,255,255,0.06); }
 .wr-list-row.is-done { opacity: 0.6; }
 .wr-list-row.is-done .wr-list-text { text-decoration: line-through; }
-.wr-list-check { width: 17px; height: 17px; accent-color: var(--success); flex-shrink: 0; cursor: pointer; }
+.wr-list-check { width: 20px; height: 20px; accent-color: var(--success); flex-shrink: 0; cursor: pointer; }
 .wr-list-text { flex: 1; font-size: 14px; color: var(--text-primary); word-break: break-word; }
 .wr-list-del {
   border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
@@ -489,6 +489,10 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
     var v = Number(n) || 0;
     return '£' + v.toLocaleString('en-GB', { maximumFractionDigits: 0 });
   }
+  // Matches the Command Centre convention: these Health fields default to 0
+  // when nothing has been logged yet, so show a clean dash instead of a
+  // misleading "0h" / "0/10".
+  function fmtScore(n, suffix) { var v = Number(n) || 0; return v ? v + suffix : '—'; }
 
   function renderPerformance() {
     var p = window.WeeklyReview.computePerformance();
@@ -509,10 +513,10 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
     $('wrMoneySavings').textContent = (p.monthlySavings >= 0 ? 'Saving ' : 'Overspent ') + fmtMoney(Math.abs(p.monthlySavings));
     $('wrMoneyRate').textContent = 'Savings rate ' + p.savingsRate + '%';
 
-    $('wrSleep').textContent = p.sleepHours + 'h';
-    $('wrRecovery').textContent = p.recoveryScore;
-    $('wrEnergy').textContent = p.energyLevel + '/10';
-    $('wrHydration').textContent = p.hydrationLiters + 'L';
+    $('wrSleep').textContent = fmtScore(p.sleepHours, 'h');
+    $('wrRecovery').textContent = fmtScore(p.recoveryScore, '');
+    $('wrEnergy').textContent = fmtScore(p.energyLevel, '/10');
+    $('wrHydration').textContent = fmtScore(p.hydrationLiters, 'L');
   }
   renderPerformance();
 
