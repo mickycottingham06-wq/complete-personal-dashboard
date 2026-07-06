@@ -52,25 +52,23 @@ create policy "anon manage progress-photos"
   with check (bucket_id = 'progress-photos');
 ```
 
-### Connect YOUR Supabase — pick ONE way
+### Connect YOUR Supabase
 Supabase → **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key.
-
-**Way A — Vercel env vars (easiest, no code edits):**
 In Vercel → **Settings → Environment Variables**, add:
 
 | Variable | Value |
 |---|---|
 | `SUPABASE_URL` | your Project URL |
 | `SUPABASE_ANON_KEY` | your anon / publishable key |
+| `SUPABASE_LEGACY_SYNC_ENABLED` | `true` |
 
 Redeploy. The app reads these automatically via `/api/config`.
 
-**Way B — edit the files:**
-Replace the old URL/key in these files:
-- [`sync.js`](scripts/sync.js)
-- [`topbar.js`](scripts/topbar.js)
-- [`gym.html`](pages/gym.html)
-
+> This legacy blob-sync (`sync.js`/`topbar.js`/`gym.html`) has no hardcoded URL/key and stays
+> fully off — Local Storage only — unless **both** `SUPABASE_URL`/`SUPABASE_ANON_KEY` are set
+> **and** `SUPABASE_LEGACY_SYNC_ENABLED` is `true`. Leaving the last var unset (or `false`) keeps
+> sync disabled even with a configured project. See `docs/SUPABASE_PLAN.md` §2 and §14.
+>
 > ⚠️ Only the **anon** key (public) is used here. **Never** put the `service_role` key in code
 > or in these env vars.
 
@@ -124,7 +122,7 @@ console.anthropic.com.
 
 ## TL;DR
 1. Fork → import to Vercel → deploy.
-2. New Supabase → run the **SQL** above → paste your **URL + anon key** into `sync.js`,
-   `topbar.js`, `gym.html`.
+2. New Supabase → run the **SQL** above → set `SUPABASE_URL` + `SUPABASE_ANON_KEY` +
+   `SUPABASE_LEGACY_SYNC_ENABLED=true` in Vercel env vars.
 3. Weather works immediately (no key needed) — enable it on the Integrations page.
 4. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel. Done.

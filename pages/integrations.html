@@ -486,14 +486,20 @@ body::after {
     if (document.activeElement !== $('intCloudNotes')) $('intCloudNotes').value = c.notes || '';
     $('intCloudSyncBtn').disabled = !c.enabled;
 
-    // Real (non-demo) Supabase foundation status — separate from the
-    // enabled/notes fields above, which are just user-facing placeholders.
+    // Real (non-demo) Supabase status — separate from the enabled/notes
+    // fields above, which are just user-facing placeholders.
     const envEl = $('intCloudEnvStatus');
-    if (envEl && window.SupabaseFoundation) {
-      const st = window.SupabaseFoundation.getStatus();
-      envEl.textContent = st.configured
-        ? 'Env status: Supabase project configured (foundation only — no auth, no sync active yet).'
-        : 'Env status: no Supabase project configured — running on Local Storage only.';
+    if (envEl) {
+      const st = window.SupabaseFoundation ? window.SupabaseFoundation.getStatus() : { configured: false };
+      const legacyConfigured = !!(window.DASH_SUPABASE_URL && window.DASH_SUPABASE_KEY);
+      const legacyEnabled = legacyConfigured && window.DASH_SYNC_ENABLED === true;
+      envEl.innerHTML = [
+        'Storage: <b>Local Storage active</b> (source of truth).',
+        'Supabase project: <b>' + (st.configured ? 'configured' : 'not configured') + '</b> (foundation only — no auth, no database sync active).',
+        'Legacy blob-sync (sync.js/topbar.js/gym.html): <b>' + (legacyEnabled ? 'enabled' : 'disabled') + '</b>' +
+          (legacyEnabled ? '' : legacyConfigured ? ' (configured but not explicitly enabled)' : ' (no Supabase env vars set)') + '.',
+        'Full auth / database sync: <b>not built yet</b>. Data migration: <b>none has happened</b>.',
+      ].map((l) => '<span style="display:block;">' + l + '</span>').join('');
     }
   }
   wireToggle($('intCloudToggle'), (on) => { window.Integrations.setEnabled('cloudSync', on); renderCloud(); });

@@ -3292,25 +3292,19 @@ img, video, canvas, svg { max-width: 100%; }
   photosRender();
 
   // ============================================================
-  // CLOUD SYNC via Supabase  (OPTIONAL — leave blank for local-only)
-  // ------------------------------------------------------------
-  // Stores your gym state as one JSONB row in the public.app_state
-  // table, keyed by APP_KEY. Supabase's realtime channel pushes
-  // changes to every device the instant they happen.
-  //
-  // SETUP (5 minutes, all in a browser):
-  //   1. Make a free account at https://supabase.com
-  //   2. Create a new project
-  //   3. In your project: Settings → API → copy your Project URL +
-  //      "Publishable" key (the one starting with `sb_publishable_`)
-  //   4. Paste them below, replacing the two placeholder strings
-  //   5. Open the SQL Editor and run the SQL block from README.md
-  //
-  // If you leave the placeholders unchanged the app still works,
-  // just only on this device (data stays in your browser).
+  // CLOUD SYNC via Supabase — LEGACY blob-sync (see scripts/sync.js).
+  // No-ops safely (Local Storage only) unless BOTH:
+  //   - window.DASH_SUPABASE_URL/KEY are set via Vercel env vars
+  //     (served through /api/config — no hardcoded fallback here)
+  //   - window.DASH_SYNC_ENABLED is explicitly true
+  //     (SUPABASE_LEGACY_SYNC_ENABLED env var)
+  // Stores gym state as one JSONB row in the public.app_state table,
+  // keyed by APP_KEY. Supabase's realtime channel pushes changes to
+  // every device the instant they happen, when enabled.
   // ============================================================
-  const SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
+  const SUPABASE_URL = window.DASH_SUPABASE_URL || '';
+  const SUPABASE_KEY = window.DASH_SUPABASE_KEY || '';
+  const SYNC_ENABLED = window.DASH_SYNC_ENABLED === true;
   const APP_KEY = 'po-coach';
   // Note: po_coach_photos IS synced, but only URL-pointer entries ride
   // the wire. The actual JPEG lives in Supabase Storage. pcCollectState
@@ -3483,9 +3477,8 @@ img, video, canvas, svg { max-width: 100%; }
   // Initial sync: connect Supabase, pull current state, subscribe to
   // realtime updates so other devices' changes appear instantly.
   (async function pcInitCloudSync() {
+    if (!SYNC_ENABLED) return;
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
-    // Skip if the placeholder values are still in place (local-only mode)
-    if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
     pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     try {
       const { data, error } = await pcSupa

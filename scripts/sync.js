@@ -1,10 +1,22 @@
 // =============================================================
-// Shared cloud-sync helper for the dashboard.
+// LEGACY blob-sync helper — pre-existing ad-hoc system, not part of
+// the new Supabase foundation (scripts/supabase-status.js). Kept
+// temporarily; candidate for migration onto the structured schema
+// in docs/SUPABASE_PLAN.md §5. Do not extend this pattern to new
+// pages — build against SupabaseFoundation instead once real sync
+// is implemented.
+//
 // Each page calls initCloudSync({...}) once with its config:
 //   appKey         — string row key in the public.app_state table
 //   syncedKeys     — exact localStorage keys to mirror
 //   syncedPrefixes — localStorage key prefixes to mirror (e.g. 'goals:')
 //   onApplied      — optional callback after remote state has been applied
+//
+// No-ops safely (Local Storage only) unless BOTH:
+//   - window.DASH_SUPABASE_URL/KEY are set (via Vercel env vars,
+//     served through /api/config — no hardcoded fallback here anymore)
+//   - window.DASH_SYNC_ENABLED is explicitly true (SUPABASE_LEGACY_SYNC_ENABLED
+//     env var) — being configured is not enough to turn sync on.
 //
 // Requires:
 //   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -13,10 +25,9 @@
 (function () {
   'use strict';
 
-  // Prefer Vercel env vars (served via /api/config → window.DASH_*),
-  // otherwise fall back to these defaults.
-  const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
+  const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || '';
+  const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || '';
+  const SYNC_ENABLED = typeof window !== 'undefined' && window.DASH_SYNC_ENABLED === true;
 
   window.initCloudSync = function (config) {
     const appKey = config && config.appKey;
@@ -24,9 +35,9 @@
     const syncedPrefixes = (config && config.syncedPrefixes) || [];
     const onApplied = config && config.onApplied;
     if (!appKey) return;
+    if (!SYNC_ENABLED) return;
     if (!window.supabase) return;
     if (!SUPABASE_URL || !SUPABASE_KEY) return;
-    if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
 
     let supa = null;
     let pushTimer = null;

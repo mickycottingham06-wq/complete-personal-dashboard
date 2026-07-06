@@ -11,13 +11,14 @@
 (function () {
   'use strict';
 
-  // -------- Supabase config (same project as the rest of the dashboard) --------
-  // For your audience's standalone, replace these with placeholders
-  // and have them paste their own values, just like the other pages.
-  // Prefer Vercel env vars (served via /api/config → window.DASH_*),
-  // otherwise fall back to these defaults.
-  const TOPBAR_SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const TOPBAR_SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
+  // -------- Supabase config (LEGACY blob-sync, see scripts/sync.js) --------
+  // No hardcoded fallback — values only come from Vercel env vars,
+  // served via /api/config → window.DASH_*. Empty/missing = no-op.
+  // Also requires window.DASH_SYNC_ENABLED (SUPABASE_LEGACY_SYNC_ENABLED
+  // env var) to be explicitly true; being configured is not enough.
+  const TOPBAR_SUPABASE_URL = window.DASH_SUPABASE_URL || '';
+  const TOPBAR_SUPABASE_KEY = window.DASH_SUPABASE_KEY || '';
+  const TOPBAR_SYNC_ENABLED = window.DASH_SYNC_ENABLED === true;
 
   // -------- CSS --------
   const css = `
@@ -669,8 +670,8 @@ body.topbar-modal-open {
     if (window.location.pathname.endsWith('/health.html') ||
         window.location.pathname.endsWith('health.html')) return;
 
+    if (!TOPBAR_SYNC_ENABLED) return;
     if (!window.supabase || !TOPBAR_SUPABASE_URL || !TOPBAR_SUPABASE_KEY) return;
-    if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
 
     try {
       const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);

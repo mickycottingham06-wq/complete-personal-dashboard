@@ -280,3 +280,35 @@ foundation changes. No existing behaviour changed.
 (or throwaway test) Supabase project and confirm `SupabaseFoundation.getStatus().configured`
 flips to `true` on Integrations, with no other behaviour change. Do not start Phase 2+ without a
 separate go-ahead.
+
+## 15. Legacy blob-sync security cleanup (2026-07-06)
+
+A second follow-up pass secured the §2 legacy blob-sync system ahead of any real auth/database
+work. No data migrated, no new tables, no login UI, no change to any page's data shape.
+
+**Removed:**
+- The hardcoded fallback Supabase URL/anon key literals in `scripts/sync.js`, `scripts/topbar.js`,
+  and `pages/gym.html` (the live key noted in §2). All three now read only from
+  `window.DASH_SUPABASE_URL/KEY` (via `/api/config`), defaulting to `''` — no literal credential
+  remains anywhere in the repo.
+
+**Added — explicit enable gate:**
+- A new env var, `SUPABASE_LEGACY_SYNC_ENABLED`, passed through `api/config.js` as
+  `window.DASH_SYNC_ENABLED`. The three legacy files now no-op (Local Storage only) unless
+  **both** the URL/key are set **and** this flag is explicitly `true` — being configured is no
+  longer sufficient on its own to turn sync on. See `SETUP.md` §2.
+- All three files gained a short "LEGACY" header comment pointing back to this doc and to
+  `SupabaseFoundation` as the pattern for any future sync work — nothing new should be built
+  against `sync.js`'s pattern.
+
+**Integrations page:** the Cloud Sync card's env-status line now reports four things plainly:
+Local Storage active, Supabase configured or not, legacy blob-sync enabled or disabled (and why),
+and that full auth/database sync is not built and no migration has happened.
+
+**Still true, unchanged:** everything in §2 and §14 about the blob-sync architecture itself
+(one JSON blob per page in `app_state`, RLS wide open to `anon`) — this pass only removed the
+hardcoded credential and added the enable gate, it did not change how sync works once enabled or
+touch RLS. That remains future work, not required before Phase 1.
+
+**Next step unchanged from §14:** Phase 1 env var setup, then Phase 2 auth before RLS can be
+tightened.
