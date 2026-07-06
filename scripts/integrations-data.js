@@ -155,7 +155,9 @@
       s.status = 'Connected (mock mode)';
       s.lastUsed = nowIso();
     } else if (section === 'cloudSync') {
-      s.status = 'Connected (mock data)';
+      // Cloud Sync has no real backend wired up yet (Supabase foundation
+      // only — see docs/SUPABASE_PLAN.md), so this never claims "Connected".
+      s.status = 'Foundation only — not connected';
       s.lastSync = nowIso();
     }
 

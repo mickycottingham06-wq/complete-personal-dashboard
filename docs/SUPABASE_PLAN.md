@@ -240,3 +240,43 @@ decision, not decided by this planning doc.
 
 No phase beyond Phase 1's env-var setup should begin without a separate go-ahead — this document
 is the audit/plan only.
+
+## 14. Foundation audit & cleanup (2026-07-06)
+
+A follow-up audit pass reviewed the codebase against this plan and made small, additive
+foundation changes. No existing behaviour changed.
+
+**What already existed (confirmed unchanged):**
+- The `sync.js`/`topbar.js`/`gym.html` blob-sync system described in §2, including its hardcoded
+  fallback URL/anon key. Left as-is — still out of scope for this plan, still working.
+- `SETUP.md`'s `SUPABASE_URL` / `SUPABASE_ANON_KEY` env vars, read by `api/config.js` into
+  `window.DASH_SUPABASE_URL/KEY`. Unchanged.
+- No dedicated Supabase "client foundation" file existed before this pass — only the ad-hoc
+  clients inlined in the three blob-sync files above.
+
+**What was added (foundation only, nothing wired to any page's data):**
+- `scripts/supabase-status.js` — a new, separate foundation module. Reads only
+  `window.NEXT_PUBLIC_SUPABASE_URL` / `window.NEXT_PUBLIC_SUPABASE_ANON_KEY`, no hardcoded
+  fallback. Exposes `window.SupabaseFoundation.isConfigured()`, `.getClient()` (returns `null`,
+  never throws, if env vars or the supabase-js script are missing), and `.getStatus()` (reports
+  `configured` / `authEnabled` / `readyForFutureSync`).
+- `api/config.js` now also passes through `NEXT_PUBLIC_SUPABASE_URL` /
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the §12 naming) alongside the existing legacy vars — kept as
+  two separate configs so the new foundation never touches the live blob-sync key.
+- Integrations page Cloud Sync card now states plainly that Local Storage is active, Supabase is
+  foundation-only, no login/database sync exists, and no data has been migrated — plus a live
+  "Env status" line from `SupabaseFoundation.getStatus()`. The existing demo "Sync now" mock no
+  longer claims "Connected"; it now reports "Foundation only — not connected".
+
+**What remains before real sync can be enabled:**
+- Phase 1: create/confirm the Supabase project and set `NEXT_PUBLIC_SUPABASE_URL` /
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel (currently unset — the foundation reports
+  "not configured" until then).
+- Phase 2: auth/login (nothing built yet — `getStatus().authEnabled` is hardcoded `false`).
+- Phase 3+: the structured tables in §5, and actually reading/writing through
+  `SupabaseFoundation.getClient()` from any page.
+
+**Next implementation step:** Phase 1 only — set the two `NEXT_PUBLIC_*` env vars against a real
+(or throwaway test) Supabase project and confirm `SupabaseFoundation.getStatus().configured`
+flips to `true` on Integrations, with no other behaviour change. Do not start Phase 2+ without a
+separate go-ahead.

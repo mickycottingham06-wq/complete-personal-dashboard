@@ -10,6 +10,7 @@
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
 <script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/supabase-status.js"></script>
 <script src="../scripts/weather-service.js"></script>
 <script src="../scripts/google-calendar-service.js"></script>
 <script src="../scripts/backup-data.js"></script>
@@ -308,6 +309,11 @@ body::after {
         <div class="int-card-title"><span class="int-icon">☁️</span> Cloud Sync</div>
         <span class="int-status" id="intCloudStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
       </div>
+      <p class="int-card-note" id="intCloudFoundationNote">
+        Local Storage is the active storage system — nothing here changes that. Supabase is
+        foundation/planning only: no login, no database sync, and no data has been migrated.
+        Login and real database sync are a future build step.
+      </p>
       <div class="int-row">
         <div class="seg" id="intCloudToggle">
           <button type="button" data-v="off">Off</button>
@@ -323,7 +329,8 @@ body::after {
         <label class="field-label">Notes</label>
         <textarea class="int-notes" id="intCloudNotes" placeholder="Optional notes about this integration…"></textarea>
       </div>
-      <button class="int-sync-btn" id="intCloudSyncBtn" type="button">Sync now (demo)</button>
+      <button class="int-sync-btn" id="intCloudSyncBtn" type="button">Check foundation status (demo)</button>
+      <p class="int-card-note" id="intCloudEnvStatus" style="margin-top:8px;"></p>
     </div>
   </div>
 
@@ -478,6 +485,16 @@ body::after {
     if (document.activeElement !== $('intCloudProvider')) $('intCloudProvider').value = c.provider || '';
     if (document.activeElement !== $('intCloudNotes')) $('intCloudNotes').value = c.notes || '';
     $('intCloudSyncBtn').disabled = !c.enabled;
+
+    // Real (non-demo) Supabase foundation status — separate from the
+    // enabled/notes fields above, which are just user-facing placeholders.
+    const envEl = $('intCloudEnvStatus');
+    if (envEl && window.SupabaseFoundation) {
+      const st = window.SupabaseFoundation.getStatus();
+      envEl.textContent = st.configured
+        ? 'Env status: Supabase project configured (foundation only — no auth, no sync active yet).'
+        : 'Env status: no Supabase project configured — running on Local Storage only.';
+    }
   }
   wireToggle($('intCloudToggle'), (on) => { window.Integrations.setEnabled('cloudSync', on); renderCloud(); });
   $('intCloudProvider').addEventListener('input', (e) => autoSaveField('cloudSync', 'provider', e.target.value));
