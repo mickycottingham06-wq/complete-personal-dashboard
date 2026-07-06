@@ -575,7 +575,13 @@ body::after {
 
   /* ---------- Account (Supabase Auth) ---------- */
   function renderAuth(state) {
-    const st = state || (window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false });
+    // "configured" always comes straight from SupabaseFoundation — the same
+    // helper the Cloud Sync card uses — so the two cards can never disagree,
+    // even if SupabaseAuth itself failed to load.
+    const base = state || (window.SupabaseAuth ? window.SupabaseAuth.getState() : {});
+    const st = Object.assign({}, base, {
+      configured: window.SupabaseFoundation ? window.SupabaseFoundation.isConfigured() : false,
+    });
     const statusEl = $('authStatus');
     const notConfigured = $('authNotConfigured');
     const loggedOut = $('authLoggedOut');
