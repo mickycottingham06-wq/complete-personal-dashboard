@@ -22,6 +22,7 @@
 <script src="scripts/goals-data.js"></script>
 <script src="scripts/life-stats-data.js"></script>
 <script src="scripts/heatmap-data.js"></script>
+<script src="scripts/weekly-review-data.js"></script>
 <script src="scripts/integrations-data.js"></script>
 <script src="scripts/google-calendar-service.js"></script>
 <script src="scripts/core-data.js"></script>
@@ -553,6 +554,27 @@ body::after {
     </a>
   </div>
 
+  <!-- ===== WEEKLY REVIEW PREVIEW — compact entry point, full view lives at
+       pages/weekly-review.html ===== -->
+  <div class="section" id="weeklyReviewPreview">
+    <div class="section-title">Weekly Review <span class="snap-date" id="previewWeekRange"></span></div>
+    <a class="gm-card preview-card" href="pages/weekly-review.html">
+      <div class="preview-top">
+        <div>
+          <div class="gm-eyebrow" style="margin-bottom:4px">Next Week Focus</div>
+          <div class="preview-focus" id="previewWeekFocus">—</div>
+        </div>
+        <span class="preview-arrow">→</span>
+      </div>
+      <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+        <div class="streak-stat"><div class="v" id="previewWeekScore">—</div><div class="l">Week Score</div></div>
+        <div class="streak-stat"><div class="v" id="previewWeekHabitAvg">0%</div><div class="l">Habit Avg</div></div>
+        <div class="streak-stat"><div class="v" id="previewWeekPriorities">0</div><div class="l">Priorities Set</div></div>
+      </div>
+      <div class="preview-sub" id="previewWeekProblem" style="margin-top:12px"></div>
+    </a>
+  </div>
+
   <!-- ===== INTEGRATIONS PREVIEW — compact entry point, full view lives at
        pages/integrations.html ===== -->
   <div class="section" id="integrationsPreview">
@@ -727,6 +749,19 @@ body::after {
       <h2 class="tile-title">Money HQ</h2>
       <div class="tile-foot">
         <span class="tile-sub">Net worth, spending & budgeting</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="pages/weekly-review.html" style="--accent:#C9A36B">
+      <div class="tile-top">
+        <span class="tile-num">·13</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Weekly Review</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Reflect & plan next week</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -1209,6 +1244,26 @@ body::after {
     $('previewHeatmapBestDay').textContent = stats.bestDay.score > 0 ? String(stats.bestDay.score) : '—';
   }
 
+  function renderWeeklyReviewPreview() {
+    const wr = window.WeeklyReview.loadOrInit();
+    const p = window.WeeklyReview.computePerformance();
+
+    $('previewWeekRange').textContent = wr.weekStart + ' – ' + wr.weekEnd;
+
+    const focusEl = $('previewWeekFocus');
+    const hasFocus = !!(wr.nextWeekFocus && wr.nextWeekFocus.trim());
+    focusEl.textContent = hasFocus ? wr.nextWeekFocus.trim() : 'Set next week\'s focus →';
+    focusEl.classList.toggle('is-empty', !hasFocus);
+
+    $('previewWeekScore').textContent = Number(wr.overallScore) ? String(wr.overallScore) : '—';
+    $('previewWeekHabitAvg').textContent = p.weeklyHabitAvg + '%';
+    $('previewWeekPriorities').textContent = String((wr.priorities || []).length);
+
+    const problemEl = $('previewWeekProblem');
+    const hasProblem = !!(wr.mainProblem && wr.mainProblem.trim());
+    problemEl.textContent = hasProblem ? 'Main problem: ' + wr.mainProblem.trim() : '';
+  }
+
   function renderIntegrationsPreview() {
     var it = window.Integrations.load();
     function label(section) {
@@ -1284,7 +1339,7 @@ body::after {
     }
   }
 
-  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderMoneyPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderIntegrationsPreview(); }
+  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderMoneyPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderWeeklyReviewPreview(); renderIntegrationsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

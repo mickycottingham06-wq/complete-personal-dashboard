@@ -303,6 +303,7 @@ body.topbar-modal-open {
     { key: 'goals',       icon: '🎯', label: 'Goals',                href: '/pages/goals.html' },
     { key: 'life-stats',  icon: '📈', label: 'Life Stats',           href: '/pages/life-stats.html' },
     { key: 'heatmap',     icon: '🗓️', label: 'Heatmap',              href: '/pages/heatmap.html' },
+    { key: 'weekly-review', icon: '🗒️', label: 'Weekly Review',      href: '/pages/weekly-review.html' },
     { key: 'integrations', icon: '🔌', label: 'Integrations',        href: '/pages/integrations.html' },
     { key: 'settings',    icon: '⚙️', label: 'Settings',             href: '/index.html?openSettings=1', id: 'sidebarSettingsLink' },
   ];
@@ -373,6 +374,7 @@ body.topbar-modal-open {
     if (p.endsWith('goals.html')) return 'goals';
     if (p.endsWith('life-stats.html')) return 'life-stats';
     if (p.endsWith('heatmap.html')) return 'heatmap';
+    if (p.endsWith('weekly-review.html')) return 'weekly-review';
     if (p.endsWith('integrations.html')) return 'integrations';
     return ''; // pages/main.html (de-prioritised) and anything else — no nav item owns it
   }

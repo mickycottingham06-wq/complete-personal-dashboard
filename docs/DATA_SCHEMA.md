@@ -795,6 +795,58 @@ No API integrations are wired up yet — this is local-only, matching every othe
 
 ---
 
+# Weekly Review
+
+Implemented. Lives in `localStorage` under the key `weeklyReview`. The load/save/compute/prompt logic lives in `scripts/weekly-review-data.js` (shared business logic), used by both the full page at `pages/weekly-review.html` and the preview card on index.html.
+
+Shape:
+
+```
+weeklyReview: {
+  weekStart: string,             // YYYY-MM-DD, Monday of the current week
+  weekEnd: string,               // YYYY-MM-DD, Sunday of the current week
+  overallScore: number,          // 1-10 manual overall rating
+  mainWin: string,
+  mainLesson: string,
+  mainProblem: string,
+  nextWeekFocus: string,
+  wentWell: string,
+  slipped: string,
+  learned: string,
+  needsChange: string,
+  stopDoing: string,
+  doubleDown: string,
+  priorities: [ { id: string, text: string, completed: boolean } ],  // capped at 3 in the UI
+  targets: { business: string, boxing: string, health: string, money: string, personal: string },
+  generatedPrompt: string,
+  notes: string
+}
+```
+
+Uses the same 6 AM day-rollover convention as Daily Snapshot / Streaks / Heatmap / goals: to decide "today" when computing the Monday–Sunday week range. `window.WeeklyReview.loadOrInit()` reads stored data, upgrades any fields missing against the default shape, and starts a fresh blank review once the stored `weekEnd` no longer matches the current week — same single-current-record rollover pattern as `window.DailySnapshot`, just weekly instead of daily (past weeks are not archived). `window.WeeklyReview.save(wr)` persists changes. `window.WeeklyReview.uid()` generates ids for priority rows.
+
+`window.WeeklyReview.computePerformance()` is a pure read (owns no state) that pulls a live cross-Life-OS snapshot rather than duplicating it, reading (never owning):
+
+- `window.Streaks` → current streak, today's habit %, weekly habit completion average
+- `window.Boxing` → completed vs target weekly training sessions
+- `window.Business` → current vs target revenue
+- `window.Money` → `computeSummary()` for net worth, monthly income/spending/savings, savings rate
+- `window.Health` → last night's sleep, recovery score, energy level, hydration
+- `window.Goals` → active goal count, average progress
+- `window.Heatmap` → `computeWeekStats()` weekly consistency average
+
+Any section without data yet returns its own safe defaults, so `computePerformance()` never throws.
+
+`window.WeeklyReview.generatePrompt(wr)` is a pure function (no network request) that builds a copy-paste prompt combining the manual review answers with a live `computePerformance()` read, asking the pasted-in AI to review the week, identify patterns, give direct feedback, and suggest next week's priorities with a simple action plan — same "prompt builder, not a live API" pattern as `window.AiCeo`. No AI API is called from this file or the page.
+
+**Cross-feed:** `nextWeekFocus` is exposed (read-only) through `window.Core.getSnapshot()` as `nextWeekFocus`, the same safe one-way pattern `getSnapshot()` already uses for Daily Snapshot's `mainFocus`. Core never persists or owns this value — it only reads it live.
+
+The full interactive UI lives at `pages/weekly-review.html`, split into five areas: This Week (week range, overall score, main win/lesson/problem), Performance (live stats/progress bars pulled from the sections above), Reflection (went well / slipped / learned / needs to change / one main priority / stop doing / double down), Next Week Plan (main focus, top 3 priorities, business/boxing/health/money/personal targets), and AI Review Prompt (generate/copy). index.html shows a compact preview card (week range, next week's focus, week score, weekly habit average, priority count, main problem) that links to it.
+
+Everything related to weekly reflection and next-week planning belongs here. Future features (review history/archive, AI coaching trend analysis) should extend this shape rather than creating a second weekly-review data source.
+
+---
+
 # Integrations
 
 Implemented as a **foundation only** — no live API calls, credentials, or OAuth flows. Lives in `localStorage` under the key `integrations`. The load/save/mock-sync logic lives in `scripts/integrations-data.js` (shared business logic), used by both the full page at `pages/integrations.html` and the preview card on index.html.
@@ -946,7 +998,7 @@ core: {
 }
 ```
 
-`window.Core.load()` / `.save(core)` follow the same upgrade-on-load pattern as every other section. `window.Core.getSnapshot()` is a pure read (never persists) that aggregates the cross-section values described in this task's brief — `currentWeight`, `targetWeight`, `dailyCompletion`, `currentStreak`, `mainFocus`, `activeGoal`, `businessFocus`, `healthStatus`, `trainingStatus` — by reading `window.Health`, `window.Boxing`, `window.Business`, `window.DailySnapshot`, `window.Streaks`, and `window.Goals` live, the same pattern as `window.LifeStats.computeStats()`. It never duplicates or owns any of those values itself.
+`window.Core.load()` / `.save(core)` follow the same upgrade-on-load pattern as every other section. `window.Core.getSnapshot()` is a pure read (never persists) that aggregates the cross-section values described in this task's brief — `currentWeight`, `targetWeight`, `dailyCompletion`, `currentStreak`, `mainFocus`, `activeGoal`, `businessFocus`, `healthStatus`, `trainingStatus`, `nextWeekFocus` — by reading `window.Health`, `window.Boxing`, `window.Business`, `window.DailySnapshot`, `window.Streaks`, `window.Goals`, and `window.WeeklyReview` live, the same pattern as `window.LifeStats.computeStats()`. It never duplicates or owns any of those values itself.
 
 The one exception is weight: `window.Health.currentWeight` and `window.Boxing.currentWeight` are two separate fields (Health HQ and Boxing HQ each need their own record), so `window.Core.setCurrentWeight(kg)` writes the same number into **both** on every save from either page's weight field. This keeps the two in sync without merging the two sections' data models. `pages/health.html` and `pages/boxing-hq.html` both call it from their own `save()` wrapper.
 

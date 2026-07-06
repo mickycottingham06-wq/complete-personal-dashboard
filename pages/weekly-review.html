@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
+<title>Weekly Review · Micky's Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/sync.js" defer></script>
+<script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/streaks-data.js"></script>
+<script src="../scripts/business-data.js"></script>
+<script src="../scripts/boxing-data.js"></script>
+<script src="../scripts/health-data.js"></script>
+<script src="../scripts/goals-data.js"></script>
+<script src="../scripts/money-data.js"></script>
+<script src="../scripts/heatmap-data.js"></script>
+<script src="../scripts/weekly-review-data.js"></script>
+<style>
+:root {
+  --bg: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-input: rgba(0, 0, 0, 0.28);
+
+  --border: rgba(255, 255, 255, 0.06);
+
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+
+  --accent: #60A5FA;
+  --success: #6BE3A4;
+  --warning: #FF8A4D;
+
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 15px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body { min-height: 100vh; position: relative; overflow-x: hidden; }
+
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
+    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
+  filter: blur(40px);
+  pointer-events: none; z-index: 0;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  pointer-events: none; z-index: 1;
+}
+@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
+
+main {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: 56px 20px 80px;
+  padding-top: max(56px, env(safe-area-inset-top, 56px));
+}
+
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 4px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: '≡'; font-size: 14px; opacity: 0.5; }
+
+.stack-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+
+::selection { background: rgba(224, 118, 88, 0.3); color: var(--text-primary); }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ====== WEEKLY REVIEW — same card/field language as Life Stats /
+   Appearance / Hormone Optimisation so the whole dashboard reads as
+   one system. ====== */
+.wr-title {
+  margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.wr-subtitle { font-size: 12.5px; color: var(--text-tertiary); margin: 0 4px 24px; line-height: 1.6; max-width: 520px; }
+.wr-section { margin-bottom: 32px; }
+.wr-field { margin-bottom: 14px; }
+.wr-field:last-child { margin-bottom: 0; }
+.wr-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.wr-input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.wr-input::placeholder { color: var(--text-tertiary); }
+.wr-input:focus { border-color: rgba(255,255,255,0.28); }
+textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+
+.wr-week-badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); margin-bottom: 18px;
+}
+
+.wr-score-card { text-align: center; padding: 26px 20px; }
+.wr-score-val { font-size: 52px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.wr-score-max { font-size: 16px; color: var(--text-tertiary); font-weight: 500; }
+.wr-score-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 8px; }
+.wr-score-card .wr-slider-row { margin-top: 18px; }
+.wr-slider-row { display: flex; align-items: center; gap: 14px; }
+.wr-slider-row input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
+.wr-slider-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-primary); width: 30px; text-align: right; flex-shrink: 0; }
+
+.wr-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 560px) { .wr-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.wr-stat-tile {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  padding: 14px 12px; text-align: center;
+}
+.wr-stat-val { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.wr-stat-label { font-size: 10.5px; color: var(--text-tertiary); margin-top: 4px; letter-spacing: 0.04em; }
+
+.wr-progress-row { margin-bottom: 16px; }
+.wr-progress-row:last-child { margin-bottom: 0; }
+.wr-progress-head { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 7px; }
+.wr-progress-head .wr-p-label { color: var(--text-secondary); font-weight: 600; }
+.wr-progress-head .wr-p-val { color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 700; }
+.wr-progress-track { height: 7px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.wr-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #93C5FD); transition: width 0.4s ease; }
+.wr-progress-fill.is-warm { background: linear-gradient(90deg, #E07658, #FFB088); }
+.wr-progress-fill.is-good { background: linear-gradient(90deg, var(--success), #A7F3D0); }
+
+.wr-badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.wr-badge {
+  font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: var(--text-secondary);
+}
+
+.wr-list { list-style: none; margin: 0; padding: 0; }
+.wr-list-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  transition: background 0.2s;
+}
+.wr-list-row:hover { background: rgba(255,255,255,0.06); }
+.wr-list-row.is-done { opacity: 0.6; }
+.wr-list-row.is-done .wr-list-text { text-decoration: line-through; }
+.wr-list-check { width: 17px; height: 17px; accent-color: var(--success); flex-shrink: 0; cursor: pointer; }
+.wr-list-text { flex: 1; font-size: 14px; color: var(--text-primary); word-break: break-word; }
+.wr-list-del {
+  border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 4px 6px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.wr-list-row:hover .wr-list-del { opacity: 1; }
+.wr-list-del:hover { color: #FF6B6B; }
+.wr-list-add { display: flex; gap: 8px; margin-top: 10px; }
+.wr-list-add .wr-input { padding: 9px 11px; font-size: 13px; }
+.wr-add-btn {
+  padding: 9px 14px; border: 1px dashed rgba(255,255,255,0.16); border-radius: 10px;
+  background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.wr-add-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); color: var(--text-primary); }
+.wr-empty-note { font-size: 12.5px; color: var(--text-quaternary); padding: 4px 2px 8px; }
+
+.wr-targets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .wr-targets-grid { grid-template-columns: 1fr; } }
+
+.wr-btn-primary {
+  padding: 11px 20px; border: none; border-radius: 11px; cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: #0A0A0B;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 16px rgba(0,0,0,0.3);
+  transition: transform 0.15s, filter 0.15s;
+}
+.wr-btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.wr-btn-ghost {
+  padding: 11px 20px; border: 1px solid rgba(255,255,255,0.14); border-radius: 11px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); background: rgba(255,255,255,0.04);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.wr-btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.28); color: var(--text-primary); }
+.wr-prompt-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 12px; }
+.wr-prompt-status { font-size: 11.5px; color: var(--success); }
+.wr-prompt-output {
+  width: 100%; min-height: 260px; padding: 14px; border-radius: 12px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-primary); font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6;
+  white-space: pre-wrap; outline: none; resize: vertical;
+}
+.wr-prompt-output::placeholder { color: var(--text-tertiary); font-family: var(--font); }
+
+@media (max-width: 480px) {
+  .wr-title { font-size: 21px; }
+  .stack-card { padding: 18px 16px 14px; }
+  .wr-score-val { font-size: 42px; }
+  .wr-stat-grid { gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<main>
+
+  <!-- ===== WEEKLY REVIEW — Life OS weekly reflection & planning
+       command centre. Pulls a live performance snapshot from Streaks /
+       Boxing HQ / Business HQ / Money HQ / Health HQ / Goals / Heatmap
+       (never duplicated, always read live), plus manual reflection
+       answers, next-week planning, and an AI review prompt builder.
+       Reads/writes through window.WeeklyReview
+       (scripts/weekly-review-data.js) so the preview card on
+       index.html always agrees. ===== -->
+  <h1 class="wr-title">Weekly Review</h1>
+  <p class="wr-subtitle">A calm weekly life audit — review how the week went across the whole Life OS, reflect honestly, then set next week's focus.</p>
+
+  <!-- This Week -->
+  <div class="wr-section">
+    <div class="section-title">This Week</div>
+    <div class="stack-card">
+      <div class="wr-week-badge" id="wrWeekBadge">— to —</div>
+
+      <div class="wr-score-card" style="padding:0 0 22px">
+        <div><span class="wr-score-val" id="wrOverallVal">5</span><span class="wr-score-max">/10</span></div>
+        <div class="wr-score-label">Overall week score</div>
+        <div class="wr-slider-row">
+          <input type="range" id="wrOverallScore" min="1" max="10" step="1">
+        </div>
+      </div>
+
+      <div class="wr-field">
+        <label class="wr-label">Main Win</label>
+        <input class="wr-input" id="wrMainWin" type="text" placeholder="The best thing that happened this week">
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">Main Lesson</label>
+        <input class="wr-input" id="wrMainLesson" type="text" placeholder="What this week taught you">
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">Main Problem</label>
+        <input class="wr-input" id="wrMainProblem" type="text" placeholder="The biggest issue this week">
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance -->
+  <div class="wr-section">
+    <div class="section-title">Performance</div>
+    <div class="stack-card">
+      <div class="wr-stat-grid">
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrHabitPct">0%</div><div class="wr-stat-label">Habit Completion</div></div>
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrStreak">0</div><div class="wr-stat-label">Current Streak</div></div>
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrHeatmapAvg">0</div><div class="wr-stat-label">Heatmap Week Avg</div></div>
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrGoalsPct">0%</div><div class="wr-stat-label">Goals Progress</div></div>
+      </div>
+
+      <div class="wr-progress-row" style="margin-top:18px">
+        <div class="wr-progress-head"><span class="wr-p-label">Training Sessions Completed</span><span class="wr-p-val" id="wrBoxingPct">0%</span></div>
+        <div class="wr-progress-track"><div class="wr-progress-fill is-warm" id="wrBoxingFill" style="width:0%"></div></div>
+        <div class="wr-empty-note" id="wrBoxingSub" style="padding-left:0">0 / 0 sessions</div>
+      </div>
+      <div class="wr-progress-row">
+        <div class="wr-progress-head"><span class="wr-p-label">Business Progress</span><span class="wr-p-val" id="wrBizPct">0%</span></div>
+        <div class="wr-progress-track"><div class="wr-progress-fill" id="wrBizFill" style="width:0%"></div></div>
+      </div>
+
+      <div class="wr-badge-row">
+        <span class="wr-badge" id="wrMoneyNetWorth">Net worth —</span>
+        <span class="wr-badge" id="wrMoneySavings">Savings —</span>
+        <span class="wr-badge" id="wrMoneyRate">Savings rate —</span>
+      </div>
+
+      <div class="wr-stat-grid" style="margin-top:16px">
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrSleep">0h</div><div class="wr-stat-label">Sleep</div></div>
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrRecovery">0</div><div class="wr-stat-label">Recovery</div></div>
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrEnergy">0/10</div><div class="wr-stat-label">Energy</div></div>
+        <div class="wr-stat-tile"><div class="wr-stat-val" id="wrHydration">0L</div><div class="wr-stat-label">Hydration</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reflection -->
+  <div class="wr-section">
+    <div class="section-title">Reflection</div>
+    <div class="stack-card">
+      <div class="wr-field">
+        <label class="wr-label">What went well this week?</label>
+        <textarea class="wr-input" id="wrWentWell" rows="3"></textarea>
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">What slipped this week?</label>
+        <textarea class="wr-input" id="wrSlipped" rows="3"></textarea>
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">What did I learn?</label>
+        <textarea class="wr-input" id="wrLearned" rows="3"></textarea>
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">What needs to change next week?</label>
+        <textarea class="wr-input" id="wrNeedsChange" rows="3"></textarea>
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">What is the one main priority next week?</label>
+        <input class="wr-input" id="wrNextWeekFocusA" type="text" placeholder="The single most important thing">
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">What should I stop doing?</label>
+        <textarea class="wr-input" id="wrStopDoing" rows="2"></textarea>
+      </div>
+      <div class="wr-field">
+        <label class="wr-label">What should I double down on?</label>
+        <textarea class="wr-input" id="wrDoubleDown" rows="2"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Next Week Plan -->
+  <div class="wr-section">
+    <div class="section-title">Next Week Plan</div>
+    <div class="stack-card">
+      <div class="wr-field">
+        <label class="wr-label">Main Focus</label>
+        <input class="wr-input" id="wrNextWeekFocusB" type="text" placeholder="The single most important thing">
+      </div>
+
+      <div class="wr-field">
+        <label class="wr-label">Top 3 Priorities</label>
+        <ul class="wr-list" id="wrPrioritiesList"></ul>
+        <div class="wr-list-add">
+          <input class="wr-input" id="wrPriorityAddInput" type="text" placeholder="Add a priority for next week…">
+          <button class="wr-add-btn" id="wrPriorityAddBtn" type="button">+ Add</button>
+        </div>
+      </div>
+
+      <div class="wr-field" style="margin-top:20px">
+        <div class="wr-targets-grid">
+          <div>
+            <label class="wr-label">Business Target</label>
+            <input class="wr-input" id="wrTargetBusiness" type="text" placeholder="e.g. Close 2 new clients">
+          </div>
+          <div>
+            <label class="wr-label">Boxing / Training Target</label>
+            <input class="wr-input" id="wrTargetBoxing" type="text" placeholder="e.g. 4 sessions + 2 runs">
+          </div>
+          <div>
+            <label class="wr-label">Health Target</label>
+            <input class="wr-input" id="wrTargetHealth" type="text" placeholder="e.g. 7.5h sleep every night">
+          </div>
+          <div>
+            <label class="wr-label">Money Target</label>
+            <input class="wr-input" id="wrTargetMoney" type="text" placeholder="e.g. Stay under budget">
+          </div>
+          <div>
+            <label class="wr-label">Personal Target</label>
+            <input class="wr-input" id="wrTargetPersonal" type="text" placeholder="e.g. Call family, read 30 min/day">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Review Prompt -->
+  <div class="wr-section">
+    <div class="section-title">AI Review Prompt</div>
+    <div class="stack-card">
+      <p style="font-size:12px;color:var(--text-tertiary);line-height:1.5;margin:0 0 12px">Generate the prompt → copy it → paste into ChatGPT or Claude for a full weekly review, patterns, feedback and a next-week action plan. No AI is called from here.</p>
+      <div class="wr-prompt-actions">
+        <button class="wr-btn-primary" id="wrGenPromptBtn" type="button">Generate Prompt</button>
+        <button class="wr-btn-ghost" id="wrCopyPromptBtn" type="button">Copy Prompt</button>
+        <span class="wr-prompt-status" id="wrPromptStatus"></span>
+      </div>
+      <textarea class="wr-prompt-output" id="wrPromptOutput" readonly placeholder="Generate a prompt above, then copy it into Claude or ChatGPT."></textarea>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="wr-section">
+    <div class="section-title">Notes</div>
+    <div class="stack-card">
+      <textarea class="wr-input" id="wrNotes" rows="4" placeholder="Anything else worth remembering about this week…"></textarea>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var wr = window.WeeklyReview.loadOrInit();
+  function save() { window.WeeklyReview.save(wr); }
+
+  var fieldTimer = null;
+  function debouncedSave() { clearTimeout(fieldTimer); fieldTimer = setTimeout(save, 300); }
+
+  function bindText(id, key) {
+    var el = $(id);
+    el.value = wr[key] || '';
+    el.addEventListener('input', function () { wr[key] = el.value; debouncedSave(); });
+  }
+
+  function bindTargetText(id, key) {
+    var el = $(id);
+    el.value = wr.targets[key] || '';
+    el.addEventListener('input', function () { wr.targets[key] = el.value; debouncedSave(); });
+  }
+
+  // nextWeekFocus is shown in both Reflection and Next Week Plan —
+  // one field, two entry points, kept in sync on input.
+  function bindNextWeekFocus() {
+    var a = $('wrNextWeekFocusA');
+    var b = $('wrNextWeekFocusB');
+    a.value = wr.nextWeekFocus || '';
+    b.value = wr.nextWeekFocus || '';
+    function onInput(e) {
+      wr.nextWeekFocus = e.target.value;
+      (e.target === a ? b : a).value = e.target.value;
+      debouncedSave();
+    }
+    a.addEventListener('input', onInput);
+    b.addEventListener('input', onInput);
+  }
+
+  function renderWeekBadge() {
+    $('wrWeekBadge').textContent = (wr.weekStart || '—') + '  →  ' + (wr.weekEnd || '—');
+  }
+  renderWeekBadge();
+
+  function renderOverall() { $('wrOverallVal').textContent = wr.overallScore; }
+  (function bindOverall() {
+    var el = $('wrOverallScore');
+    el.value = wr.overallScore;
+    el.addEventListener('input', function () {
+      wr.overallScore = Number(el.value) || 0;
+      renderOverall();
+      debouncedSave();
+    });
+    renderOverall();
+  })();
+
+  bindText('wrMainWin', 'mainWin');
+  bindText('wrMainLesson', 'mainLesson');
+  bindText('wrMainProblem', 'mainProblem');
+  bindText('wrWentWell', 'wentWell');
+  bindText('wrSlipped', 'slipped');
+  bindText('wrLearned', 'learned');
+  bindText('wrNeedsChange', 'needsChange');
+  bindText('wrStopDoing', 'stopDoing');
+  bindText('wrDoubleDown', 'doubleDown');
+  bindText('wrNotes', 'notes');
+  bindNextWeekFocus();
+  bindTargetText('wrTargetBusiness', 'business');
+  bindTargetText('wrTargetBoxing', 'boxing');
+  bindTargetText('wrTargetHealth', 'health');
+  bindTargetText('wrTargetMoney', 'money');
+  bindTargetText('wrTargetPersonal', 'personal');
+
+  // ---- Computed live performance snapshot ----
+  function fmtMoney(n) {
+    var v = Number(n) || 0;
+    return '£' + v.toLocaleString('en-GB', { maximumFractionDigits: 0 });
+  }
+
+  function renderPerformance() {
+    var p = window.WeeklyReview.computePerformance();
+
+    $('wrHabitPct').textContent = p.weeklyHabitAvg + '%';
+    $('wrStreak').textContent = p.currentStreak;
+    $('wrHeatmapAvg').textContent = p.heatmapWeekAvg;
+    $('wrGoalsPct').textContent = p.goalsAvgProgress + '%';
+
+    $('wrBoxingPct').textContent = p.boxingPct + '%';
+    $('wrBoxingFill').style.width = p.boxingPct + '%';
+    $('wrBoxingSub').textContent = p.boxingCompleted + ' / ' + p.boxingTarget + ' sessions';
+
+    $('wrBizPct').textContent = p.revenuePct + '%';
+    $('wrBizFill').style.width = p.revenuePct + '%';
+
+    $('wrMoneyNetWorth').textContent = 'Net worth ' + fmtMoney(p.netWorth);
+    $('wrMoneySavings').textContent = (p.monthlySavings >= 0 ? 'Saving ' : 'Overspent ') + fmtMoney(Math.abs(p.monthlySavings));
+    $('wrMoneyRate').textContent = 'Savings rate ' + p.savingsRate + '%';
+
+    $('wrSleep').textContent = p.sleepHours + 'h';
+    $('wrRecovery').textContent = p.recoveryScore;
+    $('wrEnergy').textContent = p.energyLevel + '/10';
+    $('wrHydration').textContent = p.hydrationLiters + 'L';
+  }
+  renderPerformance();
+
+  // ---- Top 3 priorities list ----
+  function renderPriorities() {
+    var wrap = $('wrPrioritiesList');
+    wrap.innerHTML = '';
+    if (!wr.priorities.length) {
+      var empty = document.createElement('div');
+      empty.className = 'wr-empty-note';
+      empty.textContent = 'No priorities added yet.';
+      wrap.appendChild(empty);
+      return;
+    }
+    wr.priorities.forEach(function (item) {
+      var li = document.createElement('li');
+      li.className = 'wr-list-row' + (item.completed ? ' is-done' : '');
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'wr-list-check'; cb.checked = !!item.completed;
+      cb.addEventListener('change', function () {
+        item.completed = cb.checked;
+        li.classList.toggle('is-done', item.completed);
+        save();
+      });
+
+      var text = document.createElement('span');
+      text.className = 'wr-list-text'; text.textContent = item.text;
+
+      var del = document.createElement('button');
+      del.type = 'button'; del.className = 'wr-list-del'; del.textContent = '×';
+      del.addEventListener('click', function () {
+        wr.priorities = wr.priorities.filter(function (i) { return i.id !== item.id; });
+        save(); renderPriorities();
+      });
+
+      li.appendChild(cb); li.appendChild(text); li.appendChild(del);
+      wrap.appendChild(li);
+    });
+  }
+  renderPriorities();
+
+  (function wirePriorityAdd() {
+    var input = $('wrPriorityAddInput');
+    function add() {
+      var v = input.value.trim();
+      if (!v || wr.priorities.length >= 3) return;
+      wr.priorities.push({ id: window.WeeklyReview.uid(), text: v, completed: false });
+      input.value = '';
+      save(); renderPriorities();
+    }
+    $('wrPriorityAddBtn').addEventListener('click', add);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+  })();
+
+  // ---- AI Review Prompt ----
+  $('wrPromptOutput').value = wr.generatedPrompt || '';
+  $('wrGenPromptBtn').addEventListener('click', function () {
+    var text = window.WeeklyReview.generatePrompt(wr);
+    wr.generatedPrompt = text;
+    $('wrPromptOutput').value = text;
+    save();
+    $('wrPromptStatus').textContent = 'Prompt generated.';
+    setTimeout(function () { $('wrPromptStatus').textContent = ''; }, 2000);
+  });
+  $('wrCopyPromptBtn').addEventListener('click', async function () {
+    var text = $('wrPromptOutput').value;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      $('wrPromptStatus').textContent = 'Copied to clipboard.';
+    } catch (e) {
+      $('wrPromptOutput').select();
+      document.execCommand('copy');
+      $('wrPromptStatus').textContent = 'Copied to clipboard.';
+    }
+    setTimeout(function () { $('wrPromptStatus').textContent = ''; }, 2000);
+  });
+
+  // Re-render if another tab / device changes Weekly Review data.
+  window.addEventListener('storage', function () {
+    wr = window.WeeklyReview.loadOrInit();
+    renderWeekBadge(); renderOverall(); renderPerformance(); renderPriorities();
+    $('wrPromptOutput').value = wr.generatedPrompt || '';
+  });
+})();
+</script>
+
+</body>
+</html>

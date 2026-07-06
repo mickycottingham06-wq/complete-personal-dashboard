@@ -54,6 +54,7 @@
     var streaks = (window.Streaks && window.Streaks.recompute) ? window.Streaks.recompute() : null;
     var goals = (window.Goals && window.Goals.load) ? window.Goals.load() : {};
     var activeGoals = goals.activeGoals || [];
+    var weeklyReview = (window.WeeklyReview && window.WeeklyReview.loadOrInit) ? window.WeeklyReview.loadOrInit() : {};
 
     return {
       currency: core.currency || 'GBP',
@@ -68,6 +69,7 @@
       trainingStatus: snap.trainingCompleted ? 'Training done' : '',
       tomorrowPriority: (snap.tomorrowPriority || '').trim(),
       dayScore: Number(snap.dayScore) || 0,
+      nextWeekFocus: (weeklyReview.nextWeekFocus || '').trim(),
       lastUpdated: core.lastUpdated || '',
     };
   }
