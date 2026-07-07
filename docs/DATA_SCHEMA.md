@@ -1018,6 +1018,31 @@ Future features that want a single "how's everything doing" view (a rebuilt Comm
 
 ---
 
+# Daily Guidance Engine
+
+Owns **no localStorage key of its own** — a pure read/compute layer, `scripts/daily-guidance-data.js`, same pattern as `window.LifeStats.computeStats()`. Deterministic local logic only: no AI API, no server calls. Included on `index.html` and `pages/daily-snapshot.html`, after `business-data.js`, `boxing-data.js`, `goals-data.js`, `health-data.js` and `daily-snapshot-data.js` (it reads all of them).
+
+`window.DailyGuidance.computeGuidance()` returns:
+
+```
+{
+  todayFocus: string,      // one clear focus, priority order: urgent goal deadline (<=3 days) >
+                            // health/recovery (poor WHOOP-style recovery or high stress) >
+                            // business/revenue > training > goals/habits
+  businessTask: string,    // highest-priority active window.Business project, else currentFocus, else todayTask
+  trainingTask: string,    // weekly target (boxing/runs/strength) furthest behind, else nextSessionPlan, else trainingPhase
+  goalAction: string,      // first incomplete action from the highest-priority / nearest-deadline active goal
+  healthReminder: string,  // whichever routine (morning/evening, by time of day) or supplements has items left today
+  nudges: string[],        // short call-outs already supported by existing data (streak alive, fight camp countdown)
+}
+```
+
+`window.DailyGuidance.applyDefaultsToSnapshot(snap, guidance)` is the only function that writes anything, and it writes into a Daily Snapshot object the caller already loaded — never into its own storage. It fills `snap.mainFocus` and the first blank `snap.priorities[].text` slots from the guidance ONLY when those fields are still empty, and returns `true` if it changed anything so the caller knows to call `window.DailySnapshot.save(snap)`. A field the user has already typed into is never touched, so a same-day refresh is a no-op here. Both `index.html` (`renderSnapshotPreview()`) and `pages/daily-snapshot.html` call this right after `window.DailySnapshot.loadOrInit()` — whichever page is opened first each day fills the defaults; the other page then sees them already filled and changes nothing.
+
+`pages/daily-snapshot.html` also renders the full `computeGuidance()` output read-only in a "Suggested Today" card above Morning Plan (rows hide themselves when a suggestion is empty). `index.html`'s Daily Control Panel preview card surfaces the single most relevant nudge, if any, as a small `💡` line — kept to one line to stay minimal.
+
+---
+
 # Rules
 
 Never duplicate data.

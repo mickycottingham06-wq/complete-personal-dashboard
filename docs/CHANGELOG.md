@@ -572,6 +572,44 @@ Add daily-instance rollover to Health/Hormones/Appearance checklists
 
 ---
 
+## 2026-07-07 (2)
+
+### Daily Guidance Engine v1 — deterministic suggested plan
+
+First version of the Daily Guidance Engine: a small read/compute layer, `scripts/daily-guidance-data.js`
+(`window.DailyGuidance`), that reads existing Business, Boxing HQ, Goals and Health data plus today's
+Daily Snapshot and derives today's suggested plan — `todayFocus`, `businessTask`, `trainingTask`,
+`goalAction`, `healthReminder`, `nudges`. Deterministic local logic only — no AI API, no server calls,
+no new localStorage key. Business task prefers the highest-priority active project, falling back to
+`currentFocus`/`todayTask`; training task targets whichever weekly area (boxing/runs/strength) is
+furthest behind target; goal action pulls the first incomplete action from the highest-priority /
+nearest-deadline active goal; health reminder points at whichever routine (morning/evening, by time of
+day) or supplements still has items left, reading the daily-instance rollover added earlier today;
+today's focus picks one of the above by priority order (urgent goal deadline > health/recovery >
+business/revenue > training > goals/habits), per `docs/AI_ASSISTANT_BEHAVIOUR.md`'s decision order.
+
+`window.DailyGuidance.applyDefaultsToSnapshot(snap, guidance)` fills `dailySnapshot.mainFocus` and the
+first blank Top 3 Priority slots from the generated suggestions ONLY when those fields are still blank —
+never overwrites anything the user has already typed, so a same-day refresh changes nothing. Both
+`index.html` and `pages/daily-snapshot.html` call this right after loading today's snapshot, so whichever
+page is opened first each day fills the defaults and the other just sees them already filled.
+
+`pages/daily-snapshot.html` gained a small read-only "Suggested Today" card above Morning Plan showing
+the full generated plan (rows hide themselves when empty). `index.html`'s Daily Control Panel preview
+card gained a single-line `💡` nudge (streak alive / fight camp countdown) when one applies — kept to
+one line to stay minimal.
+
+Files affected:
+
+scripts/daily-guidance-data.js (new), index.html, pages/daily-snapshot.html, docs/DATA_SCHEMA.md,
+docs/ROADMAP.md, docs/TODO.md
+
+Commit:
+
+Add Daily Guidance Engine v1 — deterministic suggested daily plan
+
+---
+
 ## Future Entries
 
 Example

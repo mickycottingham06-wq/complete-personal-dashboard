@@ -25,6 +25,7 @@
 <script src="scripts/hormone-data.js"></script>
 <script src="scripts/appearance-data.js"></script>
 <script src="scripts/goals-data.js"></script>
+<script src="scripts/daily-guidance-data.js"></script>
 <script src="scripts/life-stats-data.js"></script>
 <script src="scripts/heatmap-data.js"></script>
 <script src="scripts/weekly-review-data.js"></script>
@@ -375,6 +376,8 @@ button.quick-action { font-family: inherit; cursor: pointer; }
       <div class="preview-sub" id="previewChecklistLine" style="margin-top:10px">—</div>
 
       <div class="status-chip-row" id="previewStatusChips" style="margin-top:14px"></div>
+
+      <div class="preview-sub" id="previewGuidanceNudge" style="margin-top:10px;display:none"></div>
 
       <div class="preview-cta">Open Daily Control Panel →</div>
     </a>
@@ -990,6 +993,15 @@ button.quick-action { font-family: inherit; cursor: pointer; }
   function renderSnapshotPreview() {
     const snap = window.DailySnapshot.loadOrInit();
 
+    // Daily Guidance Engine — fills mainFocus / priorities from deterministic
+    // local suggestions ONLY when they're still blank (new day, nothing typed
+    // yet). Never overwrites an edit; a same-day refresh is a no-op here.
+    let guidance = null;
+    if (window.DailyGuidance) {
+      guidance = window.DailyGuidance.computeGuidance();
+      if (window.DailyGuidance.applyDefaultsToSnapshot(snap, guidance)) window.DailySnapshot.save(snap);
+    }
+
     const d = new Date();
     const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1053,6 +1065,14 @@ button.quick-action { font-family: inherit; cursor: pointer; }
       chip.append(dot, txt);
       chipsWrap.appendChild(chip);
     });
+
+    const nudgeEl = $('previewGuidanceNudge');
+    if (guidance && guidance.nudges && guidance.nudges.length) {
+      nudgeEl.textContent = '💡 ' + guidance.nudges[0];
+      nudgeEl.style.display = '';
+    } else {
+      nudgeEl.style.display = 'none';
+    }
   }
 
   function renderStreaksPreview() {
