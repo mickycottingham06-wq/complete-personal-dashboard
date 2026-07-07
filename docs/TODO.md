@@ -16,7 +16,7 @@ Bills Widget
 
 Search
 
-Morning Brief
+Morning Brief (v1 done — deterministic Daily Guidance Engine, scripts/daily-guidance-data.js; still no live AI)
 
 Evening Review
 

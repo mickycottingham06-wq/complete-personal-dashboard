@@ -154,6 +154,8 @@ Evening Reviews
 
 Weekly Review ✅ (pages/weekly-review.html — `weeklyReview` localStorage key; pulls a live performance snapshot from Streaks, Boxing HQ, Business HQ, Money HQ, Health HQ, Goals and Heatmap, plus reflection questions, next-week planning, and an AI review prompt builder — prompt-powered, no live API yet)
 
+Daily Guidance Engine v1 ✅ (scripts/daily-guidance-data.js — deterministic, local, no AI API; reads Business/Boxing/Goals/Health and fills blank Daily Snapshot mainFocus/priorities as defaults only; full Morning Briefings / AI Coaching below are still future work)
+
 ---
 
 ## Phase 9 (future — not started)
