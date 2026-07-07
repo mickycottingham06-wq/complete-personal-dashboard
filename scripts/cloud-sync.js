@@ -169,6 +169,35 @@
     }
   }
 
+  // This device's own last successful push/pull (distinct from the cloud
+  // row's updated_at, which may have been written by a different device).
+  function lastDeviceSyncAt() {
+    var m = loadMeta();
+    if (m.lastPushedAt && m.lastPulledAt) return m.lastPushedAt > m.lastPulledAt ? m.lastPushedAt : m.lastPulledAt;
+    return m.lastPushedAt || m.lastPulledAt || '';
+  }
+
+  // Single source of truth for the seven sync-status states shown across
+  // the Quick Sync panel and the Integrations Cloud Sync card, so the two
+  // can never disagree: Local only, Signed out, Cloud ready, Local newer,
+  // Cloud newer, Synced, Sync error.
+  async function getSyncStatus() {
+    if (!isConfigured()) return { code: 'local-only', label: 'Local only' };
+    if (!isSignedIn()) return { code: 'signed-out', label: 'Signed out' };
+    var meta = loadMeta();
+    if (meta.lastError) return { code: 'error', label: 'Sync error' };
+    var status = await getCloudStatus();
+    if (!status.ok) return { code: 'error', label: 'Sync error' };
+    if (!status.exists) return { code: 'cloud-ready', label: 'Cloud ready' };
+    var localTime = latestLocalTimestamp();
+    if (localTime && status.updatedAt && localTime !== status.updatedAt) {
+      return localTime > status.updatedAt
+        ? { code: 'local-newer', label: 'Local newer' }
+        : { code: 'cloud-newer', label: 'Cloud newer' };
+    }
+    return { code: 'synced', label: 'Synced' };
+  }
+
   window.CloudSync = {
     TABLE: TABLE,
     isConfigured: isConfigured,
@@ -176,7 +205,9 @@
     isAvailable: isAvailable,
     hasLocalData: hasLocalData,
     latestLocalTimestamp: latestLocalTimestamp,
+    lastDeviceSyncAt: lastDeviceSyncAt,
     getCloudStatus: getCloudStatus,
+    getSyncStatus: getSyncStatus,
     pushToCloud: pushToCloud,
     pullToLocal: pullToLocal,
     loadMeta: loadMeta,

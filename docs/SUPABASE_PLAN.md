@@ -440,3 +440,32 @@ confirm-before-overwrite dialogs, and env var names — all exactly as §17 left
 
 **Next step:** none required. Still Phase 1 only — no further phase without a separate go-ahead
 per §13.
+
+## 19. Cloud Sync reliability polish (2026-07-07)
+
+A reliability/clarity pass over Phase 1 (§17–§18). No new tables, no Storage, no background sync —
+wording, timestamp, and conflict-safety polish only, since cross-device use makes correctness and
+clarity more important than new features at this stage.
+
+**Added:**
+- `window.CloudSync.getSyncStatus()` — the single source of truth for the seven status states
+  (Local only, Signed out, Cloud ready, Local newer, Cloud newer, Synced, Sync error), used by both
+  the Quick Sync panel (Command Centre) and the Integrations Cloud Sync card so they can never
+  disagree. Replaces each surface's own copy of this logic, and splits the old single "Needs sync"
+  state into "Local newer" / "Cloud newer" so the user always sees which side is ahead before
+  choosing a direction.
+- `window.CloudSync.lastDeviceSyncAt()` — this device's own last successful push/pull, distinct
+  from the cloud row's `updated_at` (which may reflect a different device's last write). Shown on
+  the Integrations Real Cloud Sync section alongside "Last local save" and "Last cloud update"
+  (renamed from "Last cloud sync", which was actually the row's `updated_at`, not this device's).
+- `window.Backup.downloadExport()` — the Data & Backup export button's download logic, moved into
+  `backup-data.js` so it can be reused. Both Pull Cloud → This Device and a Sync Now that resolves
+  to a pull now offer (never force) exporting a backup first, on both the Quick Sync panel and the
+  Integrations Cloud Sync card. Skipped automatically when there's no local data to protect.
+
+**Unchanged:** the `life_os_state` table shape, RLS policies, and the underlying
+push/pull/sync-now/confirm-before-overwrite behaviour from §17–§18 — still manual, still
+button-triggered only, still never silently overwrites either side.
+
+**Next step:** none required. Still Phase 1 only — no further phase without a separate go-ahead
+per §13.

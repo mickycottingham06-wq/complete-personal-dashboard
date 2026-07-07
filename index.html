@@ -755,7 +755,7 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     <div class="qs-stats">
       <div class="qs-stat"><div class="v" id="qsSignedIn">—</div><div class="l">Account</div></div>
       <div class="qs-stat"><div class="v" id="qsLocalSave">—</div><div class="l">Last local save</div></div>
-      <div class="qs-stat"><div class="v" id="qsCloudSync">—</div><div class="l">Last cloud sync</div></div>
+      <div class="qs-stat"><div class="v" id="qsCloudSync">—</div><div class="l">Last cloud update</div></div>
       <div class="qs-stat"><div class="v" id="qsStatus">—</div><div class="l">Status</div></div>
     </div>
 
@@ -1394,20 +1394,13 @@ button.quick-action { font-family: inherit; cursor: pointer; }
   }
   function clearQsMsg() { $('qsErrBox').style.display = 'none'; $('qsMsgBox').style.display = 'none'; }
 
-  // Six states, same source (window.CloudSync, which itself reads
-  // SupabaseFoundation/SupabaseAuth) that Integrations' Cloud Sync card and
-  // Account card use — so this indicator can never disagree with them.
+  // Seven states, computed by window.CloudSync.getSyncStatus() — the same
+  // helper the Integrations Cloud Sync card uses, so this indicator can
+  // never disagree with it: Local only, Signed out, Cloud ready, Local
+  // newer, Cloud newer, Synced, Sync error.
   async function computeStatus() {
-    if (!window.CloudSync || !window.CloudSync.isConfigured()) return { code: 'local-only', label: 'Local only' };
-    if (!window.CloudSync.isSignedIn()) return { code: 'signed-out', label: 'Signed out' };
-    const meta = window.CloudSync.loadMeta();
-    if (meta.lastError) return { code: 'error', label: 'Error' };
-    const status = await window.CloudSync.getCloudStatus();
-    if (!status.ok) return { code: 'error', label: 'Error' };
-    if (!status.exists) return { code: 'cloud-ready', label: 'Cloud ready' };
-    const localTime = window.CloudSync.latestLocalTimestamp();
-    if (localTime && status.updatedAt && localTime !== status.updatedAt) return { code: 'needs-sync', label: 'Needs sync' };
-    return { code: 'synced', label: 'Synced' };
+    if (!window.CloudSync) return { code: 'local-only', label: 'Local only' };
+    return window.CloudSync.getSyncStatus();
   }
 
   async function renderIndicator() {
@@ -1416,7 +1409,7 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     syncEl.classList.remove('ready', 'synced', 'needs', 'err');
     if (status.code === 'cloud-ready') syncEl.classList.add('ready');
     else if (status.code === 'synced') syncEl.classList.add('synced');
-    else if (status.code === 'needs-sync') syncEl.classList.add('needs');
+    else if (status.code === 'local-newer' || status.code === 'cloud-newer') syncEl.classList.add('needs');
     else if (status.code === 'error') syncEl.classList.add('err');
     return status;
   }
@@ -1460,13 +1453,22 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     renderPanel();
   });
 
+  // Offers (never forces) a backup export before an action that overwrites
+  // one side. Only asked when there's local data worth protecting.
+  function offerBackupFirst() {
+    if (!window.CloudSync.hasLocalData()) return;
+    if (window.confirm('Recommended: export a backup of this device\'s current data first?\n\nExport backup now?')) {
+      window.Backup.downloadExport();
+    }
+  }
+
   $('qsPushBtn').addEventListener('click', async () => {
     const status = await window.CloudSync.getCloudStatus();
     const cloudTime = status.exists ? fmtTime(status.updatedAt) : 'no cloud data yet';
     const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
     const confirmed = window.confirm(
       'Push this device\'s Local Storage data to the cloud?\n\n' +
-      'Local last update: ' + localTime + '\nCloud last sync: ' + cloudTime + '\n\n' +
+      'Local last save: ' + localTime + '\nCloud last update: ' + cloudTime + '\n\n' +
       'This will OVERWRITE your cloud data for this account. Continue?'
     );
     if (!confirmed) return;
@@ -1487,10 +1489,11 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     if (!status.exists) { showQsMsg('No cloud data found for this account yet — push from a device first.', true); return; }
     const cloudTime = fmtTime(status.updatedAt);
     const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
+    offerBackupFirst();
     const confirmed = window.confirm(
       'Pull cloud data down to this device?\n\n' +
-      'Cloud last sync: ' + cloudTime + '\nLocal last update: ' + localTime + '\n\n' +
-      'This will OVERWRITE this device\'s Local Storage. A backup export is recommended first (Integrations → Data & Backup) if you\'re unsure. Continue?'
+      'Cloud last update: ' + cloudTime + '\nLocal last save: ' + localTime + '\n\n' +
+      'This will OVERWRITE this device\'s Local Storage. Continue?'
     );
     if (!confirmed) return;
     $('qsPullBtn').disabled = true;
@@ -1524,9 +1527,10 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     // Timestamps disagree — ask the user which direction rather than guessing.
     const localNewer = localTime > cloudTime;
     const direction = localNewer ? 'push (local → cloud)' : 'pull (cloud → local)';
+    if (!localNewer) offerBackupFirst();
     const confirmed = window.confirm(
-      'Sync now: local and cloud data differ. Recommended: ' + direction + '.\n\n' +
-      'Local last update: ' + fmtTime(localTime) + '\nCloud last sync: ' + fmtTime(cloudTime) + '\n\n' +
+      'Sync now: ' + (localNewer ? 'Local newer' : 'Cloud newer') + '. Recommended: ' + direction + '.\n\n' +
+      'Local last save: ' + fmtTime(localTime) + '\nCloud last update: ' + fmtTime(cloudTime) + '\n\n' +
       (localNewer
         ? 'This will OVERWRITE your cloud data with this device\'s Local Storage.'
         : 'This will OVERWRITE this device\'s Local Storage with your cloud data.') +

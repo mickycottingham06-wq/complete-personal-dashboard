@@ -503,6 +503,41 @@ Supabase Cloud Sync Phase 1 — setup docs, SQL file, and sync error visibility
 
 ---
 
+## 2026-07-07
+
+### Cloud Sync reliability polish — status wording, timestamps, conflict/backup safety
+
+Unified the sync-status wording used by the Command Centre Quick Sync panel and the Integrations
+Cloud Sync card behind one new helper, `window.CloudSync.getSyncStatus()`, so both surfaces always
+agree: Local only, Signed out, Cloud ready, Local newer, Cloud newer, Synced, Sync error (the
+previous single "Needs sync" state now distinguishes which side is newer, and "Error" reads
+"Sync error").
+
+Added `window.CloudSync.lastDeviceSyncAt()` (this device's own last successful push/pull) and
+surfaced it alongside the existing "Last local save" and "Last cloud update" (renamed from the
+ambiguous "Last cloud sync", which was actually the cloud row's own `updated_at`) on the
+Integrations Real Cloud Sync section.
+
+Added `window.Backup.downloadExport()` (the existing export-button logic moved into
+`backup-data.js` so it's reusable) and wired an "export a backup first?" prompt before Pull Cloud →
+This Device and before a Sync Now that resolves to a pull, on both the Quick Sync panel and the
+Integrations Cloud Sync card — offered, never forced, and skipped when there's no local data to
+protect.
+
+No table/schema change, no automatic/background sync added, no new sections — polish only, per
+`docs/SUPABASE_PLAN.md` §19.
+
+Files affected:
+
+scripts/cloud-sync.js, scripts/backup-data.js, index.html, pages/integrations.html,
+docs/SUPABASE_PLAN.md
+
+Commit:
+
+Cloud Sync reliability polish — consistent status wording, extra timestamps, backup-before-pull
+
+---
+
 ## Future Entries
 
 Example

@@ -113,6 +113,29 @@
     return state;
   }
 
+  // Downloads the full export as a JSON file and marks the backup done.
+  // Shared by the Data & Backup export button and the "export a backup
+  // first" prompts shown before Pull Cloud → This Device overwrites Local
+  // Storage — one download implementation instead of duplicating it.
+  function downloadExport() {
+    try {
+      var payload = buildExport();
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'life-os-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      markBackupDone();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: 'Export failed — please try again.' };
+    }
+  }
+
   window.Backup = {
     KEY: KEY,
     DATA_VERSION: DATA_VERSION,
@@ -121,6 +144,7 @@
     save: save,
     setField: setField,
     buildExport: buildExport,
+    downloadExport: downloadExport,
     validate: validate,
     apply: apply,
     markBackupDone: markBackupDone,

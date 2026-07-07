@@ -411,8 +411,12 @@ body::after {
         <div class="int-stat"><div class="v" id="csLocalActive">—</div><div class="l">Local Storage</div></div>
       </div>
       <div class="int-stats-2">
-        <div class="int-stat"><div class="v" id="csLocalUpdated">—</div><div class="l">Last local update</div></div>
-        <div class="int-stat"><div class="v" id="csCloudUpdated">—</div><div class="l">Last cloud sync</div></div>
+        <div class="int-stat"><div class="v" id="csLocalUpdated">—</div><div class="l">Last local save</div></div>
+        <div class="int-stat"><div class="v" id="csCloudUpdated">—</div><div class="l">Last cloud update</div></div>
+      </div>
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="csDeviceSync">—</div><div class="l">This device's last sync</div></div>
+        <div class="int-stat"><div class="v" id="csStatus">—</div><div class="l">Status</div></div>
       </div>
 
       <div class="int-err-box" id="csErrBox" style="display:none"></div>
@@ -717,6 +721,7 @@ body::after {
     $('csSignedIn').textContent = authState.user ? (authState.user.email || authState.user.id) : 'Not signed in';
     $('csLocalActive').textContent = window.CloudSync.hasLocalData() ? 'Active' : 'Empty';
     $('csLocalUpdated').textContent = fmtTime(window.CloudSync.latestLocalTimestamp());
+    $('csDeviceSync').textContent = fmtTime(window.CloudSync.lastDeviceSyncAt());
 
     // Surfaces the last push/pull failure even after a reload, not just in
     // the moment it happened, so a sync error is never silently forgotten.
@@ -727,6 +732,11 @@ body::after {
     $('csPushBtn').disabled = !canUse;
     $('csPullBtn').disabled = !canUse;
     $('csSyncBtn').disabled = !canUse;
+
+    // Same status wording/logic as the Command Centre Quick Sync panel
+    // (window.CloudSync.getSyncStatus()) so the two can never disagree.
+    const syncStatus = await window.CloudSync.getSyncStatus();
+    $('csStatus').textContent = syncStatus.label;
 
     if (!window.CloudSync.isConfigured()) { $('csCloudUpdated').textContent = 'Not configured'; return; }
     if (!authState.user) { $('csCloudUpdated').textContent = 'Sign in to check'; return; }
@@ -742,13 +752,23 @@ body::after {
     renderCloudSyncReal();
   });
 
+  // Offers (never forces) a backup export before an action that overwrites
+  // one side. Only asked when there's local data worth protecting.
+  function offerBackupFirst() {
+    if (!window.CloudSync.hasLocalData()) return;
+    if (window.confirm('Recommended: export a backup of this device\'s current data first?\n\nExport backup now?')) {
+      window.Backup.downloadExport();
+      renderBackup();
+    }
+  }
+
   $('csPushBtn').addEventListener('click', async () => {
     const status = await window.CloudSync.getCloudStatus();
     const cloudTime = status.exists ? fmtTime(status.updatedAt) : 'no cloud data yet';
     const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
     const confirmed = window.confirm(
       'Push this device\'s Local Storage data to the cloud?\n\n' +
-      'Local last update: ' + localTime + '\nCloud last sync: ' + cloudTime + '\n\n' +
+      'Local last save: ' + localTime + '\nCloud last update: ' + cloudTime + '\n\n' +
       'This will OVERWRITE your cloud data for this account. Consider exporting a backup above first. Continue?'
     );
     if (!confirmed) return;
@@ -769,10 +789,11 @@ body::after {
     if (!status.exists) { showCsMsg('No cloud data found for this account yet — push from a device first.', true); return; }
     const cloudTime = fmtTime(status.updatedAt);
     const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
+    offerBackupFirst();
     const confirmed = window.confirm(
       'Pull cloud data down to this device?\n\n' +
-      'Cloud last sync: ' + cloudTime + '\nLocal last update: ' + localTime + '\n\n' +
-      'This will OVERWRITE this device\'s Local Storage. Export a backup above first if you\'re unsure. Continue?'
+      'Cloud last update: ' + cloudTime + '\nLocal last save: ' + localTime + '\n\n' +
+      'This will OVERWRITE this device\'s Local Storage. Continue?'
     );
     if (!confirmed) return;
     $('csPullBtn').disabled = true;
@@ -803,13 +824,14 @@ body::after {
     const cloudTime = status.updatedAt;
     const localNewer = !!(localTime && (!cloudTime || localTime > cloudTime));
     const direction = localNewer ? 'push (local → cloud)' : 'pull (cloud → local)';
+    if (!localNewer) offerBackupFirst();
     const confirmed = window.confirm(
-      'Sync now compares timestamps and recommends: ' + direction + '.\n\n' +
-      'Local last update: ' + fmtTime(localTime) + '\nCloud last sync: ' + fmtTime(cloudTime) + '\n\n' +
+      'Sync now: ' + (localNewer ? 'Local newer' : 'Cloud newer') + '. Recommended: ' + direction + '.\n\n' +
+      'Local last save: ' + fmtTime(localTime) + '\nCloud last update: ' + fmtTime(cloudTime) + '\n\n' +
       (localNewer
         ? 'This will OVERWRITE your cloud data with this device\'s Local Storage.'
         : 'This will OVERWRITE this device\'s Local Storage with your cloud data.') +
-      ' Export a backup above first if you\'re unsure. Continue with ' + direction + '?'
+      ' Continue with ' + direction + '?'
     );
     if (!confirmed) return;
     $('csSyncBtn').disabled = true;
@@ -867,23 +889,10 @@ body::after {
     });
   }
   $('bkExportBtn').addEventListener('click', () => {
-    try {
-      const payload = window.Backup.buildExport();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'life-os-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      window.Backup.markBackupDone();
-      renderBackup();
-      showBkMsg('Backup exported — check your downloads.', false);
-    } catch (e) {
-      showBkMsg('Export failed — please try again.', true);
-    }
+    const result = window.Backup.downloadExport();
+    renderBackup();
+    if (result.ok) showBkMsg('Backup exported — check your downloads.', false);
+    else showBkMsg(result.error, true);
   });
   $('bkImportBtn').addEventListener('click', () => $('bkFileInput').click());
   $('bkFileInput').addEventListener('change', (e) => {
