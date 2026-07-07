@@ -16,6 +16,7 @@
 <script src="../scripts/google-calendar-service.js"></script>
 <script src="../scripts/backup-data.js"></script>
 <script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -366,7 +367,7 @@ body::after {
   </div>
 
   <!-- ===== CLOUD SYNC ===== -->
-  <div class="section">
+  <div class="section" id="cloud-sync">
     <div class="section-title">Cloud Sync</div>
     <div class="gm-card">
       <div class="int-card-head">
@@ -417,6 +418,9 @@ body::after {
       <div class="int-err-box" id="csErrBox" style="display:none"></div>
       <div class="bk-msg" id="csMsgBox" style="display:none"></div>
 
+      <div class="bk-btn-row">
+        <button class="int-sync-btn" id="csForceSaveBtn" type="button">💾 Force Local Save</button>
+      </div>
       <div class="bk-btn-row">
         <button class="int-sync-btn" id="csPushBtn" type="button" disabled>⬆ Push local → cloud</button>
         <button class="int-sync-btn" id="csPullBtn" type="button" disabled>⬇ Pull cloud → this device</button>
@@ -472,11 +476,13 @@ body::after {
   }
 
   let notesTimer = {};
+  let notesFlush = {};
   function autoSaveField(section, field, value) {
-    clearTimeout(notesTimer[section + field]);
-    notesTimer[section + field] = setTimeout(() => {
-      window.Integrations.setField(section, field, value);
-    }, 400);
+    const key = section + field;
+    clearTimeout(notesTimer[key]);
+    const commit = () => { window.Integrations.setField(section, field, value); delete notesFlush[key]; };
+    notesTimer[key] = setTimeout(commit, 400);
+    notesFlush[key] = commit;
   }
 
   /* ---------- Weather ---------- */
@@ -729,6 +735,13 @@ body::after {
     $('csCloudUpdated').textContent = status.exists ? fmtTime(status.updatedAt) : 'No cloud data yet';
   }
 
+  $('csForceSaveBtn').addEventListener('click', () => {
+    const result = window.ForceSave ? window.ForceSave.run() : { ok: true, timestamp: '' };
+    if (!result.ok) { showCsMsg(result.error, true); return; }
+    showCsMsg('Local save confirmed (' + fmtTime(result.timestamp) + ').', false);
+    renderCloudSyncReal();
+  });
+
   $('csPushBtn').addEventListener('click', async () => {
     const status = await window.CloudSync.getCloudStatus();
     const cloudTime = status.exists ? fmtTime(status.updatedAt) : 'no cloud data yet';
@@ -740,6 +753,11 @@ body::after {
     );
     if (!confirmed) return;
     $('csPushBtn').disabled = true;
+    // Force local save first so nothing typed a moment ago is missed.
+    if (window.ForceSave) {
+      const saved = window.ForceSave.run();
+      if (!saved.ok) { showCsMsg(saved.error, true); renderCloudSyncReal(); return; }
+    }
     const result = await window.CloudSync.pushToCloud();
     if (!result.ok) { showCsMsg(result.error, true); renderCloudSyncReal(); return; }
     showCsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
@@ -771,6 +789,10 @@ body::after {
       const confirmedFirst = window.confirm('No cloud data exists yet for this account. Push this device\'s Local Storage to the cloud now?');
       if (!confirmedFirst) return;
       $('csSyncBtn').disabled = true;
+      if (window.ForceSave) {
+        const saved = window.ForceSave.run();
+        if (!saved.ok) { showCsMsg(saved.error, true); renderCloudSyncReal(); return; }
+      }
       const pushResult = await window.CloudSync.pushToCloud();
       if (!pushResult.ok) { showCsMsg(pushResult.error, true); renderCloudSyncReal(); return; }
       showCsMsg('Pushed to cloud (' + (pushResult.keyCount || 0) + ' keys).', false);
@@ -791,6 +813,10 @@ body::after {
     );
     if (!confirmed) return;
     $('csSyncBtn').disabled = true;
+    if (localNewer && window.ForceSave) {
+      const saved = window.ForceSave.run();
+      if (!saved.ok) { showCsMsg(saved.error, true); renderCloudSyncReal(); return; }
+    }
     const result = localNewer ? await window.CloudSync.pushToCloud() : await window.CloudSync.pullToLocal();
     if (!result.ok) { showCsMsg(result.error, true); renderCloudSyncReal(); return; }
     if (localNewer) {
@@ -823,11 +849,23 @@ body::after {
     if (document.activeElement !== $('bkNotes')) $('bkNotes').value = b.backupNotes || '';
   }
   let bkNotesTimer = null;
+  let bkNotesFlush = null;
   $('bkNotes').addEventListener('input', (e) => {
     clearTimeout(bkNotesTimer);
     const v = e.target.value;
-    bkNotesTimer = setTimeout(() => window.Backup.setField('backupNotes', v), 400);
+    bkNotesFlush = () => window.Backup.setField('backupNotes', v);
+    bkNotesTimer = setTimeout(bkNotesFlush, 400);
   });
+
+  // Lets Force Local Save (this page's button, or the Command Centre quick
+  // sync panel) commit these debounced fields immediately instead of
+  // waiting out the 400ms timers.
+  if (window.ForceSave) {
+    window.ForceSave.registerFlush(() => {
+      Object.keys(notesFlush).forEach((k) => { clearTimeout(notesTimer[k]); notesFlush[k](); });
+      if (bkNotesFlush) { clearTimeout(bkNotesTimer); bkNotesFlush(); bkNotesFlush = null; }
+    });
+  }
   $('bkExportBtn').addEventListener('click', () => {
     try {
       const payload = window.Backup.buildExport();

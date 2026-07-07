@@ -12,6 +12,9 @@
 <script src="scripts/topbar.js" defer></script>
 <script src="scripts/supabase-status.js"></script>
 <script src="scripts/supabase-auth.js"></script>
+<script src="scripts/backup-data.js"></script>
+<script src="scripts/cloud-sync.js"></script>
+<script src="scripts/force-save.js"></script>
 <script src="scripts/daily-snapshot-data.js"></script>
 <script src="scripts/streaks-data.js"></script>
 <script src="scripts/business-data.js"></script>
@@ -160,6 +163,7 @@ body::after {
 }
 .quick-action:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 .quick-action:active { transform: scale(0.97); }
+button.quick-action { font-family: inherit; cursor: pointer; }
 
 /* ===== More sections — collapsed by default, native <details> so the
    secondary pages (Streaks, AI CEO, Hormone, Appearance, Life Stats,
@@ -192,6 +196,44 @@ body::after {
 .acct-indicator.signed-in { color: var(--success); }
 .acct-indicator.signed-in .dot { background: var(--success); box-shadow: 0 0 6px rgba(107,227,164,0.6); }
 .acct-indicator.configured .dot { background: var(--warning); }
+
+/* ===== Quick Sync indicator (top bar) ===== */
+.sync-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 11px; border-radius: 11px;
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+  font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--text-tertiary);
+  white-space: nowrap; cursor: pointer; transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sync-indicator:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.sync-indicator:active { transform: scale(0.96); }
+.sync-indicator .dot { width: 6px; height: 6px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
+.sync-indicator.ready .dot, .sync-indicator.synced .dot { background: var(--success); box-shadow: 0 0 6px rgba(107,227,164,0.6); }
+.sync-indicator.ready, .sync-indicator.synced { color: var(--success); }
+.sync-indicator.needs .dot { background: var(--warning); box-shadow: 0 0 6px rgba(242,192,99,0.5); }
+.sync-indicator.needs { color: var(--warning); }
+.sync-indicator.err .dot { background: var(--danger); box-shadow: 0 0 6px rgba(255,107,107,0.5); }
+.sync-indicator.err { color: var(--danger); }
+
+/* ===== Quick Sync panel ===== */
+.qs-stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; }
+.qs-stat { padding: 10px 12px; border-radius: 11px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); }
+.qs-stat .v { font-size: 13px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+.qs-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 4px; }
+.qs-btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.qs-btn {
+  flex: 1 1 auto; min-width: 140px; padding: 12px 13px; border-radius: 11px;
+  border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--text-secondary);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.qs-btn:hover:not(:disabled) { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.qs-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.qs-msg { background: rgba(107,227,164,0.08); border: 1px solid rgba(107,227,164,0.28); color: #6BE3A4; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 12px; }
+.qs-err { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.28); color: #FF8A8A; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 12px; }
+.qs-full-link { display: block; text-align: center; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
+.qs-full-link:hover { color: var(--text-primary); }
 .gear-btn {
   width: 42px; height: 42px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -273,6 +315,9 @@ body::after {
     <h1 class="dash-title">Command Centre</h1>
     <div class="hub-head-right">
       <span class="acct-indicator" id="acctIndicator" title="Account status"><span class="dot"></span><span class="txt">Local only</span></span>
+      <button class="sync-indicator" id="syncIndicator" type="button" title="Cloud sync status — click for quick sync">
+        <span class="dot"></span><span class="txt">Local only</span>
+      </button>
       <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
@@ -475,6 +520,7 @@ body::after {
         <a class="quick-action" href="pages/boxing-hq.html">Add training note</a>
         <a class="quick-action" href="pages/weekly-review.html">Open Weekly Review</a>
         <a class="quick-action" href="pages/ai-ceo.html">Open AI CEO</a>
+        <button class="quick-action" id="qaCloudSync" type="button">Save &amp; Sync</button>
       </div>
     </div>
   </div>
@@ -695,6 +741,42 @@ body::after {
   </div>
 </div>
 
+<!-- ===== Quick Sync — fast-access panel. Reuses window.CloudSync / window.Backup
+     / window.SupabaseAuth / window.ForceSave exactly as the full Cloud Sync
+     section on pages/integrations.html does; this is not a second sync system,
+     just a shorter path to the same actions. ===== -->
+<div class="modal-bg" id="quickSyncBg">
+  <div class="modal" role="dialog" aria-label="Quick sync">
+    <div class="modal-head">
+      <span class="modal-title">Quick Sync</span>
+      <button class="modal-close" id="quickSyncClose" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="qs-stats">
+      <div class="qs-stat"><div class="v" id="qsSignedIn">—</div><div class="l">Account</div></div>
+      <div class="qs-stat"><div class="v" id="qsLocalSave">—</div><div class="l">Last local save</div></div>
+      <div class="qs-stat"><div class="v" id="qsCloudSync">—</div><div class="l">Last cloud sync</div></div>
+      <div class="qs-stat"><div class="v" id="qsStatus">—</div><div class="l">Status</div></div>
+    </div>
+
+    <div class="qs-err" id="qsErrBox" style="display:none"></div>
+    <div class="qs-msg" id="qsMsgBox" style="display:none"></div>
+
+    <div class="qs-btn-row">
+      <button class="qs-btn" id="qsForceSaveBtn" type="button">💾 Force Local Save</button>
+    </div>
+    <div class="qs-btn-row">
+      <button class="qs-btn" id="qsPushBtn" type="button" disabled>⬆ Push Local → Cloud</button>
+      <button class="qs-btn" id="qsPullBtn" type="button" disabled>⬇ Pull Cloud → This Device</button>
+    </div>
+    <div class="qs-btn-row">
+      <button class="qs-btn" id="qsSyncBtn" type="button" disabled>⟳ Sync Now</button>
+    </div>
+
+    <a class="qs-full-link" id="qsFullLink" href="pages/integrations.html#cloud-sync">Open full Cloud Sync settings →</a>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -780,7 +862,16 @@ body::after {
   // Auto-save as the user edits, so nothing is lost if they close the
   // modal without pressing Save. Debounced so typing doesn't thrash storage.
   let autoSaveTimer = null;
-  function autoSave() { clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(save, 400); }
+  let autoSavePending = false;
+  function autoSave() { clearTimeout(autoSaveTimer); autoSavePending = true; autoSaveTimer = setTimeout(() => { autoSavePending = false; save(); }, 400); }
+
+  // Lets Force Local Save (Quick Sync panel, or the Integrations page) commit
+  // this pending edit immediately instead of waiting out the 400ms timer.
+  if (window.ForceSave) {
+    window.ForceSave.registerFlush(() => {
+      if (autoSavePending) { clearTimeout(autoSaveTimer); autoSavePending = false; save(); }
+    });
+  }
 
   /* ---------- open / close ---------- */
   function open() { populate(); renderWhoop(); $('settingsBg').classList.add('show'); syncWhoop(); }
@@ -1272,6 +1363,199 @@ body::after {
   } else {
     render({ configured: false });
   }
+})();
+</script>
+
+<!-- ===== Quick Sync — top bar indicator + fast-access panel. Reuses
+     window.CloudSync / window.Backup / window.SupabaseAuth / window.ForceSave
+     exactly as pages/integrations.html's Cloud Sync card does — same status
+     source, same push/pull/sync actions, same confirm-before-overwrite
+     safety. This is a shorter path to those actions, not a second system. ===== -->
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const syncEl = $('syncIndicator');
+  if (!syncEl) return;
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + ' min ago';
+    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+    return Math.floor(s / 86400) + ' d ago';
+  }
+
+  function showQsMsg(text, isError) {
+    const errBox = $('qsErrBox'), okBox = $('qsMsgBox');
+    if (isError) { errBox.style.display = ''; errBox.textContent = text; okBox.style.display = 'none'; }
+    else { okBox.style.display = ''; okBox.textContent = text; errBox.style.display = 'none'; }
+  }
+  function clearQsMsg() { $('qsErrBox').style.display = 'none'; $('qsMsgBox').style.display = 'none'; }
+
+  // Six states, same source (window.CloudSync, which itself reads
+  // SupabaseFoundation/SupabaseAuth) that Integrations' Cloud Sync card and
+  // Account card use — so this indicator can never disagree with them.
+  async function computeStatus() {
+    if (!window.CloudSync || !window.CloudSync.isConfigured()) return { code: 'local-only', label: 'Local only' };
+    if (!window.CloudSync.isSignedIn()) return { code: 'signed-out', label: 'Signed out' };
+    const meta = window.CloudSync.loadMeta();
+    if (meta.lastError) return { code: 'error', label: 'Error' };
+    const status = await window.CloudSync.getCloudStatus();
+    if (!status.ok) return { code: 'error', label: 'Error' };
+    if (!status.exists) return { code: 'cloud-ready', label: 'Cloud ready' };
+    const localTime = window.CloudSync.latestLocalTimestamp();
+    if (localTime && status.updatedAt && localTime !== status.updatedAt) return { code: 'needs-sync', label: 'Needs sync' };
+    return { code: 'synced', label: 'Synced' };
+  }
+
+  async function renderIndicator() {
+    const status = await computeStatus();
+    syncEl.querySelector('.txt').textContent = status.label;
+    syncEl.classList.remove('ready', 'synced', 'needs', 'err');
+    if (status.code === 'cloud-ready') syncEl.classList.add('ready');
+    else if (status.code === 'synced') syncEl.classList.add('synced');
+    else if (status.code === 'needs-sync') syncEl.classList.add('needs');
+    else if (status.code === 'error') syncEl.classList.add('err');
+    return status;
+  }
+
+  async function renderPanel() {
+    const authState = window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false, user: null };
+    $('qsSignedIn').textContent = authState.user ? (authState.user.email || authState.user.id) : (authState.configured ? 'Not signed in' : 'Not configured');
+    $('qsLocalSave').textContent = window.CloudSync ? fmtTime(window.CloudSync.latestLocalTimestamp()) : '—';
+
+    const canUse = !!(window.CloudSync && window.CloudSync.isAvailable());
+    $('qsPushBtn').disabled = !canUse;
+    $('qsPullBtn').disabled = !canUse;
+    $('qsSyncBtn').disabled = !canUse;
+
+    const status = await renderIndicator();
+    $('qsStatus').textContent = status.label;
+
+    if (!window.CloudSync || !window.CloudSync.isConfigured()) { $('qsCloudSync').textContent = 'Not configured'; return; }
+    if (!authState.user) { $('qsCloudSync').textContent = 'Sign in to check'; return; }
+    const cloudStatus = await window.CloudSync.getCloudStatus();
+    $('qsCloudSync').textContent = cloudStatus.ok ? (cloudStatus.exists ? fmtTime(cloudStatus.updatedAt) : 'No cloud data yet') : 'Error';
+
+    const meta = window.CloudSync.loadMeta();
+    if (meta.lastError) showQsMsg('Last sync error: ' + meta.lastError, true);
+  }
+
+  function openPanel() { clearQsMsg(); renderPanel(); $('quickSyncBg').classList.add('show'); }
+  function closePanel() { $('quickSyncBg').classList.remove('show'); }
+
+  syncEl.addEventListener('click', openPanel);
+  const qaBtn = $('qaCloudSync');
+  if (qaBtn) qaBtn.addEventListener('click', openPanel);
+  $('quickSyncClose').addEventListener('click', closePanel);
+  $('quickSyncBg').addEventListener('click', (e) => { if (e.target === $('quickSyncBg')) closePanel(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+  $('qsForceSaveBtn').addEventListener('click', () => {
+    const result = window.ForceSave ? window.ForceSave.run() : { ok: true, timestamp: '' };
+    if (!result.ok) { showQsMsg(result.error, true); return; }
+    showQsMsg('Local save confirmed (' + fmtTime(result.timestamp) + ').', false);
+    renderPanel();
+  });
+
+  $('qsPushBtn').addEventListener('click', async () => {
+    const status = await window.CloudSync.getCloudStatus();
+    const cloudTime = status.exists ? fmtTime(status.updatedAt) : 'no cloud data yet';
+    const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
+    const confirmed = window.confirm(
+      'Push this device\'s Local Storage data to the cloud?\n\n' +
+      'Local last update: ' + localTime + '\nCloud last sync: ' + cloudTime + '\n\n' +
+      'This will OVERWRITE your cloud data for this account. Continue?'
+    );
+    if (!confirmed) return;
+    $('qsPushBtn').disabled = true;
+    // Force local save first — this is the whole point of the quick panel.
+    if (window.ForceSave) {
+      const saved = window.ForceSave.run();
+      if (!saved.ok) { showQsMsg(saved.error, true); renderPanel(); return; }
+    }
+    const result = await window.CloudSync.pushToCloud();
+    if (!result.ok) { showQsMsg(result.error, true); renderPanel(); return; }
+    showQsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
+    renderPanel();
+  });
+
+  $('qsPullBtn').addEventListener('click', async () => {
+    const status = await window.CloudSync.getCloudStatus();
+    if (!status.exists) { showQsMsg('No cloud data found for this account yet — push from a device first.', true); return; }
+    const cloudTime = fmtTime(status.updatedAt);
+    const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
+    const confirmed = window.confirm(
+      'Pull cloud data down to this device?\n\n' +
+      'Cloud last sync: ' + cloudTime + '\nLocal last update: ' + localTime + '\n\n' +
+      'This will OVERWRITE this device\'s Local Storage. A backup export is recommended first (Integrations → Data & Backup) if you\'re unsure. Continue?'
+    );
+    if (!confirmed) return;
+    $('qsPullBtn').disabled = true;
+    const result = await window.CloudSync.pullToLocal();
+    if (!result.ok) { showQsMsg(result.error, true); renderPanel(); return; }
+    showQsMsg('Pulled from cloud (' + (result.keyCount || 0) + ' keys). Reloading…', false);
+    setTimeout(() => window.location.reload(), 900);
+  });
+
+  $('qsSyncBtn').addEventListener('click', async () => {
+    const status = await window.CloudSync.getCloudStatus();
+    if (!status.ok) { showQsMsg(status.error || 'Could not reach Supabase.', true); return; }
+    if (!status.exists) {
+      const confirmedFirst = window.confirm('No cloud data exists yet for this account. Push this device\'s Local Storage to the cloud now?');
+      if (!confirmedFirst) return;
+      $('qsSyncBtn').disabled = true;
+      if (window.ForceSave) {
+        const saved = window.ForceSave.run();
+        if (!saved.ok) { showQsMsg(saved.error, true); renderPanel(); return; }
+      }
+      const pushResult = await window.CloudSync.pushToCloud();
+      if (!pushResult.ok) { showQsMsg(pushResult.error, true); renderPanel(); return; }
+      showQsMsg('Pushed to cloud (' + (pushResult.keyCount || 0) + ' keys).', false);
+      renderPanel();
+      return;
+    }
+    const localTime = window.CloudSync.latestLocalTimestamp();
+    const cloudTime = status.updatedAt;
+    if (!localTime || !cloudTime || localTime === cloudTime) { showQsMsg('Already in sync.', false); return; }
+
+    // Timestamps disagree — ask the user which direction rather than guessing.
+    const localNewer = localTime > cloudTime;
+    const direction = localNewer ? 'push (local → cloud)' : 'pull (cloud → local)';
+    const confirmed = window.confirm(
+      'Sync now: local and cloud data differ. Recommended: ' + direction + '.\n\n' +
+      'Local last update: ' + fmtTime(localTime) + '\nCloud last sync: ' + fmtTime(cloudTime) + '\n\n' +
+      (localNewer
+        ? 'This will OVERWRITE your cloud data with this device\'s Local Storage.'
+        : 'This will OVERWRITE this device\'s Local Storage with your cloud data.') +
+      ' Continue with ' + direction + '? Cancel to decide later from full Cloud Sync settings.'
+    );
+    if (!confirmed) return;
+    $('qsSyncBtn').disabled = true;
+    if (localNewer && window.ForceSave) {
+      const saved = window.ForceSave.run();
+      if (!saved.ok) { showQsMsg(saved.error, true); renderPanel(); return; }
+    }
+    const result = localNewer ? await window.CloudSync.pushToCloud() : await window.CloudSync.pullToLocal();
+    if (!result.ok) { showQsMsg(result.error, true); renderPanel(); return; }
+    if (localNewer) {
+      showQsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
+      renderPanel();
+    } else {
+      showQsMsg('Pulled from cloud (' + (result.keyCount || 0) + ' keys). Reloading…', false);
+      setTimeout(() => window.location.reload(), 900);
+    }
+  });
+
+  if (window.SupabaseAuth) {
+    window.SupabaseAuth.subscribe(() => { renderIndicator(); });
+  } else {
+    renderIndicator();
+  }
+  // Cloud status can go stale while the page sits open — refresh periodically.
+  setInterval(renderIndicator, 60 * 1000);
 })();
 </script>
 </body>
