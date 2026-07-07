@@ -1026,9 +1026,11 @@ Owns **no localStorage key of its own** — a pure read/compute layer, `scripts/
 
 ```
 {
-  todayFocus: string,      // one clear focus, priority order: urgent goal deadline (<=3 days) >
-                            // health/recovery (poor WHOOP-style recovery or high stress) >
-                            // business/revenue > training > goals/habits
+  todayFocus: string,      // one broad theme for the day (not the exact businessTask/trainingTask/
+                            // goalAction wording, to avoid duplicating Top 3 Priorities), priority
+                            // order: urgent goal deadline (<=3 days) > health/recovery (poor
+                            // WHOOP-style recovery or high stress) > business/revenue > training >
+                            // goals/habits
   businessTask: string,    // highest-priority active window.Business project, else currentFocus, else todayTask
   trainingTask: string,    // weekly target (boxing/runs/strength) furthest behind, else nextSessionPlan, else trainingPhase
   goalAction: string,      // first incomplete action from the highest-priority / nearest-deadline active goal

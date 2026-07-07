@@ -148,7 +148,10 @@
   }
 
   // Priority order: urgent deadlines > health/recovery > business/revenue
-  // > training > goals/habits, per docs/AI_ASSISTANT_BEHAVIOUR.md.
+  // > training > goals/habits, per docs/AI_ASSISTANT_BEHAVIOUR.md. Returns a
+  // broad theme for the day rather than the exact businessTask/trainingTask/
+  // goalAction wording, since those already fill Top 3 Priorities — repeating
+  // them verbatim here made Suggested Today read as duplicated.
   function computeTodayFocus(ctx) {
     if (ctx.urgentGoal) {
       return 'Deadline: ' + (ctx.urgentGoal.goal.title || 'goal').trim() + ' — ' + ctx.urgentGoal.days + ' day' + (ctx.urgentGoal.days === 1 ? '' : 's') + ' left';
@@ -156,13 +159,11 @@
     if (ctx.health) {
       var poorRecovery = Number(ctx.health.recoveryScore) > 0 && Number(ctx.health.recoveryScore) < 33;
       var highStress = Number(ctx.health.stressLevel) >= 8;
-      if (poorRecovery || highStress) {
-        return ctx.healthReminder ? 'Recovery first — ' + ctx.healthReminder : 'Prioritise recovery today';
-      }
+      if (poorRecovery || highStress) return 'Protect recovery and complete training';
     }
-    if (ctx.businessTask) return ctx.businessTask;
-    if (ctx.trainingTask) return ctx.trainingTask;
-    if (ctx.goalAction) return ctx.goalAction;
+    if (ctx.businessTask) return 'Move business forward today';
+    if (ctx.trainingTask) return 'Protect recovery and complete training';
+    if (ctx.goalAction) return 'Move your goal forward today';
     return '';
   }
 

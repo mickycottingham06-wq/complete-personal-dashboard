@@ -610,6 +610,29 @@ Add Daily Guidance Engine v1 — deterministic suggested daily plan
 
 ---
 
+## 2026-07-07 (3)
+
+### Daily Guidance Engine — todayFocus as a theme, not a duplicate task
+
+`computeTodayFocus()` in `scripts/daily-guidance-data.js` returned the exact `businessTask` /
+`trainingTask` / `goalAction` string, so "Focus" repeated whichever suggestion also landed in Top 3
+Priority #1 verbatim. It now returns a short theme instead: "Move business forward today" (business
+highest-value), "Protect recovery and complete training" (health/recovery flagged, or training is the
+highest-value fallback), "Move your goal forward today" (goal action fallback). The urgent-goal-deadline
+case was already theme-like ("Deadline: <goal> — N days left") and is unchanged. No data shape, storage,
+or fill-only-when-blank behaviour changed — `applyDefaultsToSnapshot()` and same-day-refresh protection
+of user edits are untouched.
+
+Files affected:
+
+scripts/daily-guidance-data.js, docs/DATA_SCHEMA.md
+
+Commit:
+
+Polish Daily Guidance todayFocus to a theme, avoiding duplicate wording with Top 3 Priorities
+
+---
+
 ## Future Entries
 
 Example
