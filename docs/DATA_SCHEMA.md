@@ -242,6 +242,7 @@ health: {
   morningRoutine: [ { id: string, label: string, completed: boolean } ],
   eveningRoutine: [ { id: string, label: string, completed: boolean } ],
   supplements: [ { id: string, name: string, taken: boolean } ],
+  checklistDate: string,          // YYYY-MM-DD, 6 AM rollover date-key — see below
   recoveryNotes: string,
   healthNotes: string
 }
@@ -253,7 +254,9 @@ Default evening routine: No phone before bed, Prepare for tomorrow, Stretch/mobi
 
 Default supplements checklist: Creatine, Electrolytes, Magnesium, Vitamin D, Omega 3.
 
-`window.Health.load()` returns stored health data, filling in any fields missing against the default shape (upgrades older saved data). `window.Health.save(h)` persists changes. `window.Health.uid()` generates ids for new checklist rows.
+`morningRoutine`, `eveningRoutine`, and `supplements` behave as daily-instance checklists, same 6 AM rollover convention as Daily Snapshot (`scripts/daily-snapshot-data.js`): the item list (id/label/name) is a persistent template that the user edits via add/delete, but the `completed`/`taken` flags reset to `false` automatically once `checklistDate` falls behind the current active date (`window.Health.activeDateKey()`). Old saved data with no `checklistDate` is stamped with today's date on first load without wiping existing ticks, so the upgrade never loses in-progress state.
+
+`window.Health.load()` returns stored health data, filling in any fields missing against the default shape (upgrades older saved data) and performs the daily rollover described above. `window.Health.save(h)` persists changes. `window.Health.uid()` generates ids for new checklist rows. `window.Health.activeDateKey()` returns today's rollover date-key.
 
 This `supplements` checklist is a separate, simpler daily tick-list from the pre-existing "Daily Stack" system further down `pages/health.html` (localStorage keys `stack:items` / `stack:taken:<date>`, with dosing, timing windows, and search) — the two are not merged, since Daily Stack already owns a richer supplement-ordering workflow. WHOOP integration and the water tracker iframe on the same page are also untouched and remain their own systems.
 
@@ -287,6 +290,7 @@ hormones: {
   lifestyleFoundations: [ { id: string, label: string, completed: boolean } ],
   supplements: [ { id: string, name: string, taken: boolean } ],
   bloodwork: [ { id: string, marker: string, value: string, unit: string, date: string, notes: string } ],
+  checklistDate: string,          // YYYY-MM-DD, 6 AM rollover date-key — see below
   weeklyNotes: string,
   redFlagNotes: string
 }
@@ -298,7 +302,9 @@ Default supplements checklist: Vitamin D, Magnesium, Zinc, Omega 3, Creatine, El
 
 Default bloodwork markers (placeholders only, values left blank for the user to fill in from their own labs): Total Testosterone, Free Testosterone, SHBG, LH, FSH, Oestradiol, Prolactin, Vitamin D, Thyroid Markers, Cortisol.
 
-`window.Hormones.load()` returns stored hormone data, filling in any fields missing against the default shape (upgrades older saved data). `window.Hormones.save(h)` persists changes. `window.Hormones.uid()` generates ids for new checklist/bloodwork rows.
+`lifestyleFoundations` and `supplements` behave as daily-instance checklists, same 6 AM rollover convention as Daily Snapshot (`scripts/daily-snapshot-data.js`): the item list (id/label/name) is a persistent template, but the `completed`/`taken` flags reset to `false` automatically once `checklistDate` falls behind the current active date (`window.Hormones.activeDateKey()`). Old saved data with no `checklistDate` is stamped with today's date on first load without wiping existing ticks. `bloodwork` is unaffected — lab entries persist as normal history, never reset.
+
+`window.Hormones.load()` returns stored hormone data, filling in any fields missing against the default shape (upgrades older saved data) and performs the daily rollover described above. `window.Hormones.save(h)` persists changes. `window.Hormones.uid()` generates ids for new checklist/bloodwork rows. `window.Hormones.activeDateKey()` returns today's rollover date-key.
 
 The full interactive UI lives at `pages/hormone-optimisation.html`. index.html shows a compact preview card (hormone score, energy level, sleep consistency, stress level) that links to it.
 
@@ -329,6 +335,7 @@ appearance: {
   styleNotes: string,
   skincareRoutine: [ { id: string, label: string, completed: boolean } ],
   groomingRoutine: [ { id: string, label: string, completed: boolean } ],
+  checklistDate: string,          // YYYY-MM-DD, 6 AM rollover date-key — see below
   progressPhotos: [
     { id: string, date: string, label: string, notes: string, imageUrl: string }
   ],
@@ -341,9 +348,11 @@ Default skincare routine: Cleanse, Moisturise, SPF, Evening cleanse, Spot treatm
 
 Default grooming routine: Haircut maintained, Beard/facial hair maintained, Eyebrows tidy, Nails clean, Clothes prepared, Fragrance, Posture check.
 
+`skincareRoutine` and `groomingRoutine` behave as daily-instance checklists, same 6 AM rollover convention as Daily Snapshot (`scripts/daily-snapshot-data.js`): the item list (id/label) is a persistent template, but the `completed` flags reset to `false` automatically once `checklistDate` falls behind the current active date (`window.Appearance.activeDateKey()`). Old saved data with no `checklistDate` is stamped with today's date on first load without wiping existing ticks.
+
 `progressPhotos` is metadata only — date, label, notes, and an optional `imageUrl` reference string. No base64 or binary image data is ever written to `localStorage`; the UI renders a placeholder "image slot" instead of an actual photo. Full AI photo analysis and real image storage are a future integration and are not implemented.
 
-`window.Appearance.load()` returns stored appearance data, filling in any fields missing against the default shape (upgrades older saved data). `window.Appearance.save(a)` persists changes. `window.Appearance.uid()` generates ids for new checklist/photo rows.
+`window.Appearance.load()` returns stored appearance data, filling in any fields missing against the default shape (upgrades older saved data) and performs the daily rollover described above. `window.Appearance.save(a)` persists changes. `window.Appearance.uid()` generates ids for new checklist/photo rows. `window.Appearance.activeDateKey()` returns today's rollover date-key.
 
 The full interactive UI lives at `pages/appearance.html`. index.html shows a compact preview card (looks score, skin score, skincare completion %, grooming completion %, current improvement focus) that links to it.
 

@@ -56,6 +56,15 @@
   function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+  // Same 6 AM rollover convention used by Daily Snapshot (scripts/daily-snapshot-data.js)
+  // and the goals list (pages/main.html), so "today" means the same day everywhere.
+  function activeDateKey() {
+    var now = new Date();
+    var d = new Date(now);
+    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   function checklistFrom(labels) {
     return labels.map(function (label) { return { id: uid(), label: label, completed: false }; });
   }
@@ -86,9 +95,20 @@
       lifestyleFoundations: checklistFrom(DEFAULT_LIFESTYLE_FOUNDATIONS),
       supplements: supplementsFrom(DEFAULT_SUPPLEMENTS),
       bloodwork: bloodworkFrom(DEFAULT_BLOODWORK_MARKERS),
+      checklistDate: activeDateKey(),
       weeklyNotes: '',
       redFlagNotes: '',
     };
+  }
+
+  // Checklist item labels are the reusable template (id + label/name persist
+  // forever, including user-added/deleted items). Only the tick state
+  // (completed/taken) is a daily instance — this resets it in place once the
+  // stored checklistDate falls behind "today", same rollover moment Daily
+  // Snapshot uses. Templates themselves are never touched.
+  function rolloverChecklists(h) {
+    h.lifestyleFoundations.forEach(function (i) { i.completed = false; });
+    h.supplements.forEach(function (i) { i.taken = false; });
   }
 
   // Reads hormone data, filling in any missing fields against the
@@ -96,11 +116,25 @@
   function load() {
     var h = loadJSON(KEY, null);
     if (!h) { h = defaultHormones(); saveJSON(KEY, h); return h; }
+    var hadDate = !!h.checklistDate;
     var d = defaultHormones();
     Object.keys(d).forEach(function (k) { if (!(k in h)) h[k] = d[k]; });
     if (!Array.isArray(h.lifestyleFoundations)) h.lifestyleFoundations = d.lifestyleFoundations;
     if (!Array.isArray(h.supplements)) h.supplements = d.supplements;
     if (!Array.isArray(h.bloodwork)) h.bloodwork = d.bloodwork;
+
+    var today = activeDateKey();
+    if (!hadDate) {
+      // Upgrading from before daily rollover existed — stamp today without
+      // wiping whatever is already ticked, so in-progress state isn't lost
+      // mid-upgrade. Normal daily reset takes over from tomorrow.
+      h.checklistDate = today;
+      saveJSON(KEY, h);
+    } else if (h.checklistDate !== today) {
+      rolloverChecklists(h);
+      h.checklistDate = today;
+      saveJSON(KEY, h);
+    }
     return h;
   }
 
@@ -112,6 +146,7 @@
     DEFAULT_SUPPLEMENTS: DEFAULT_SUPPLEMENTS,
     DEFAULT_BLOODWORK_MARKERS: DEFAULT_BLOODWORK_MARKERS,
     uid: uid,
+    activeDateKey: activeDateKey,
     load: load,
     save: save,
   };

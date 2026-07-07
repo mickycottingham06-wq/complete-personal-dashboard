@@ -538,6 +538,40 @@ Cloud Sync reliability polish — consistent status wording, extra timestamps, b
 
 ---
 
+## 2026-07-07
+
+### Daily-instance rollover for Health, Hormones, and Appearance checklists
+
+Foundation fix ahead of the Daily Guidance Engine: Health morning/evening routines and
+supplements, Hormone lifestyle foundations and supplements, and Appearance skincare/grooming
+routines behaved as permanent one-time checklists — once ticked, an item stayed ticked forever
+instead of resetting the next day.
+
+`scripts/health-data.js`, `scripts/hormone-data.js`, and `scripts/appearance-data.js` each gained
+a `checklistDate` field (same 6 AM rollover convention as `scripts/daily-snapshot-data.js` and the
+goals list) plus an `activeDateKey()` helper. On `load()`, if the stored `checklistDate` is behind
+today's active date, every `completed`/`taken` flag on that section's checklist arrays resets to
+`false` and `checklistDate` is bumped to today — the item list itself (id/label/name, including
+anything the user added or deleted) is never touched, so routines stay editable templates while
+their tick state becomes a genuine daily instance. Old saved data with no `checklistDate` is
+stamped with today's date on first load without wiping whatever was already ticked, so nobody's
+in-progress state was lost by this upgrade.
+
+No UI changes, no new localStorage keys, no schema owned by a different page — everything still
+lives inside the existing `health` / `hormones` / `appearance` keys, so the generic full-state
+backup export and Supabase Cloud Sync (Phase 1) pick it up automatically.
+
+Files affected:
+
+scripts/health-data.js, scripts/hormone-data.js, scripts/appearance-data.js,
+docs/DATA_SCHEMA.md
+
+Commit:
+
+Add daily-instance rollover to Health/Hormones/Appearance checklists
+
+---
+
 ## Future Entries
 
 Example
