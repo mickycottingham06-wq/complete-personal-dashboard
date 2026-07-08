@@ -53,6 +53,7 @@
   function defaultSnapshot() {
     return {
       date: activeDateKey(),
+      updatedAt: '', // ISO timestamp, stamped by save() — same pattern as core.lastUpdated, lets CloudSync.latestLocalTimestamp() detect edits (the plain YYYY-MM-DD `date` field doesn't match its ISO scan)
       // Morning plan
       mainFocus: '',
       successTarget: '',
@@ -174,7 +175,10 @@
     return snap;
   }
 
-  function save(snap) { saveJSON(SNAPSHOT_KEY, snap); }
+  function save(snap) {
+    snap.updatedAt = new Date().toISOString();
+    saveJSON(SNAPSHOT_KEY, snap);
+  }
 
   window.DailySnapshot = {
     KEY: SNAPSHOT_KEY,

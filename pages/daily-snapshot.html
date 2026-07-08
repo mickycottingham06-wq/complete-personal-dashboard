@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/force-save.js"></script>
 <script src="../scripts/daily-snapshot-data.js"></script>
 <script src="../scripts/streaks-data.js"></script>
 <script src="../scripts/heatmap-data.js"></script>
@@ -522,15 +523,15 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
     }
   }
 
+  let weightTimer = null;
   function bindWeight() {
     const el = $('snapWeight');
     el.value = snap.currentWeight ? String(snap.currentWeight) : '';
-    let timer = null;
     el.addEventListener('input', () => {
       const v = Number(el.value) || 0;
       snap.currentWeight = v;
-      clearTimeout(timer);
-      timer = setTimeout(save, 400);
+      clearTimeout(weightTimer);
+      weightTimer = setTimeout(save, 400);
     });
     el.addEventListener('change', () => {
       const v = Number(el.value) || 0;
@@ -573,6 +574,17 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
   bindRating('snapDayScore', 'snapDayScoreVal', 'dayScore', null);
   bindWeight();
   renderStatus();
+
+  // Lets Force Local Save (Quick Sync panel / Integrations button) commit
+  // pending debounced field and weight edits immediately instead of
+  // waiting out their 400ms timers before a cloud sync reads Local Storage.
+  if (window.ForceSave) {
+    window.ForceSave.registerFlush(() => {
+      clearTimeout(fieldTimer);
+      clearTimeout(weightTimer);
+      save();
+    });
+  }
 
   // Re-render if another tab / device changes today's snapshot.
   window.addEventListener('storage', () => {
