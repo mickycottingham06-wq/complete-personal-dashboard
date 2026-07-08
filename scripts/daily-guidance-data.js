@@ -11,6 +11,10 @@
 // energy or high stress) biases the focus theme toward recovery alongside
 // the existing live-Health recovery check. No AI, no NLP — plain field
 // reads and string joins only.
+// Hormones/Appearance are also read defensively for two extra low-priority
+// nudges (lifestyle-foundations/supplements completion, next improvement
+// focus/skincare/grooming) appended to `nudges` — never medical advice,
+// never surfacing above the core coaching signals above.
 // Same defensive pattern as window.LifeStats.computeStats() — every read
 // checks the section script is loaded first, falling back to '' / []
 // instead of throwing.
@@ -218,9 +222,42 @@
       plan.recommended.bedtime + ' (' + plan.recommended.hours + 'h target)';
   }
 
+  // Light, low-priority lifestyle call-out from today's Hormone
+  // Optimisation checklist — foundations before supplements, same
+  // waterfall as computeHealthReminder(). Never a medical signal, just a
+  // completion nudge. Returns '' once everything is done or no data yet.
+  function computeHormoneNudge(hm) {
+    if (!hm) return '';
+    var foundations = hm.lifestyleFoundations || [];
+    var foundationsLeft = foundations.filter(function (i) { return !i.completed; }).length;
+    if (foundations.length && foundationsLeft > 0) {
+      return 'Hormones: ' + (foundations.length - foundationsLeft) + '/' + foundations.length + ' lifestyle foundations done today';
+    }
+    var suppsLeft = (hm.supplements || []).filter(function (i) { return !i.taken; }).length;
+    if (suppsLeft > 0) {
+      return 'Hormones: ' + suppsLeft + ' supplement' + (suppsLeft === 1 ? '' : 's') + ' left today';
+    }
+    return '';
+  }
+
+  // Light, low-priority appearance call-out — prefers the user's own
+  // stated next improvement focus, else today's remaining skincare/
+  // grooming steps. Never diagnoses or treats anything.
+  function computeAppearanceNudge(ap) {
+    if (!ap) return '';
+    if (ap.nextImprovementFocus && ap.nextImprovementFocus.trim()) {
+      return 'Appearance focus: ' + ap.nextImprovementFocus.trim();
+    }
+    var skincareLeft = (ap.skincareRoutine || []).filter(function (i) { return !i.completed; }).length;
+    if (skincareLeft > 0) return 'Appearance: ' + skincareLeft + ' skincare step' + (skincareLeft === 1 ? '' : 's') + ' left today';
+    var groomingLeft = (ap.groomingRoutine || []).filter(function (i) { return !i.completed; }).length;
+    if (groomingLeft > 0) return 'Appearance: ' + groomingLeft + ' grooming step' + (groomingLeft === 1 ? '' : 's') + ' left today';
+    return '';
+  }
+
   // Short, simple call-outs already supported by existing data — never a
   // second source of truth, just a read of Daily Snapshot history / Streaks /
-  // Boxing HQ fight date / Health's Sleep Planner.
+  // Boxing HQ fight date / Health's Sleep Planner / Hormones / Appearance.
   function computeNudges(ctx) {
     var nudges = [];
 
@@ -246,6 +283,12 @@
         nudges.push('Fight camp: ' + days + ' day' + (days === 1 ? '' : 's') + ' to fight day');
       }
     }
+    // Hormones/Appearance — kept low-priority, pushed after the core
+    // coaching nudges above so they never crowd out something more urgent.
+    var hormoneNudge = computeHormoneNudge(ctx.hormones);
+    if (hormoneNudge) nudges.push(hormoneNudge);
+    var appearanceNudge = computeAppearanceNudge(ctx.appearance);
+    if (appearanceNudge) nudges.push(appearanceNudge);
     // Evening/late-night only, so it doesn't crowd out morning nudges —
     // pushed last so it never bumps a higher-priority nudge out of the
     // single-line preview on index.html.
@@ -262,6 +305,8 @@
     var boxing = (window.Boxing && window.Boxing.load) ? window.Boxing.load() : null;
     var goals = (window.Goals && window.Goals.load) ? window.Goals.load() : null;
     var health = (window.Health && window.Health.load) ? window.Health.load() : null;
+    var hormones = (window.Hormones && window.Hormones.load) ? window.Hormones.load() : null;
+    var appearance = (window.Appearance && window.Appearance.load) ? window.Appearance.load() : null;
 
     var lastDay = mostRecentHistoryDay();
 
@@ -282,7 +327,7 @@
       tomorrowFocus: lastDay && lastDay.tomorrowPriority && lastDay.tomorrowPriority.trim(),
     });
 
-    var nudges = computeNudges({ boxing: boxing, health: health, lastDay: lastDay });
+    var nudges = computeNudges({ boxing: boxing, health: health, lastDay: lastDay, hormones: hormones, appearance: appearance });
 
     return {
       todayFocus: todayFocus,

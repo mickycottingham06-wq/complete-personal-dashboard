@@ -7,10 +7,12 @@
 //
 // computePerformance() is the analytics half: it reads (never
 // duplicates) existing data from Streaks, Boxing, Business, Money,
-// Health, Goals and Heatmap to build a cross-Life-OS weekly
-// snapshot. Every read is defensive — if a connected section's
-// script isn't loaded, or has no data yet, computePerformance()
-// falls back to safe zero defaults instead of throwing.
+// Health, Goals, Heatmap, Hormones and Appearance to build a
+// cross-Life-OS weekly snapshot. Every read is defensive — if a
+// connected section's script isn't loaded, or has no data yet,
+// computePerformance() falls back to safe zero defaults instead of
+// throwing. Hormones/Appearance contribute lifestyle-foundations/
+// routine completion context only — no medical claims, no diagnosis.
 //
 // generatePrompt() is a pure function that builds copy-paste prompt
 // text from the current review + a live computePerformance() read.
@@ -24,8 +26,9 @@
 //
 // Include this with a plain (non-defer) <script src="..."> tag,
 // AFTER streaks-data.js / boxing-data.js / business-data.js /
-// money-data.js / health-data.js / goals-data.js / heatmap-data.js
-// and BEFORE any inline script that calls window.WeeklyReview.
+// money-data.js / health-data.js / hormone-data.js / appearance-data.js /
+// goals-data.js / heatmap-data.js and BEFORE any inline script that calls
+// window.WeeklyReview.
 // =============================================================
 (function () {
   'use strict';
@@ -128,6 +131,8 @@
       sleepHours: 0, recoveryScore: 0, energyLevel: 0, hydrationLiters: 0,
       goalsCount: 0, goalsAvgProgress: 0,
       heatmapWeekAvg: 0, heatmapCurrentStreak: 0,
+      hormoneScore: 0, hormoneFoundationsPct: 0,
+      appearanceScore: 0, appearanceRoutinePct: 0, appearanceFocus: '',
     };
 
     if (window.Streaks) {
@@ -184,6 +189,27 @@
       var hm = window.Heatmap.computeWeekStats();
       out.heatmapWeekAvg = Number(hm.weekAvg) || 0;
       out.heatmapCurrentStreak = Number(hm.currentStreak) || 0;
+    }
+
+    // Light, non-medical context only — lifestyle-foundations/routine
+    // completion, not clinical readings.
+    if (window.Hormones) {
+      var hor = window.Hormones.load();
+      out.hormoneScore = Number(hor.hormoneScore) || 0;
+      var foundations = hor.lifestyleFoundations || [];
+      out.hormoneFoundationsPct = foundations.length
+        ? Math.round((foundations.filter(function (i) { return i.completed; }).length / foundations.length) * 100)
+        : 0;
+    }
+
+    if (window.Appearance) {
+      var app = window.Appearance.load();
+      out.appearanceScore = Number(app.looksScore) || 0;
+      var routines = (app.skincareRoutine || []).concat(app.groomingRoutine || []);
+      out.appearanceRoutinePct = routines.length
+        ? Math.round((routines.filter(function (i) { return i.completed; }).length / routines.length) * 100)
+        : 0;
+      out.appearanceFocus = (app.nextImprovementFocus || '').trim();
     }
 
     return out;
@@ -281,6 +307,8 @@
     lines.push('- Health: last night\'s sleep ' + p.sleepHours + 'h, recovery ' + p.recoveryScore + ', energy ' + p.energyLevel + '/10, hydration ' + p.hydrationLiters + 'L');
     lines.push('- Goals: ' + p.goalsCount + ' active, average progress ' + p.goalsAvgProgress + '%');
     lines.push('- Heatmap weekly consistency average: ' + p.heatmapWeekAvg + '/100');
+    lines.push('- Hormones: score ' + p.hormoneScore + '/10, ' + p.hormoneFoundationsPct + '% lifestyle foundations done today');
+    lines.push('- Appearance: score ' + p.appearanceScore + '/10, ' + p.appearanceRoutinePct + '% skincare/grooming done today' + (p.appearanceFocus ? ', focus: ' + p.appearanceFocus : ''));
     lines.push('');
     lines.push('Next week:');
     lines.push('- Main focus: ' + (wr.nextWeekFocus || 'Not set'));

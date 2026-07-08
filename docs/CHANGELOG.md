@@ -1172,6 +1172,48 @@ Add Sleep Planner to Health HQ with Daily Guidance bedtime nudge
 
 ---
 
+## 2026-07-08 (5)
+
+### Hormones + Appearance cross-linking
+
+Hormone Optimisation and Appearance/Looks were isolated — nothing else in the Life OS read them.
+Added minimal, low-priority cross-links into Daily Guidance and Weekly Review, reading both
+sections defensively (never throwing if either has no data yet) and never owning or duplicating
+their data.
+
+`scripts/daily-guidance-data.js`'s `computeGuidance()` now also reads `window.Hormones.load()` and
+`window.Appearance.load()` and appends up to two short lines to the existing `nudges` array: a
+Hormones line from today's lifestyle-foundations/supplements checklist completion, and an
+Appearance line preferring `nextImprovementFocus` (falling back to remaining skincare/grooming
+steps). Both are pushed after the streak/fight-camp nudges and before the evening-only sleep
+nudge, so they stay low-priority and never crowd out a more urgent coaching signal or the single
+nudge shown on index.html. `todayFocus`/`businessTask`/`trainingTask`/`goalAction`/
+`healthReminder` are unchanged.
+
+`scripts/weekly-review-data.js`'s `computePerformance()` now also returns `hormoneScore`,
+`hormoneFoundationsPct`, `appearanceScore`, `appearanceRoutinePct`, `appearanceFocus`, rendered as
+two small badges at the bottom of the existing Performance card on `pages/weekly-review.html`
+(reusing the existing `.wr-badge` style — no new section, no redesign) and folded into
+`generatePrompt()`'s copy-paste performance snapshot.
+
+`hormone-data.js` / `appearance-data.js` are now also included on `pages/daily-snapshot.html` and
+`pages/weekly-review.html` (already included on index.html) so both pages can read them. No
+medical claims, no diagnosis, no AI API — completion counts and user-entered focus text only.
+Existing users upgrade safely: both scripts already fill missing fields against their default
+shape on load, and no field is ever overwritten. Sync is unaffected — no new localStorage keys,
+AutoSync/CloudSync/ForceSave/Backup files untouched.
+
+Files affected:
+
+scripts/daily-guidance-data.js, scripts/weekly-review-data.js, pages/daily-snapshot.html,
+pages/weekly-review.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add Hormones + Appearance cross-linking to Daily Guidance and Weekly Review
+
+---
+
 ## Future Entries
 
 Example

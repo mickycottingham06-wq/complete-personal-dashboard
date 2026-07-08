@@ -21,6 +21,8 @@
 <script src="../scripts/business-data.js"></script>
 <script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/health-data.js"></script>
+<script src="../scripts/hormone-data.js"></script>
+<script src="../scripts/appearance-data.js"></script>
 <script src="../scripts/goals-data.js"></script>
 <script src="../scripts/money-data.js"></script>
 <script src="../scripts/heatmap-data.js"></script>
@@ -310,6 +312,11 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
         <div class="wr-stat-tile"><div class="wr-stat-val" id="wrEnergy">0/10</div><div class="wr-stat-label">Energy</div></div>
         <div class="wr-stat-tile"><div class="wr-stat-val" id="wrHydration">0L</div><div class="wr-stat-label">Hydration</div></div>
       </div>
+
+      <div class="wr-badge-row" style="margin-top:16px">
+        <span class="wr-badge" id="wrHormones">Hormones —</span>
+        <span class="wr-badge" id="wrAppearance">Appearance —</span>
+      </div>
     </div>
   </div>
 
@@ -541,6 +548,9 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
     $('wrRecovery').textContent = fmtScore(p.recoveryScore, '');
     $('wrEnergy').textContent = fmtScore(p.energyLevel, '/10');
     $('wrHydration').textContent = fmtScore(p.hydrationLiters, 'L');
+
+    $('wrHormones').textContent = 'Hormones ' + p.hormoneScore + '/10 · ' + p.hormoneFoundationsPct + '% foundations today';
+    $('wrAppearance').textContent = 'Appearance ' + p.appearanceScore + '/10 · ' + p.appearanceRoutinePct + '% routines today';
   }
   renderPerformance();
 
