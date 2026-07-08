@@ -868,6 +868,36 @@ Actually wire up Auto Cloud Save default-on + compact Command Centre sign-in
 
 ---
 
+## 2026-07-08 (3)
+
+### Auto Cloud Save freshness fix — background push after edits
+
+Root cause: most section edits never write an ISO timestamp anywhere in Local Storage, so
+`CloudSync.latestLocalTimestamp()` (a scan for the max ISO timestamp across all stored values)
+stayed frozen after the first manual push. The cloud row's `updated_at` (wall-clock push time) then
+permanently outran it, so every later edit's `getSyncStatus()` read as `cloud-newer` and
+`attemptPush()` correctly refused to push over what looked like a newer cloud save — silently, and
+forever, until the next manual push.
+
+`auto-sync.js` now stamps `cloudSyncMeta.localChangedAt` (ISO string, via a newly-exposed
+`CloudSync.setMeta()`) on every meaningful edit, before the debounce; `latestLocalTimestamp()` now
+also checks that one field. `cloudSyncMeta` stays excluded from re-triggering itself and from the
+dedup signature, so no loop. Added `AutoSync` state field `lastSkipReason`, shown as a tooltip on
+the existing Auto Save tiles (Command Centre, Integrations) for debugging stalled pushes.
+
+Unchanged: cloud-newer conflict protection, dedup/in-flight/coalescing guards, manual sync, no
+auto-pull, no data-shape changes to any section.
+
+Files affected:
+
+scripts/cloud-sync.js, scripts/auto-sync.js, index.html, pages/integrations.html
+
+Commit:
+
+Fix Auto Cloud Save not pushing after edits (local freshness detection)
+
+---
+
 ## Future Entries
 
 Example

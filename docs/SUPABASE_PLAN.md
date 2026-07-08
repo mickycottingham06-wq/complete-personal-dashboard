@@ -539,3 +539,27 @@ them. No new Local Storage key, no Supabase schema change.
 
 **Next step:** none required. Still push-only background save — no auto-pull, no conflict
 auto-resolution, no further phase without a separate go-ahead per §13.
+
+## 22. Auto Cloud Save freshness fix (2026-07-08)
+
+Fixed the actual reason background push wasn't happening after edits: `CloudSync.getSyncStatus()`
+compares `latestLocalTimestamp()` (scans Local Storage for the max ISO timestamp found in any
+value) against the cloud row's `updated_at`. Most section edits (e.g. adding/checking/reordering a
+goal) never write an ISO timestamp anywhere, so after one manual push, `updated_at` (wall-clock push
+time) stayed ahead of any embedded data timestamp forever — every later edit still read as
+`cloud-newer`, and `attemptPush()` correctly refuses to push over what it believes is a newer cloud
+save, so it silently never pushed again.
+
+**Added:** `auto-sync.js`'s `markDirty()` now stamps `cloudSyncMeta.localChangedAt` (ISO string) via
+a newly-exposed `CloudSync.setMeta()` on every meaningful edit, before arming the debounce.
+`cloudSyncMeta` was already in `EXCLUDE_KEYS`, so this write never re-triggers itself.
+`latestLocalTimestamp()` now also considers this one field (still skipping the rest of
+`cloudSyncMeta` — `lastPushedAt`/`lastPulledAt`/`lastErrorAt` are sync bookkeeping, not fresh data,
+and including them would cause false positives right after a push or pull). `AutoSync` state also
+gained `lastSkipReason`, surfaced as a `title` tooltip on the existing Auto Save status tiles
+(Command Centre Quick Sync, Integrations Cloud Sync), so a stalled push is debuggable in place.
+
+**Unchanged:** cloud-newer conflict protection (still the only push gate), dedup/in-flight/coalescing
+guards, manual push/pull/sync, no auto-pull, no data shape changes to any section.
+
+**Next step:** none required. Still Phase 1, still push-only.

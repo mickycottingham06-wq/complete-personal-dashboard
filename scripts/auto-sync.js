@@ -81,7 +81,11 @@
     'action-needed': 'Action needed',
   };
 
-  var state = { status: 'not-configured', label: LABELS['not-configured'], reason: '', lastError: '', lastPushAt: '' };
+  // lastSkipReason records why the most recent attemptPush() call didn't
+  // actually push (distinct from `reason`, which is only set for states the
+  // UI treats as needing attention) — cleared on every successful push, so
+  // it always reflects "why isn't this saving right now?" for debugging.
+  var state = { status: 'not-configured', label: LABELS['not-configured'], reason: '', lastError: '', lastPushAt: '', lastSkipReason: '' };
   var listeners = [];
   function setState(patch) {
     var prevStatus = state.status;
@@ -144,7 +148,18 @@
     if (maxWaitTimer) { clearTimeout(maxWaitTimer); maxWaitTimer = null; }
   }
 
+  // Stamps a dedicated "local data changed" marker in cloudSyncMeta so
+  // CloudSync.latestLocalTimestamp() can see this edit even when the edited
+  // section has no ISO timestamp field of its own (most goal/list edits
+  // don't). Written through window.CloudSync.setMeta(), which itself goes
+  // through the wrapped localStorage.setItem below — but 'cloudSyncMeta' is
+  // already in EXCLUDE_KEYS, so that write never re-triggers markDirty().
+  function markLocalChange() {
+    if (window.CloudSync) window.CloudSync.setMeta({ localChangedAt: new Date().toISOString() });
+  }
+
   function markDirty() {
+    markLocalChange();
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(function () {
       debounceTimer = null;
@@ -166,11 +181,11 @@
   // the network call entirely when nothing meaningful actually changed).
   // Never calls pullToLocal — push-only, by design.
   async function attemptPush() {
-    if (pushInFlight) { pendingRerun = true; return; }
+    if (pushInFlight) { pendingRerun = true; setState({ lastSkipReason: 'A push was already in flight — this change is queued for the next one.' }); return; }
     if (!window.CloudSync || !window.Backup || !window.ForceSave) return;
     var base = computeBaseStatus();
-    if (base) { setState({ status: base, reason: '' }); return; }
-    if (document.visibilityState === 'hidden') return; // retried on visibility/online events
+    if (base) { setState({ status: base, reason: '', lastSkipReason: LABELS[base] + ' — see the Auto Save state above.' }); return; }
+    if (document.visibilityState === 'hidden') { setState({ lastSkipReason: 'Tab not visible — retried when it becomes visible again.' }); return; } // retried on visibility/online events
 
     // Only 'cloud-newer' blocks the push itself — pushing over a newer
     // cloud save would silently discard another device's edits, and that
@@ -186,7 +201,8 @@
     // edit instead of requiring a manual Quick Sync push to unstick it.
     var syncStatus = await window.CloudSync.getSyncStatus();
     if (syncStatus.code === 'cloud-newer') {
-      setState({ status: 'action-needed', reason: 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.' });
+      var conflictReason = 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.';
+      setState({ status: 'action-needed', reason: conflictReason, lastSkipReason: conflictReason });
       return;
     }
 
@@ -195,13 +211,13 @@
     try {
       window.ForceSave.flushAll();
       var sig = computeSignature();
-      if (sig === lastPushedSignature) { setState({ status: 'synced', reason: '' }); return; }
+      if (sig === lastPushedSignature) { setState({ status: 'synced', reason: '', lastSkipReason: 'No meaningful changes since the last push.' }); return; }
       var result = await window.CloudSync.pushToCloud();
       if (result.ok) {
         lastPushedSignature = sig;
-        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: new Date().toISOString() });
+        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: new Date().toISOString(), lastSkipReason: '' });
       } else {
-        setState({ status: 'action-needed', reason: result.error, lastError: result.error });
+        setState({ status: 'action-needed', reason: result.error, lastError: result.error, lastSkipReason: result.error });
       }
     } finally {
       pushInFlight = false;

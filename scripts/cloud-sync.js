@@ -63,6 +63,14 @@
   // lexically in chronological order, so a plain string max is safe.
   // Best-effort only — there's no single "last modified" field tracked
   // across every Life OS section, so this is what "available" means.
+  //
+  // META_KEY itself is skipped by the generic scan below (lastPushedAt/
+  // lastPulledAt/lastErrorAt are sync bookkeeping, not fresh data — scanning
+  // them would make "just pushed"/"just pulled" look like a brand new local
+  // edit). auto-sync.js's `localChangedAt` is the one exception: it's a
+  // dedicated marker stamped on every meaningful edit specifically so edits
+  // that don't otherwise touch any ISO timestamp field (most goal/list edits
+  // don't) are still visible here — see §22 in docs/SUPABASE_PLAN.md.
   function latestLocalTimestamp() {
     var re = /"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)"/g;
     var max = null;
@@ -77,6 +85,8 @@
         if (!max || m[1] > max) max = m[1];
       }
     }
+    var localChangedAt = loadMeta().localChangedAt;
+    if (localChangedAt && (!max || localChangedAt > max)) max = localChangedAt;
     return max;
   }
 
@@ -211,5 +221,6 @@
     pushToCloud: pushToCloud,
     pullToLocal: pullToLocal,
     loadMeta: loadMeta,
+    setMeta: setMeta,
   };
 })();

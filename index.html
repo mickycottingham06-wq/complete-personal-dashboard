@@ -1488,6 +1488,9 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     if (!window.AutoSync) { $('qsAutoSave').textContent = 'Not available'; return; }
     const s = window.AutoSync.getState();
     $('qsAutoSave').textContent = s.label;
+    // Title tooltip surfaces why the last push didn't happen (e.g. "no
+    // changes since last push", "tab not visible") without adding new UI.
+    $('qsAutoSave').title = s.lastSkipReason || s.reason || '';
     $('qsAutoSaveLast').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
   }
   if (window.AutoSync) window.AutoSync.subscribe(() => { if ($('quickSyncBg').classList.contains('show')) renderAutoSave(); });

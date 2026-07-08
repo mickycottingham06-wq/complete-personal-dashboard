@@ -770,6 +770,9 @@ body::after {
     if (!window.AutoSync) { $('asStatus').textContent = 'Not available'; return; }
     const s = window.AutoSync.getState();
     $('asStatus').textContent = s.label;
+    // Title tooltip surfaces why the last push didn't happen (e.g. "no
+    // changes since last push", "tab not visible") without adding new UI.
+    $('asStatus').title = s.lastSkipReason || s.reason || '';
     $('asLastPush').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
   }
   if (window.AutoSync) window.AutoSync.subscribe(renderAutoSave);
