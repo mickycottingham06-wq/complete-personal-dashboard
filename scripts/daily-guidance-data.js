@@ -167,8 +167,20 @@
     return '';
   }
 
+  // Tonight's estimated sleep-cycle bedtime, read from window.Health's
+  // Sleep Planner (scripts/health-data.js computeSleepPlan) — never a
+  // second calculation. Estimated windows only, not a sleep-stage guarantee.
+  function computeSleepNudge(h) {
+    if (!h || !window.Health || typeof window.Health.computeSleepPlan !== 'function') return '';
+    var plan = window.Health.computeSleepPlan(h);
+    if (!plan) return '';
+    return 'Tonight: wind down ' + plan.recommended.windDownStart + ', lights out ~' +
+      plan.recommended.bedtime + ' (' + plan.recommended.hours + 'h target)';
+  }
+
   // Short, simple call-outs already supported by existing data — never a
-  // second source of truth, just a read of Streaks / Boxing HQ fight date.
+  // second source of truth, just a read of Streaks / Boxing HQ fight date /
+  // Health's Sleep Planner.
   function computeNudges(ctx) {
     var nudges = [];
     var streaks = window.Streaks && window.Streaks.get ? window.Streaks.get() : null;
@@ -181,6 +193,14 @@
       if (days !== null && days >= 0 && days <= 14) {
         nudges.push('Fight camp: ' + days + ' day' + (days === 1 ? '' : 's') + ' to fight day');
       }
+    }
+    // Evening/late-night only, so it doesn't crowd out morning nudges —
+    // pushed last so it never bumps a higher-priority nudge out of the
+    // single-line preview on index.html.
+    var hour = new Date().getHours();
+    if (hour >= 17 || hour < 4) {
+      var sleepNudge = computeSleepNudge(ctx.health);
+      if (sleepNudge) nudges.push(sleepNudge);
     }
     return nudges;
   }
@@ -206,7 +226,7 @@
       goalAction: goalAction,
     });
 
-    var nudges = computeNudges({ boxing: boxing });
+    var nudges = computeNudges({ boxing: boxing, health: health });
 
     return {
       todayFocus: todayFocus,

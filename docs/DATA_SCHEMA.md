@@ -252,6 +252,9 @@ health: {
   proteinTarget: number,
   caloriesTarget: number,
   currentWeight: number,
+  wakeUpTime: string,              // 'HH:MM', Sleep Planner input
+  estimatedSleepLatencyMinutes: number,  // Sleep Planner input, time to fall asleep after lights out
+  windDownMinutes: number,         // Sleep Planner input, length of wind-down before lights out
   morningRoutine: [ { id: string, label: string, completed: boolean } ],
   eveningRoutine: [ { id: string, label: string, completed: boolean } ],
   supplements: [ { id: string, name: string, taken: boolean } ],
@@ -270,6 +273,8 @@ Default supplements checklist: Creatine, Electrolytes, Magnesium, Vitamin D, Ome
 `morningRoutine`, `eveningRoutine`, and `supplements` behave as daily-instance checklists, same 6 AM rollover convention as Daily Snapshot (`scripts/daily-snapshot-data.js`): the item list (id/label/name) is a persistent template that the user edits via add/delete, but the `completed`/`taken` flags reset to `false` automatically once `checklistDate` falls behind the current active date (`window.Health.activeDateKey()`). Old saved data with no `checklistDate` is stamped with today's date on first load without wiping existing ticks, so the upgrade never loses in-progress state.
 
 `window.Health.load()` returns stored health data, filling in any fields missing against the default shape (upgrades older saved data) and performs the daily rollover described above. `window.Health.save(h)` persists changes. `window.Health.uid()` generates ids for new checklist rows. `window.Health.activeDateKey()` returns today's rollover date-key.
+
+**Sleep Planner:** `window.Health.computeSleepPlan(h)` is a pure read (owns no state) that derives an estimated bedtime window from `wakeUpTime`, `sleepTarget` (reused as the target sleep length, not a duplicate field), `estimatedSleepLatencyMinutes` and `windDownMinutes`. It assumes ~90-minute sleep cycles (a standard population-average estimate, not a per-user measurement) and rounds the target to the nearest whole cycle, clamped 3-6 cycles (4.5-9 hrs). Returns `null` if `wakeUpTime` isn't set/parseable, else `{ wakeUpTime, targetHours, recommended: { cycles, hours, bedtime, windDownStart }, alternatives: [ same shape, one cycle either side ] }`. Framed throughout the UI as an estimated sleep-cycle window, never a guaranteed sleep-stage prediction or medical advice. `pages/health.html`'s Sleep Planner block (inside the existing Sleep section — no new page section) renders this live and re-renders on every relevant field edit.
 
 This `supplements` checklist is a separate, simpler daily tick-list from the pre-existing "Daily Stack" system further down `pages/health.html` (localStorage keys `stack:items` / `stack:taken:<date>`, with dosing, timing windows, and search) — the two are not merged, since Daily Stack already owns a richer supplement-ordering workflow. WHOOP integration and the water tracker iframe on the same page are also untouched and remain their own systems.
 
@@ -1050,7 +1055,8 @@ Owns **no localStorage key of its own** — a pure read/compute layer, `scripts/
   trainingTask: string,    // weekly target (boxing/runs/strength) furthest behind, else nextSessionPlan, else trainingPhase
   goalAction: string,      // first incomplete action from the highest-priority / nearest-deadline active goal
   healthReminder: string,  // whichever routine (morning/evening, by time of day) or supplements has items left today
-  nudges: string[],        // short call-outs already supported by existing data (streak alive, fight camp countdown)
+  nudges: string[],        // short call-outs already supported by existing data (streak alive, fight camp
+                            // countdown, tonight's sleep-planner bedtime — evening/late-night hours only)
 }
 ```
 

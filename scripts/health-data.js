@@ -43,6 +43,72 @@
   function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+  // ---- Sleep Planner ----
+  // Estimated sleep-cycle bedtime windows, not a guaranteed sleep-stage
+  // prediction — ~90 minutes/cycle is a rough population average used by
+  // most sleep-cycle calculators, not a measurement of this user's actual
+  // cycles. Tracking/estimation only, no medical claim.
+  var CYCLE_MINUTES = 90;
+  var MIN_CYCLES = 3; // 4.5 hrs
+  var MAX_CYCLES = 6; // 9 hrs
+
+  function parseTimeToMinutes(t) {
+    if (!t || typeof t !== 'string') return null;
+    var m = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    var h = Number(m[1]), min = Number(m[2]);
+    if (isNaN(h) || isNaN(min) || h > 23 || min > 59) return null;
+    return h * 60 + min;
+  }
+  function minutesToTime(mins) {
+    mins = ((Math.round(mins) % 1440) + 1440) % 1440;
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  // Reads wakeUpTime, sleepTarget (reused as the target sleep length),
+  // estimatedSleepLatencyMinutes and windDownMinutes off a loaded health
+  // object and derives a recommended bedtime window plus 1-2 alternative
+  // windows a cycle either side. Pure function, owns no state. Returns
+  // null if wakeUpTime isn't set/parseable yet.
+  function computeSleepPlan(h) {
+    h = h || {};
+    var wake = parseTimeToMinutes(h.wakeUpTime);
+    if (wake == null) return null;
+    var latency = Number(h.estimatedSleepLatencyMinutes);
+    if (!(latency >= 0)) latency = 15;
+    var windDown = Number(h.windDownMinutes);
+    if (!(windDown >= 0)) windDown = 30;
+    var targetHours = Number(h.sleepTarget) || 8;
+
+    var targetCycles = Math.round((targetHours * 60) / CYCLE_MINUTES);
+    targetCycles = Math.min(MAX_CYCLES, Math.max(MIN_CYCLES, targetCycles));
+
+    function windowFor(cycles) {
+      var sleepMinutesNeeded = cycles * CYCLE_MINUTES;
+      var bedtime = wake - sleepMinutesNeeded - latency;
+      return {
+        cycles: cycles,
+        hours: Math.round((sleepMinutesNeeded / 60) * 10) / 10,
+        bedtime: minutesToTime(bedtime),
+        windDownStart: minutesToTime(bedtime - windDown),
+      };
+    }
+
+    var recommended = windowFor(targetCycles);
+    var alternatives = [];
+    [targetCycles - 1, targetCycles + 1].forEach(function (c) {
+      if (c >= MIN_CYCLES && c <= MAX_CYCLES) alternatives.push(windowFor(c));
+    });
+
+    return {
+      wakeUpTime: h.wakeUpTime,
+      targetHours: targetHours,
+      recommended: recommended,
+      alternatives: alternatives,
+    };
+  }
+
   // Same 6 AM rollover convention used by Daily Snapshot (scripts/daily-snapshot-data.js)
   // and the goals list (pages/main.html), so "today" means the same day everywhere.
   function activeDateKey() {
@@ -73,6 +139,9 @@
       proteinTarget: 150,
       caloriesTarget: 2500,
       currentWeight: 0,
+      wakeUpTime: '06:30',
+      estimatedSleepLatencyMinutes: 15,
+      windDownMinutes: 30,
       morningRoutine: checklistFrom(DEFAULT_MORNING_ROUTINE),
       eveningRoutine: checklistFrom(DEFAULT_EVENING_ROUTINE),
       supplements: supplementsFrom(DEFAULT_SUPPLEMENTS),
@@ -131,5 +200,6 @@
     activeDateKey: activeDateKey,
     load: load,
     save: save,
+    computeSleepPlan: computeSleepPlan,
   };
 })();

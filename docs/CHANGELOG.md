@@ -1111,6 +1111,36 @@ Fix Auto Push: use ForceSave.run() instead of non-existent flushAll()
 
 ---
 
+## 2026-07-08 (4)
+
+### Health HQ — Sleep Planner
+
+Health tracked sleep hours/quality but gave no guidance on when to actually go to bed. Added a
+minimal Sleep Planner inside Health HQ's existing Sleep section (no new page section). Three new
+fields on the `health` key — `wakeUpTime`, `estimatedSleepLatencyMinutes`, `windDownMinutes` —
+join the existing `sleepTarget` (reused as target sleep length, not duplicated). New
+`window.Health.computeSleepPlan(h)` in `scripts/health-data.js` is a pure read that estimates
+~90-minute sleep cycles, rounds the target to the nearest whole cycle (clamped 3-6 cycles /
+4.5-9 hrs), and returns a recommended bedtime + wind-down start plus one alternative window a
+cycle either side. Framed throughout as an estimated sleep-cycle window, never a guaranteed
+sleep-stage prediction — no medical claims, no AI API, no wearable integration. Existing users
+upgrade safely via the existing missing-field-fill pattern in `window.Health.load()`.
+
+`scripts/daily-guidance-data.js`'s `computeNudges()` now also surfaces tonight's wind-down/lights-out
+time as a nudge, but only during evening/late-night hours (17:00-04:00) and pushed last so it never
+displaces a higher-priority streak/fight-camp nudge in index.html's single-line preview. No other
+Daily Guidance behaviour changed.
+
+Files affected:
+
+scripts/health-data.js, scripts/daily-guidance-data.js, pages/health.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add Sleep Planner to Health HQ with Daily Guidance bedtime nudge
+
+---
+
 ## Future Entries
 
 Example

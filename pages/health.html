@@ -631,6 +631,31 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
       </div>
       <div class="hhq-prog-track"><div class="hhq-prog-fill" id="hhqSleepFill" style="width:0%"></div></div>
       <div class="hhq-prog-note" id="hhqSleepNote">— of — hrs target</div>
+
+      <div class="hhq-field" style="margin-top:20px;padding-top:18px;border-top:1px solid var(--border-soft);margin-bottom:0">
+        <label class="hhq-label">Sleep Planner</label>
+        <div class="hhq-grid3">
+          <div class="hhq-field" style="margin-bottom:0">
+            <label class="hhq-label">Wake-Up Time</label>
+            <input class="hhq-input" id="hhqWakeUpTime" type="time">
+          </div>
+          <div class="hhq-field" style="margin-bottom:0">
+            <label class="hhq-label">Wind-Down (min)</label>
+            <input class="hhq-input" id="hhqWindDownMinutes" type="number" min="0" max="120" step="5" inputmode="numeric">
+          </div>
+          <div class="hhq-field" style="margin-bottom:0">
+            <label class="hhq-label">Sleep Latency (min)</label>
+            <input class="hhq-input" id="hhqSleepLatency" type="number" min="0" max="90" step="5" inputmode="numeric">
+          </div>
+        </div>
+        <div class="hhq-grid3" style="margin-top:14px">
+          <div class="hhq-stat"><div class="v" id="hhqPlanWindDown">—</div><div class="l">Wind Down</div></div>
+          <div class="hhq-stat"><div class="v" id="hhqPlanBedtime">—</div><div class="l">Lights Out</div></div>
+          <div class="hhq-stat"><div class="v" id="hhqPlanHours">—</div><div class="l">Est. Sleep</div></div>
+        </div>
+        <div class="hhq-prog-note" id="hhqPlanAlt" style="margin-top:10px"></div>
+        <div class="hhq-prog-note" style="margin-top:4px">Estimated sleep-cycle windows (≈90 min/cycle) — not a guaranteed sleep-stage prediction.</div>
+      </div>
     </div>
   </div>
 
@@ -772,13 +797,14 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
         if (onSave) onSave();
       });
     }
-    function bindText(id, key) {
+    function bindText(id, key, onSave) {
       var el = $(id);
       el.value = h[key] || '';
       el.addEventListener('input', function () {
         h[key] = el.value;
         clearTimeout(fieldTimer);
         fieldTimer = setTimeout(save, 300);
+        if (onSave) onSave();
       });
     }
     function bindSelect(id, key) {
@@ -802,7 +828,26 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
       $('hhqWaterNote').textContent = actual + ' of ' + target + ' L today';
     }
 
-    bindNumber('hhqSleepTarget', 'sleepTarget', renderSleepProgress);
+    // Reads window.Health.computeSleepPlan() (scripts/health-data.js) —
+    // never a second calculation. Estimated sleep-cycle windows only.
+    function renderSleepPlan() {
+      var plan = window.Health.computeSleepPlan(h);
+      if (!plan) {
+        $('hhqPlanWindDown').textContent = '—';
+        $('hhqPlanBedtime').textContent = '—';
+        $('hhqPlanHours').textContent = '—';
+        $('hhqPlanAlt').textContent = 'Set a wake-up time to see your sleep plan.';
+        return;
+      }
+      $('hhqPlanWindDown').textContent = plan.recommended.windDownStart;
+      $('hhqPlanBedtime').textContent = plan.recommended.bedtime;
+      $('hhqPlanHours').textContent = plan.recommended.hours + 'h';
+      $('hhqPlanAlt').textContent = plan.alternatives.length
+        ? 'Alternative windows: ' + plan.alternatives.map(function (a) { return a.bedtime + ' (' + a.hours + 'h)'; }).join(' · ')
+        : '';
+    }
+
+    bindNumber('hhqSleepTarget', 'sleepTarget', function () { renderSleepProgress(); renderSleepPlan(); });
     bindNumber('hhqLastNightSleep', 'lastNightSleep', renderSleepProgress);
     bindSelect('hhqSleepQuality', 'sleepQuality');
     bindNumber('hhqHydrationTarget', 'hydrationTarget', renderWaterProgress);
@@ -810,10 +855,14 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
     bindNumber('hhqProteinTarget', 'proteinTarget');
     bindNumber('hhqCaloriesTarget', 'caloriesTarget');
     bindNumber('hhqCurrentWeight', 'currentWeight');
+    bindText('hhqWakeUpTime', 'wakeUpTime', renderSleepPlan);
+    bindNumber('hhqWindDownMinutes', 'windDownMinutes', renderSleepPlan);
+    bindNumber('hhqSleepLatency', 'estimatedSleepLatencyMinutes', renderSleepPlan);
     bindText('hhqRecoveryNotes', 'recoveryNotes');
     bindText('hhqHealthNotes', 'healthNotes');
     renderSleepProgress();
     renderWaterProgress();
+    renderSleepPlan();
 
     function bindSlider(id, valId, key) {
       var el = $(id);
@@ -900,7 +949,7 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
     // Re-render if another tab / device changes health data.
     window.addEventListener('storage', function () {
       h = window.Health.load();
-      renderSleepProgress(); renderWaterProgress();
+      renderSleepProgress(); renderWaterProgress(); renderSleepPlan();
       renderMorning(); renderEvening(); renderSupplements();
     });
   })();
