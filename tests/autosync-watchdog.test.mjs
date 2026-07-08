@@ -5,8 +5,9 @@
 // exact behaviour required after the v3 rewrite (docs/SUPABASE_PLAN.md §26):
 //   1. local-newer + signed in + visible + online + auto save enabled calls
 //      CloudSync.pushToCloud().
-//   2. the manual-push-equivalent sequence is used: ForceSave.flushAll()
-//      then CloudSync.pushToCloud(), in that order.
+//   2. the manual-push-equivalent sequence is used: window.ForceSave.run()
+//      (the only public ForceSave method — flushAll() is internal-only, see
+//      scripts/force-save.js) then CloudSync.pushToCloud(), in that order.
 //   3. a successful push updates AutoSync.getState().lastPushAt.
 //   4. a failed push clears the in-flight guard (a later check can push
 //      again immediately) and leaves a visible error.
@@ -111,8 +112,12 @@ function buildSandbox({ client, localStorage, autoSyncSource, realInterval, flus
     },
   };
   const calls = [];
+  // Only run()/registerFlush() are exposed — matches the real
+  // window.ForceSave surface (scripts/force-save.js). No flushAll() here on
+  // purpose: if auto-sync.js ever calls ForceSave.flushAll() directly again,
+  // it throws "flushAll is not a function" instead of silently passing.
   sandbox.window.ForceSave = {
-    flushAll: () => { calls.push('flushAll'); if (flushSpy) flushSpy(); },
+    run: () => { calls.push('run'); return flushSpy ? flushSpy() : { ok: true, timestamp: new Date().toISOString() }; },
     registerFlush: () => () => {},
   };
   sandbox._calls = calls;
@@ -152,7 +157,7 @@ async function test1_localNewerCallsPush() {
 }
 
 async function test2_manualEquivalentSequence() {
-  console.log('\n2. Manual-push-equivalent sequence is used: flushAll() then pushToCloud()');
+  console.log('\n2. Manual-push-equivalent sequence is used: ForceSave.run() then pushToCloud()');
   const ls = localNewerFixture();
   const client = makeClient({
     sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
@@ -160,12 +165,17 @@ async function test2_manualEquivalentSequence() {
   });
   const sandbox = buildSandbox({ client, localStorage: ls });
   await waitUntil(() => sandbox._calls.includes('pushToCloud'), 5000);
-  const order = sandbox._calls.filter((c) => c === 'flushAll' || c === 'pushToCloud');
-  const flushIdx = order.indexOf('flushAll');
+  const order = sandbox._calls.filter((c) => c === 'run' || c === 'pushToCloud');
+  const runIdx = order.indexOf('run');
   const pushIdx = order.indexOf('pushToCloud');
-  check('ForceSave.flushAll() was called', flushIdx !== -1);
+  check('ForceSave.run() was called (the same public method the manual Push/Sync buttons use)', runIdx !== -1);
   check('CloudSync.pushToCloud() was called', pushIdx !== -1);
-  check('flushAll() ran before pushToCloud() (same order as the manual button)', flushIdx !== -1 && pushIdx !== -1 && flushIdx < pushIdx, order.join(','));
+  check('run() ran before pushToCloud() (same order as the manual button)', runIdx !== -1 && pushIdx !== -1 && runIdx < pushIdx, order.join(','));
+}
+
+function test1b_neverCallsMissingFlushAll() {
+  console.log('\n1b. auto-sync.js source never calls the non-existent ForceSave.flushAll()');
+  check('no "ForceSave.flushAll" reference in scripts/auto-sync.js', !autoSyncSrc.includes('ForceSave.flushAll'));
 }
 
 async function test3_successUpdatesLastAutoPush() {
@@ -239,7 +249,7 @@ async function test5_dedupCannotSkipLocalNewer() {
 // is now caught, surfaced, and the guard is still released afterwards.
 
 async function test6_forceSaveThrowClearsPushingAndShowsError() {
-  console.log('\n6. ForceSave.flushAll() throwing shows an error and clears "pushing" (not stuck)');
+  console.log('\n6. ForceSave.run() throwing stops the push safely, shows an error, and clears "pushing" (not stuck)');
   const ls = localNewerFixture();
   const client = makeClient({
     sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
@@ -248,22 +258,24 @@ async function test6_forceSaveThrowClearsPushingAndShowsError() {
   let shouldThrow = true;
   const sandbox = buildSandbox({
     client, localStorage: ls,
-    flushSpy: () => { if (shouldThrow) throw new Error('flush boom'); },
+    flushSpy: () => { if (shouldThrow) throw new Error('flush boom'); return { ok: true, timestamp: new Date().toISOString() }; },
   });
-  // checkCloudLoad() also calls ForceSave.flushAll() (unrelated to the push
-  // path under test here) — disable it via isAvailable() so the shared
-  // flushAll mock throwing doesn't also blow up that unrelated code path.
+  // checkCloudLoad() also calls ForceSave.run() (unrelated to the push path
+  // under test here) — disable it via isAvailable() so the shared run()
+  // mock throwing doesn't also blow up that unrelated code path.
   sandbox.window.CloudSync.isAvailable = () => false;
   await waitUntil(() => sandbox.window.AutoSync.getState().status === 'action-needed', 5000);
   const state = sandbox.window.AutoSync.getState();
   check('status is "action-needed" (not stuck on "syncing"/"pushing")', state.status === 'action-needed', state.status);
-  check('lastReason shows the exact flushAll error', state.lastReason === 'Auto push failed: flush boom', state.lastReason);
+  check('lastReason shows the exact ForceSave error', state.lastReason === 'Auto push failed: flush boom', state.lastReason);
   check('lastError recorded', state.lastError === 'flush boom', state.lastError);
+  check('CloudSync.pushToCloud() was never called — push stopped safely before the cloud call', !sandbox._calls.includes('pushToCloud'), sandbox._calls.join(','));
   // Guard released even after a throw: a later check can push again.
   shouldThrow = false;
   sandbox.window.AutoSync.refresh();
   await waitUntil(() => sandbox.window.AutoSync.getState().status === 'synced', 2000);
   check('in-flight guard was released after the throw (a later check succeeds)', sandbox.window.AutoSync.getState().status === 'synced');
+  check('the successful retry did call pushToCloud()', sandbox._calls.includes('pushToCloud'));
 }
 
 async function test7_pushToCloudRejectionClearsPushingAndShowsError() {
@@ -307,6 +319,7 @@ async function test8_pushToCloudTimeoutClearsPushingAndShowsTimeout() {
 (async function main() {
   console.log('AutoSync v3 harness');
   await test1_localNewerCallsPush();
+  test1b_neverCallsMissingFlushAll();
   await test2_manualEquivalentSequence();
   await test3_successUpdatesLastAutoPush();
   await test4_failureClearsInFlightAndShowsError();

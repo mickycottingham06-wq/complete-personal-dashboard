@@ -1,7 +1,8 @@
 // =============================================================
 // Auto Cloud Save (v3) — one simple push path, always the same sequence the
 // manual "Push Local -> Cloud" button already uses successfully:
-//   1. ForceSave.flushAll()
+//   1. ForceSave.run() (public API — flushAll() is an internal-only helper,
+//      never attached to window.ForceSave; see runForceSave() below)
 //   2. CloudSync.pushToCloud()
 //   3. update cloudSyncMeta / AutoSync state (pushToCloud() itself stamps
 //      cloudSyncMeta; this module records lastPushAt/lastError/diagnostics)
@@ -128,6 +129,25 @@
     return function unsubscribe() { listeners = listeners.filter(function (l) { return l !== fn; }); };
   }
 
+  // window.ForceSave only ever exposes registerFlush()/run() (see
+  // force-save.js) — flushAll() is an internal helper that run() calls
+  // itself, it is never attached to window.ForceSave. Manual Push/Sync
+  // (index.html, integrations.html) call ForceSave.run() and check .ok —
+  // this mirrors that so Auto Push uses the exact same public path instead
+  // of a method that doesn't exist at runtime. Never throws.
+  function runForceSave() {
+    if (!window.ForceSave || typeof window.ForceSave.run !== 'function') {
+      return { ok: true, timestamp: new Date().toISOString() };
+    }
+    try {
+      var result = window.ForceSave.run();
+      if (result && typeof result === 'object') return result;
+      return { ok: true, timestamp: new Date().toISOString() };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) ? e.message : String(e) };
+    }
+  }
+
   var pushInFlight = false;
   var editDebounceTimer = null;
 
@@ -217,7 +237,14 @@
       // in between are the visible stage markers requested alongside it.
       try {
         setState({ lastReason: 'Auto push: flushing local saves' });
-        window.ForceSave.flushAll();
+        var flushResult = runForceSave();
+        if (!flushResult.ok) {
+          setState({
+            status: 'action-needed', reason: flushResult.error, lastError: flushResult.error,
+            lastResult: 'failed', lastReason: 'Auto push failed: ' + flushResult.error,
+          });
+          return;
+        }
 
         setState({ lastReason: 'Auto push: calling cloud push' });
         var result = await Promise.race([
@@ -265,7 +292,7 @@
     if (document.visibilityState === 'hidden') return;
     loadCheckInFlight = true;
     try {
-      window.ForceSave.flushAll();
+      runForceSave();
       var syncStatus = await window.CloudSync.getSyncStatus();
       if (syncStatus.code !== 'cloud-newer') return;
       var cloudStatus = await window.CloudSync.getCloudStatus();
