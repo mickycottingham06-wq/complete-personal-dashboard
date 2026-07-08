@@ -971,6 +971,53 @@ Fix Auto Cloud Save: Postgres timestamp-format bug + dedup hash tightened to a c
 
 ---
 
+## 2026-07-08 (7)
+
+### Fix Auto Cloud Save: reliable watchdog so a local-newer state can't sit idle
+
+Live symptom despite (6): status correctly read "Local newer", Auto Save showed "on", Manual Push
+worked, but the auto-push path still didn't visibly fire for a real signed-in session. Root cause was
+a startup race in `auto-sync.js`'s `init()` — `SupabaseAuth.init()` kicks off an async session fetch,
+and the very first status/push check ran before that resolved, misreading a real session as
+signed-out. It self-healed eventually via `SupabaseAuth.subscribe()`'s later notify, but only once —
+with no tight, guaranteed re-check loop, a slow session fetch or a missed notification left it idle.
+
+Added an explicit `whenAuthReady()` gate so the first check runs only once auth has a definitive
+answer, tightened the periodic re-check from 60s/5min to a single 12s watchdog tick, wrapped
+`CloudSync.pushToCloud()` in a 20s timeout (`Promise.race`), and gave the Quick Sync/Integrations
+status line canonical short states (`checking`, `queued`, `pushing`, `pushed successfully at HH:MM`,
+`skipped: signed out/offline/hidden tab/cloud newer/disabled`, `push failed: <message>`,
+`push timed out`) via the existing `lastSkipReason` field — no UI file changes needed, both panels
+already render it.
+
+Also found and fixed a genuine concurrency gap while building the regression harness: `pushInFlight`
+was only set *after* an `await`, so two overlapping checks landing on the same auth transition (the
+new `whenAuthReady()` gate and the ongoing `SupabaseAuth.subscribe()` callback) could both pass the
+guard and call `pushToCloud()` twice for one local-newer state. Now claimed synchronously before the
+first `await` in `attemptPush()`. The local-newer dedup bypass from (6) was also made unconditional
+(`syncStatus.code !== 'local-newer'` gates the whole dedup check, not just a comment) so a hash
+coincidence can never suppress a genuine local-newer push.
+
+Verified with `tests/autosync-watchdog.test.mjs` (Node `vm` harness, real `cloud-sync.js`/
+`auto-sync.js`/`supabase-auth.js` source, mocked Supabase client): local-newer + signed-in + online +
+visible pushes exactly once; a failed push clears syncing and shows `push failed: …`; a timed-out push
+clears syncing/inFlight and shows `push timed out`; an unchanged-signature watchdog tick still pushes
+while status is local-newer; a successful push updates both `AutoSync.getState().lastPushAt` and
+`cloudSyncMeta.lastPushedAt`.
+
+Unchanged: push-only, no auto-pull, cloud-newer conflict protection, manual Quick Sync/Push/Pull/Sync,
+`life_os_state` table/RLS, Supabase schema.
+
+Files affected:
+
+scripts/auto-sync.js, tests/autosync-watchdog.test.mjs (new), docs/SUPABASE_PLAN.md
+
+Commit:
+
+Fix Auto Cloud Save: reliable watchdog so local-newer + auto save on always pushes
+
+---
+
 ## Future Entries
 
 Example

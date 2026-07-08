@@ -50,7 +50,8 @@
 
   var DEBOUNCE_MS = 4000;
   var MAX_WAIT_MS = 45000;
-  var DIRTY_CHECK_MS = 5 * 60 * 1000;
+  var WATCHDOG_MS = 12000; // periodic local-newer check while the tab is visible
+  var PUSH_TIMEOUT_MS = 20000;
 
   // Trigger-detection exclude list only — it does NOT remove these keys
   // from what gets pushed (CloudSync.pushToCloud() always sends the full
@@ -87,6 +88,23 @@
     synced: 'Synced',
     'action-needed': 'Action needed',
   };
+
+  // Canonical short strings for the visible status/reason line (Quick Sync
+  // modal + Integrations card) — the watchdog sets one of these on every
+  // check so "why isn't this pushing right now?" never requires a tooltip.
+  var SKIP_REASON = {
+    'not-configured': 'skipped: not configured',
+    'signed-out': 'skipped: signed out',
+    disabled: 'skipped: disabled',
+    offline: 'skipped: offline',
+  };
+  function fmtHM(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var h = String(d.getHours()).padStart(2, '0');
+    var m = String(d.getMinutes()).padStart(2, '0');
+    return h + ':' + m;
+  }
 
   // lastSkipReason records why the most recent attemptPush() call didn't
   // actually push (distinct from `reason`, which is only set for states the
@@ -188,40 +206,47 @@
   // the network call entirely when nothing meaningful actually changed).
   // Never calls pullToLocal — push-only, by design.
   async function attemptPush() {
-    if (pushInFlight) { pendingRerun = true; setState({ lastSkipReason: 'A push was already in flight — this change is queued for the next one.' }); return; }
+    if (pushInFlight) { pendingRerun = true; setState({ lastSkipReason: 'queued' }); return; }
     if (!window.CloudSync || !window.Backup || !window.ForceSave) return;
     var base = computeBaseStatus();
-    if (base) { setState({ status: base, reason: '', lastSkipReason: LABELS[base] + ' — see the Auto Save state above.' }); return; }
-    if (document.visibilityState === 'hidden') { setState({ lastSkipReason: 'Tab not visible — retried when it becomes visible again.' }); return; } // retried on visibility/online events
+    if (base) { setState({ status: base, reason: '', lastSkipReason: SKIP_REASON[base] || ('skipped: ' + base) }); return; }
+    if (document.visibilityState === 'hidden') { setState({ lastSkipReason: 'skipped: hidden tab' }); return; } // retried on visibility/online events
+    setState({ lastSkipReason: 'checking' });
 
-    // Flush any pending debounced field writes (e.g. a text input mid-typing
-    // debounce) into Local Storage *before* reading sync status — otherwise
-    // the freshness check below can miss an edit that hasn't hit
-    // localStorage.setItem yet and misjudge cloud-newer/local-newer.
-    window.ForceSave.flushAll();
-
-    // Only 'cloud-newer' blocks the push itself — pushing over a newer
-    // cloud save would silently discard another device's edits, and that
-    // needs the user's explicit choice (Quick Sync / Integrations).
-    //
-    // A stale 'error' status is deliberately NOT a gate here. Earlier this
-    // used to skip the push whenever the *last* push/pull had failed for
-    // any reason (including a one-off network blip, or the cloud table not
-    // existing yet during initial setup) — which meant a single past
-    // failure permanently stopped every future auto-push, silently, since
-    // nothing else ever retried it. Attempting the push and letting its own
-    // result decide the state lets a fixed cause self-heal on the very next
-    // edit instead of requiring a manual Quick Sync push to unstick it.
-    var syncStatus = await window.CloudSync.getSyncStatus();
-    if (syncStatus.code === 'cloud-newer') {
-      var conflictReason = 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.';
-      setState({ status: 'action-needed', reason: conflictReason, lastSkipReason: conflictReason });
-      return;
-    }
-
+    // Claimed synchronously, before the first await below — two overlapping
+    // callers (e.g. init's auth-ready check and an auth-change subscriber
+    // firing for the same transition) both pass the `if (pushInFlight)`
+    // guard above in the same tick otherwise, since neither has set the
+    // flag yet; only *this* function is allowed to actually claim the slot,
+    // and it must do so before yielding control for the first time.
     pushInFlight = true;
-    setState({ status: 'syncing', reason: '' });
     try {
+      // Flush any pending debounced field writes (e.g. a text input mid-typing
+      // debounce) into Local Storage *before* reading sync status — otherwise
+      // the freshness check below can miss an edit that hasn't hit
+      // localStorage.setItem yet and misjudge cloud-newer/local-newer.
+      window.ForceSave.flushAll();
+
+      // Only 'cloud-newer' blocks the push itself — pushing over a newer
+      // cloud save would silently discard another device's edits, and that
+      // needs the user's explicit choice (Quick Sync / Integrations).
+      //
+      // A stale 'error' status is deliberately NOT a gate here. Earlier this
+      // used to skip the push whenever the *last* push/pull had failed for
+      // any reason (including a one-off network blip, or the cloud table not
+      // existing yet during initial setup) — which meant a single past
+      // failure permanently stopped every future auto-push, silently, since
+      // nothing else ever retried it. Attempting the push and letting its own
+      // result decide the state lets a fixed cause self-heal on the very next
+      // edit instead of requiring a manual Quick Sync push to unstick it.
+      var syncStatus = await window.CloudSync.getSyncStatus();
+      if (syncStatus.code === 'cloud-newer') {
+        var conflictReason = 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.';
+        setState({ status: 'action-needed', reason: conflictReason, lastSkipReason: 'skipped: cloud newer' });
+        return;
+      }
+
+      setState({ status: 'syncing', reason: '', lastSkipReason: 'pushing' });
       var sig = computeSignature();
       // Only skip as a no-op when the export matches the hash of the last
       // *successfully pushed* payload (set below, only on a real push
@@ -230,16 +255,25 @@
       // on screen right now" (e.g. a boot-time/status-check read) — that
       // would skip a genuine unpushed local-newer edit as if it were
       // already synced. If either signal is missing or ambiguous, push.
+      // 'local-newer' itself is never dedup-skipped, full stop — the check
+      // below only even runs for the other two push-worthy codes
+      // (cloud-ready, error) so a hash coincidence can never silently sit
+      // on top of local edits the cloud doesn't have.
       var meta = window.CloudSync.loadMeta();
-      var alreadyPushed = sig === lastPushedSignature &&
+      var alreadyPushed = syncStatus.code !== 'local-newer' && sig === lastPushedSignature &&
         !!meta.lastPushedAt && !!meta.localChangedAt && meta.localChangedAt <= meta.lastPushedAt;
       if (alreadyPushed) { setState({ status: 'synced', reason: '', lastSkipReason: 'No meaningful changes since the last push.' }); return; }
-      var result = await window.CloudSync.pushToCloud();
-      if (result.ok) {
+      var result = await Promise.race([
+        window.CloudSync.pushToCloud(),
+        new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, timedOut: true }); }, PUSH_TIMEOUT_MS); }),
+      ]);
+      if (result.timedOut) {
+        setState({ status: 'action-needed', reason: 'Push timed out.', lastSkipReason: 'push timed out' });
+      } else if (result.ok) {
         lastPushedSignature = sig;
-        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: result.updatedAt, lastSkipReason: '' });
+        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: result.updatedAt, lastSkipReason: 'pushed successfully at ' + fmtHM(result.updatedAt) });
       } else {
-        setState({ status: 'action-needed', reason: result.error, lastError: result.error, lastSkipReason: result.error });
+        setState({ status: 'action-needed', reason: result.error, lastError: result.error, lastSkipReason: 'push failed: ' + result.error });
       }
     } finally {
       pushInFlight = false;
@@ -262,12 +296,17 @@
   async function maybeAutoPush() {
     if (pushInFlight) return;
     var base = computeBaseStatus();
-    if (base) return;
-    if (document.visibilityState === 'hidden') return;
+    if (base) { setState({ lastSkipReason: SKIP_REASON[base] || ('skipped: ' + base) }); return; }
+    if (document.visibilityState === 'hidden') { setState({ lastSkipReason: 'skipped: hidden tab' }); return; }
     if (!window.CloudSync) return;
+    setState({ lastSkipReason: 'checking' });
     var syncStatus = await window.CloudSync.getSyncStatus();
     if (syncStatus.code === 'local-newer' || syncStatus.code === 'cloud-ready' || syncStatus.code === 'error') {
       attemptPush();
+    } else if (syncStatus.code === 'cloud-newer') {
+      setState({ lastSkipReason: 'skipped: cloud newer' });
+    } else if (syncStatus.code === 'synced') {
+      setState({ lastSkipReason: '' });
     }
   }
 
@@ -355,6 +394,25 @@
     localStorage.removeItem = wrappedRemove;
   }
 
+  function runCheck() { refreshStatus(); checkCloudLoad(); maybeAutoPush(); }
+
+  // Resolves once SupabaseAuth has a definitive signed-in/signed-out
+  // answer — never a bare "wait a tick and hope". SupabaseAuth.init()
+  // kicks off an async getSession() fetch and only flips loading:false once
+  // it resolves; running the first check while that's still in flight was
+  // the actual gap that let a real 'local-newer' state get misread as
+  // signed-out on load and silently sit there until some later event (a
+  // storage write, a visibility flip) happened to re-check it. Subscribing
+  // and resolving on the first non-loading state removes that gap outright.
+  function whenAuthReady(cb) {
+    if (!window.SupabaseAuth) { cb(); return; }
+    var st = window.SupabaseAuth.getState();
+    if (!st.loading) { cb(); return; }
+    var unsubscribe = window.SupabaseAuth.subscribe(function (s) {
+      if (!s.loading) { unsubscribe(); cb(); }
+    });
+  }
+
   function init() {
     wrapStorage();
     // Idempotent (SupabaseAuth guards against double-init) — this is what
@@ -362,25 +420,23 @@
     // have their own sign-in UI calling it (only Command Centre and
     // Integrations did before v2).
     if (window.SupabaseAuth) window.SupabaseAuth.init();
-    refreshStatus();
     checkCloudLoad();
-    // State-based checkpoint, not just the debounce path — checks
-    // getSyncStatus() directly so local-newer data from a *different* page's
-    // edit (or an edit whose 4s debounce never got to finish before
-    // navigation) still gets pushed on this page's load. See maybeAutoPush().
-    maybeAutoPush();
+    whenAuthReady(runCheck);
     // Same checkpoint on every auth change, visibility/online recovery, and
     // the periodic ticks below — so signing in, coming back online, or
     // simply returning to the tab all re-check state instead of only
     // reacting to this page's own in-memory dirty timer.
-    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); checkCloudLoad(); maybeAutoPush(); });
+    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(runCheck);
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') { maybeAutoPush(); checkCloudLoad(); }
+      if (document.visibilityState === 'visible') runCheck();
     });
-    window.addEventListener('online', function () { maybeAutoPush(); checkCloudLoad(); });
-    window.addEventListener('offline', function () { setState({ status: 'offline' }); });
-    setInterval(function () { refreshStatus(); checkCloudLoad(); maybeAutoPush(); }, 60 * 1000);
-    setInterval(maybeAutoPush, DIRTY_CHECK_MS);
+    window.addEventListener('online', runCheck);
+    window.addEventListener('offline', function () { setState({ status: 'offline', lastSkipReason: 'skipped: offline' }); });
+    // Single watchdog tick, 10-15s while the tab is open — the state-based
+    // checkpoint (maybeAutoPush reads CloudSync.getSyncStatus() directly,
+    // not in-memory history) is what guarantees a 'local-newer' reading can
+    // never just sit there for a full page session without a real edit.
+    setInterval(runCheck, WATCHDOG_MS);
   }
 
   window.AutoSync = {
@@ -389,8 +445,8 @@
     // Lets the Integrations Cloud Sync toggle (and anything else that just
     // changed a base-status input like cloudSync.enabled) ask for an
     // immediate status recompute instead of waiting for the next debounced
-    // push, storage tick, or 60s poll. Status-only, same as the periodic
-    // refresh — never triggers a push itself.
+    // push, storage tick, or watchdog poll. Status-only, same as the
+    // periodic refresh — never triggers a push itself.
     refresh: refreshStatus,
   };
 

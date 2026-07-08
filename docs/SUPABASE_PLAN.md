@@ -641,3 +641,33 @@ one network push per genuine edit (no more redundant push on every load caused b
 in-flight/coalescing guards, manual Quick Sync/Force Local Save, `life_os_state` table/RLS, data shape.
 
 **Next step:** none required. Still Phase 1, still push-only.
+
+## 25. Auto Cloud Save: reliable watchdog, no more idle local-newer (2026-07-08)
+
+Live symptom despite §24: "Local newer" + "Auto save on" + signed in, but no push ever fired.
+`init()`'s first check ran before `SupabaseAuth`'s async session fetch resolved, misreading a real
+session as signed-out; it only self-healed via a later `subscribe()` notify, with no tight guaranteed
+re-check.
+
+Added `whenAuthReady()` — the first check now runs only once auth has a definitive answer — and
+replaced the 60s/5min polls with one 12s watchdog tick. `pushToCloud()` is now wrapped in a 20s
+`Promise.race` timeout. Fixed a genuine concurrency gap found while writing the harness below:
+`pushInFlight` was set after an `await`, so two checks landing on the same auth transition could both
+pass the guard and double-push; now claimed synchronously before the first `await`. The §24 local-newer
+dedup bypass is now an unconditional gate on the whole check, not just documented intent.
+
+Quick Sync/Integrations' existing `lastSkipReason` line now carries canonical short states: `checking`,
+`queued`, `pushing`, `pushed successfully at HH:MM`, `skipped: signed out/offline/hidden tab/cloud
+newer/disabled`, `push failed: <message>`, `push timed out`. No UI file changes — both panels already
+render this field.
+
+Verified with `tests/autosync-watchdog.test.mjs` (Node `vm`, real source, mocked Supabase client):
+local-newer+signed-in+online+visible pushes exactly once; failed push clears syncing and shows the
+error; timed-out push clears syncing/inFlight and shows the timeout; an unchanged-signature watchdog
+tick still pushes while status is local-newer (dedup can't hide behind it); a success updates both
+`AutoSync.getState().lastPushAt` and `cloudSyncMeta.lastPushedAt`.
+
+**Unchanged:** push-only, no auto-pull, cloud-newer conflict protection, manual Quick Sync/Force Local
+Save, `life_os_state` table/RLS, data shape.
+
+**Next step:** none required. Still Phase 1, still push-only.
