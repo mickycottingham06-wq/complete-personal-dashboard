@@ -89,12 +89,22 @@ dailySnapshot: {
   lesson: string,
   tomorrowPriority: string,
   dayScore: number,             // 0-10 manual rating, 0 = not logged yet
+  history: [                    // archived past days' reflection/review data, oldest -> newest, capped at 60
+    {
+      date: string, mainFocus: string, successTarget: string,
+      priorities: [ { id: string, text: string, completed: boolean } ],
+      trainingCompleted: boolean, businessTaskCompleted: boolean, healthRoutineCompleted: boolean,
+      spendingLogged: boolean, goalActionCompleted: boolean,
+      energyLevel: number, stress: number, notes: string, scheduleNotes: string,
+      wentWell: string, slipped: string, lesson: string, tomorrowPriority: string, dayScore: number,
+    }
+  ],
 }
 ```
 
 Default habits: Drink water after waking, Morning sunlight, Training completed, Steps / movement, Protein target, Sleep routine, No wasted scrolling. Default moods (`window.DailySnapshot.MOODS`): Great, Good, Okay, Low, Rough.
 
-Resets to defaults automatically when `date` no longer matches the active day. Same-day loads also upgrade in any fields missing against the current default shape (schema-upgrade pattern shared with every other section), so older saved snapshots from before this shape existed don't lose data mid-day. `window.DailySnapshot.get()` returns the raw stored value (may be null or stale); `window.DailySnapshot.loadOrInit()` reads, rolls over/upgrades if needed, persists, and returns today's snapshot — this is what pages should call. `window.DailySnapshot.save(snap)` persists changes.
+Resets to defaults automatically when `date` no longer matches the active day. Before that reset, the outgoing day's reflection/review fields (mainFocus, successTarget, priorities, the five execution booleans, energyLevel, stress, notes, scheduleNotes, wentWell, slipped, lesson, tomorrowPriority, dayScore) are archived into `history` — capped at 60 entries, oldest → newest, same capped-array-in-owner-key pattern as `streaks.history`/`heatmap.entries`. A day with none of those fields touched is skipped (no noisy blank rows), and archiving only ever runs on a date-change rollover — a same-day reload never re-enters that branch, so it cannot create a duplicate entry; if one somehow already exists for that date, it's replaced rather than duplicated. This is a one-way archive only: `history` is never read or written mid-day, so it isn't a second source of truth for today's live fields. Same-day loads also upgrade in any fields missing against the current default shape (schema-upgrade pattern shared with every other section), so older saved snapshots from before this shape existed don't lose data mid-day. `window.DailySnapshot.get()` returns the raw stored value (may be null or stale); `window.DailySnapshot.loadOrInit()` reads, rolls over/upgrades/archives if needed, persists, and returns today's snapshot — this is what pages should call. `window.DailySnapshot.save(snap)` persists changes. `window.DailySnapshot.getHistory()` is a pure read returning the archived array for Weekly Review / Daily Guidance / future coaching to consume.
 
 **Cross-feeds (safe one-way updates, not two-way sync):** `energyLevel` and `stress` are pushed into `window.Health`'s `energyLevel`/`stressLevel` fields on change, since both use the same 0-10 scale — Health HQ's own preview card picks this up automatically with no extra code. `currentWeight` is pushed via the existing `window.Core.setCurrentWeight()` helper, which keeps `window.Health.currentWeight`, `window.Boxing.currentWeight`, and today's `window.DailySnapshot.currentWeight` all in sync regardless of which page the user typed it into — Hormone Optimisation and Appearance/Looks also read (never own) this same weight for a small read-only display, so all six surfaces agree on one number. `sleepQuality` and `recovery` are intentionally **not** pushed anywhere — Health HQ's own `sleepQuality` (a text category) and `recoveryScore` (a WHOOP 0-100 percentage) use different scales and would silently corrupt on overwrite, so they stay local to Daily Snapshot only. The five execution booleans (`trainingCompleted`, `businessTaskCompleted`, `healthRoutineCompleted`, `spendingLogged`, `goalActionCompleted`) are read directly by `scripts/heatmap-data.js` (replacing its old free-text-field inference) and surfaced as small read-only "✓ done today" lines on the Business HQ, Boxing HQ, Health HQ, Money HQ, and Goals preview cards on index.html — those HQ pages' own data shapes are untouched; the flags are read, never duplicated into them.
 

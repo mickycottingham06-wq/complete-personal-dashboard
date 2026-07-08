@@ -633,6 +633,33 @@ Polish Daily Guidance todayFocus to a theme, avoiding duplicate wording with Top
 
 ---
 
+## 2026-07-08
+
+### Daily Snapshot — reflection/review history archive
+
+Daily Snapshot's morning-plan and evening-review fields (mainFocus, successTarget, priorities,
+the five execution booleans, energyLevel, stress, notes, scheduleNotes, wentWell, slipped, lesson,
+tomorrowPriority, dayScore) were wiped with no archive on every 6 AM rollover, so nothing could feed
+Weekly Review, Daily Guidance, or future trend/coaching features. `loadOrInit()` in
+`scripts/daily-snapshot-data.js` now archives the outgoing day's reflection fields into a new
+`dailySnapshot.history` array (capped at 60 entries, oldest → newest — same capped-array-in-owner-key
+pattern as `streaks.history`/`heatmap.entries`) before resetting for the new day. Blank days are
+skipped, archiving only runs on an actual date-change rollover so a same-day reload can't duplicate an
+entry, and a duplicate for the same date is replaced rather than appended. Existing saved snapshots
+upgrade in a `history: []` field via the existing schema-upgrade pattern, losing nothing. New
+`window.DailySnapshot.getHistory()` read-only hook for Weekly Review / Daily Guidance to consume later
+— no other page or Daily Guidance logic changed.
+
+Files affected:
+
+scripts/daily-snapshot-data.js, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add Daily Snapshot reflection history archive on 6 AM rollover
+
+---
+
 ## Future Entries
 
 Example
