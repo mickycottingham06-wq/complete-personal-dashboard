@@ -73,6 +73,7 @@
   var LABELS = {
     'not-configured': 'Local only',
     'signed-out': 'Signed out',
+    disabled: 'Off (disabled by you)',
     offline: 'Offline',
     'auto-on': 'Auto save on',
     syncing: 'Syncing…',
@@ -99,6 +100,12 @@
   // correct label instead of everything collapsing into one generic state.
   function computeBaseStatus() {
     if (!window.SupabaseFoundation || !window.SupabaseFoundation.isConfigured()) return 'not-configured';
+    // Auto Cloud Save defaults on (integrations-data.js migrates old/missing
+    // data to enabled:true) — this only fires when the user has explicitly
+    // turned it off via the Integrations Cloud Sync toggle. Pages that don't
+    // load integrations-data.js have no toggle to disable, so they fall
+    // through and auto save runs (matches the on-by-default requirement).
+    if (window.Integrations && !window.Integrations.load().cloudSync.enabled) return 'disabled';
     if (!window.CloudSync || !window.CloudSync.isSignedIn()) return 'signed-out';
     if (!navigator.onLine) return 'offline';
     return null;
@@ -306,6 +313,12 @@
   window.AutoSync = {
     getState: function () { return state; },
     subscribe: subscribe,
+    // Lets the Integrations Cloud Sync toggle (and anything else that just
+    // changed a base-status input like cloudSync.enabled) ask for an
+    // immediate status recompute instead of waiting for the next debounced
+    // push, storage tick, or 60s poll. Status-only, same as the periodic
+    // refresh — never triggers a push itself.
+    refresh: refreshStatus,
   };
 
   init();

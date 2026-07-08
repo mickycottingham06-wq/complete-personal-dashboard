@@ -51,7 +51,14 @@
         notes: '',
       },
       cloudSync: {
-        enabled: false,
+        // Auto Cloud Save default — on for everyone once Supabase is
+        // configured (auto-sync.js no-ops until it is). `userSet` tracks
+        // whether this device's owner has ever explicitly touched the
+        // toggle; until then, load() below keeps forcing this true so
+        // old/new data both default on, and only an explicit user choice
+        // (via setEnabled) can turn it off and have that choice stick.
+        enabled: true,
+        userSet: false,
         status: 'Not connected',
         provider: 'Supabase',
         lastSync: '',
@@ -73,6 +80,13 @@
         if (!(field in stored[section])) stored[section][field] = d[section][field];
       });
     });
+    // Auto Cloud Save default-on migration: any stored cloudSync.enabled
+    // that hasn't been explicitly set by this device's owner (old data
+    // predates `userSet` entirely, so it's always false here) is forced
+    // back to true on every load. The moment setEnabled() is called by
+    // the user, userSet flips true and their choice — on or off — is
+    // respected from then on.
+    if (!stored.cloudSync.userSet) stored.cloudSync.enabled = true;
     if (!Array.isArray(stored.googleCalendar.upcomingEvents)) stored.googleCalendar.upcomingEvents = [];
     // Upgrade older saved events (title/date/time only) with the richer
     // location/notes fields so older localStorage data never throws.
@@ -92,6 +106,10 @@
     var state = load();
     if (!state[section]) return state;
     state[section].enabled = !!enabled;
+    // Auto Cloud Save: this is the "clear explicit user-disabled flag"
+    // load()'s default-on migration checks for — once set, the user's
+    // choice (on or off) sticks and is never overridden again.
+    if (section === 'cloudSync') state[section].userSet = true;
     if (!enabled) {
       state[section].status = 'Not connected';
       state[section].lastSync = '';
@@ -134,6 +152,9 @@
     var s = state[section];
     if (!s) return { ok: false, state: state };
     if (!s.enabled) return { ok: false, state: state };
+    // Cloud Sync outgrew this demo path — it's real now (scripts/auto-sync.js
+    // + scripts/cloud-sync.js), so there's nothing left for mockSync to do here.
+    if (section === 'cloudSync') return { ok: false, state: state };
 
     if (section === 'weather' && !s.location.trim()) {
       s.status = 'Error — add a location first';
@@ -154,11 +175,6 @@
     } else if (section === 'aiApi') {
       s.status = 'Connected (mock mode)';
       s.lastUsed = nowIso();
-    } else if (section === 'cloudSync') {
-      // Cloud Sync has no real backend wired up yet (Supabase foundation
-      // only — see docs/SUPABASE_PLAN.md), so this never claims "Connected".
-      s.status = 'Foundation only — not connected';
-      s.lastSync = nowIso();
     }
 
     save(state);

@@ -376,12 +376,13 @@ body::after {
         <span class="int-status" id="intCloudStatus"><span class="dot"></span><span class="txt">Not connected</span></span>
       </div>
       <p class="int-card-note" id="intCloudFoundationNote">
-        Local Storage is the active storage system and always stays that way. Phase 1 real cloud
-        sync is now available below when Supabase is configured and you're signed in — it's
-        manual only (you click a button), one JSON record per account, never automatic or in the
-        background.
+        Local Storage is the active storage system and always stays that way. Auto Cloud Save runs
+        automatically in the background — signed in + online is all it needs, no button required.
+        Turn it off below if you'd rather sync manually only. The Real Cloud Sync (Phase 1) buttons
+        further down still let you push/pull on demand any time, background auto save or not.
       </p>
       <div class="int-row">
+        <div class="field-label" style="margin:0;">Auto Cloud Save</div>
         <div class="seg" id="intCloudToggle">
           <button type="button" data-v="off">Off</button>
           <button type="button" data-v="on">On</button>
@@ -396,7 +397,6 @@ body::after {
         <label class="field-label">Notes</label>
         <textarea class="int-notes" id="intCloudNotes" placeholder="Optional notes about this integration…"></textarea>
       </div>
-      <button class="int-sync-btn" id="intCloudSyncBtn" type="button">Check foundation status (demo)</button>
       <p class="int-card-note" id="intCloudEnvStatus" style="margin-top:8px;"></p>
 
       <div style="border-top:1px solid rgba(255,255,255,0.08); margin:18px 0 16px;"></div>
@@ -673,12 +673,21 @@ body::after {
   /* ---------- Cloud Sync ---------- */
   function renderCloud() {
     const c = window.Integrations.load().cloudSync;
-    renderStatus($('intCloudStatus'), c.status);
     renderToggle($('intCloudToggle'), c.enabled);
-    $('intCloudSyncTime').textContent = relTime(c.lastSync, 'Last sync');
     if (document.activeElement !== $('intCloudProvider')) $('intCloudProvider').value = c.provider || '';
     if (document.activeElement !== $('intCloudNotes')) $('intCloudNotes').value = c.notes || '';
-    $('intCloudSyncBtn').disabled = !c.enabled;
+
+    // Header badge + "last sync" now come from the real AutoSync/CloudSync
+    // state, not the old demo mock status — so this card can never show
+    // "Off"/"Not connected" while Auto Cloud Save is actually running.
+    const auto = window.AutoSync ? window.AutoSync.getState() : null;
+    if (auto && auto.status !== 'not-configured') {
+      renderStatus($('intCloudStatus'), auto.label);
+      $('intCloudSyncTime').textContent = auto.lastPushAt ? relTime(auto.lastPushAt, 'Last auto push') : 'Last auto push: never';
+    } else {
+      renderStatus($('intCloudStatus'), 'Not connected');
+      $('intCloudSyncTime').textContent = 'Last sync: never';
+    }
 
     // Real (non-demo) Supabase status — separate from the enabled/notes
     // fields above, which are just user-facing placeholders.
@@ -701,10 +710,14 @@ body::after {
       ].map((l) => '<span style="display:block;">' + l + '</span>').join('');
     }
   }
-  wireToggle($('intCloudToggle'), (on) => { window.Integrations.setEnabled('cloudSync', on); renderCloud(); });
+  wireToggle($('intCloudToggle'), (on) => {
+    window.Integrations.setEnabled('cloudSync', on);
+    if (window.AutoSync) window.AutoSync.refresh();
+    renderCloud();
+  });
   $('intCloudProvider').addEventListener('input', (e) => autoSaveField('cloudSync', 'provider', e.target.value));
   $('intCloudNotes').addEventListener('input', (e) => autoSaveField('cloudSync', 'notes', e.target.value));
-  $('intCloudSyncBtn').addEventListener('click', () => { window.Integrations.mockSync('cloudSync'); renderCloud(); });
+  if (window.AutoSync) window.AutoSync.subscribe(renderCloud);
 
   /* ---------- Real Cloud Sync (Phase 1) ---------- */
   function fmtTime(iso) {

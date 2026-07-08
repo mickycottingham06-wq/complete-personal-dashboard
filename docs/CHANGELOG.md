@@ -821,6 +821,53 @@ Fix Auto Cloud Save defaulting off + Command Centre sign-in UX
 
 ---
 
+## 2026-07-08 (2)
+
+### Auto Cloud Save on-by-default + compact sign-in — actually wired up this time
+
+The prior entry above described this fix, but the code was never actually changed to match —
+`cloudSync.enabled` still defaulted `false` with no migration, `auto-sync.js` never read it, and
+Command Centre still showed the big inline email/password card. This entry is the real fix.
+
+`integrations-data.js`: `cloudSync` now defaults `enabled: true`; `load()` force-sets `enabled:
+true` on every read until `userSet` is true, so old stored `false` data (and anything untouched)
+migrates to on, while an explicit toggle (`setEnabled`, which now sets `userSet: true`) sticks
+from then on, off or on. Removed the dead "Check foundation status (demo)" mock path for
+`cloudSync` — it's real now.
+
+`auto-sync.js`: `computeBaseStatus()` now returns a `disabled` state (label "Off (disabled by
+you)") when `Integrations.load().cloudSync.enabled` is false, so the toggle actually gates the
+background push. Added `window.AutoSync.refresh()` (exposes the existing status-only
+`refreshStatus`) so toggling reflects immediately instead of waiting for the next debounce/tick.
+
+`index.html` / `pages/daily-snapshot.html`: fixed script load order — `integrations-data.js` now
+loads before `auto-sync.js` (it previously loaded after, so `window.Integrations` was undefined
+the first time `computeBaseStatus()` ran).
+
+Command Centre: removed the always-visible `cloudCardSection` inline email/password card entirely.
+The existing compact top-bar `syncIndicator` button now reads "Cloud Sign In" when signed out, and
+clicking it opens the Quick Sync modal, which now contains a compact sign-in form shown only while
+signed out — it hides itself the moment sign-in succeeds.
+
+Integrations Cloud Sync card: rewrote the note copy (no more "manual only… never automatic"); the
+On/Off toggle is now explicitly labelled "Auto Cloud Save" and its header status badge / "last
+sync" now read from `window.AutoSync`'s real state instead of the old demo mock status, so it can
+no longer show "Off" while auto save is actually running.
+
+Unchanged: push-only AutoSync, manual Quick Sync/Push/Pull/Sync buttons, `life_os_state` table/RLS,
+Local Storage as the active store.
+
+Files affected:
+
+scripts/integrations-data.js, scripts/auto-sync.js, index.html, pages/integrations.html,
+pages/daily-snapshot.html
+
+Commit:
+
+Actually wire up Auto Cloud Save default-on + compact Command Centre sign-in
+
+---
+
 ## Future Entries
 
 Example
