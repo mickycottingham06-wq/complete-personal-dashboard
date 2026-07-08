@@ -140,7 +140,13 @@
         updated_at: nowIso,
       }, { onConflict: 'user_id' });
       if (res.error) { recordError(errMsg(res.error)); return { ok: false, error: errMsg(res.error) }; }
-      setMeta({ lastPushedAt: nowIso });
+      // Settle localChangedAt to the exact instant just pushed. Without
+      // this, latestLocalTimestamp() still reports the earlier edit
+      // timestamp, which is always before this push's own updated_at — so
+      // getSyncStatus() would read this device's own successful push as
+      // "cloud-newer" forever after, permanently mistaking it for someone
+      // else's newer save. See docs/SUPABASE_PLAN.md §23.
+      setMeta({ lastPushedAt: nowIso, localChangedAt: nowIso });
       clearError();
       return { ok: true, updatedAt: nowIso, keyCount: payload.meta.keyCount };
     } catch (e) {
@@ -170,7 +176,12 @@
       }
       var applied = window.Backup.apply({ meta: { dataVersion: res.data.data_version }, data: res.data.data });
       if (!applied.ok) { recordError(applied.error); return { ok: false, error: applied.error }; }
-      setMeta({ lastPulledAt: new Date().toISOString() });
+      // Settle localChangedAt to the pulled row's own updated_at (mirrors
+      // pushToCloud() above) — local now matches that exact cloud version,
+      // so this reads 'synced' immediately instead of a stale pre-pull
+      // localChangedAt making it look local-newer and triggering a pointless
+      // auto-push of what was just pulled straight back to the cloud.
+      setMeta({ lastPulledAt: new Date().toISOString(), localChangedAt: res.data.updated_at });
       clearError();
       return { ok: true, keyCount: applied.keyCount, updatedAt: res.data.updated_at };
     } catch (e) {

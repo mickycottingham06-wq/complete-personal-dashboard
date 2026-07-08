@@ -780,6 +780,10 @@ button.quick-action { font-family: inherit; cursor: pointer; }
       <div class="qs-stat"><div class="v" id="qsAutoSaveLast">—</div><div class="l">Last auto push</div></div>
     </div>
 
+    <!-- Why Auto Save isn't pushing right now, if it isn't — visible text,
+         not just the qsAutoSave tile's title tooltip. -->
+    <div class="preview-sub" id="qsAutoSaveReason" style="display:none; margin:-6px 0 12px;"></div>
+
     <div class="qs-err" id="qsErrBox" style="display:none"></div>
     <div class="qs-msg" id="qsMsgBox" style="display:none"></div>
 
@@ -1488,9 +1492,11 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     if (!window.AutoSync) { $('qsAutoSave').textContent = 'Not available'; return; }
     const s = window.AutoSync.getState();
     $('qsAutoSave').textContent = s.label;
-    // Title tooltip surfaces why the last push didn't happen (e.g. "no
-    // changes since last push", "tab not visible") without adding new UI.
-    $('qsAutoSave').title = s.lastSkipReason || s.reason || '';
+    const reasonTxt = s.lastSkipReason || s.reason || '';
+    $('qsAutoSave').title = reasonTxt;
+    const reasonEl = $('qsAutoSaveReason');
+    if (reasonTxt) { reasonEl.style.display = ''; reasonEl.textContent = reasonTxt; }
+    else { reasonEl.style.display = 'none'; }
     $('qsAutoSaveLast').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
   }
   if (window.AutoSync) window.AutoSync.subscribe(() => { if ($('quickSyncBg').classList.contains('show')) renderAutoSave(); });

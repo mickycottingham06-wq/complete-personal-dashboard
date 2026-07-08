@@ -10,10 +10,17 @@
 //
 // How it works: wraps localStorage.setItem/removeItem once to detect
 // meaningful writes (an exclude-list filters out UI/ephemeral and
-// self-referential sync-metadata keys so those never trigger a push).
-// Each meaningful write debounces a push 4s after the last change, with a
-// 45s max-wait ceiling during continuous editing, plus a cheap 5-minute
-// fallback check in case something changed outside the wrapped calls.
+// self-referential sync-metadata keys so those never trigger a push), and
+// stamps cloudSyncMeta.localChangedAt on each one. Each meaningful write
+// also debounces a push 4s after the last change, with a 45s max-wait
+// ceiling during continuous editing.
+//
+// This is a static multi-page app, so that debounce timer dies the moment
+// the user navigates — localChangedAt is what survives it. maybeAutoPush()
+// checks CloudSync.getSyncStatus() directly (state, not memory) on init,
+// auth change, visibility/online, and periodic ticks, and pushes whenever
+// it says 'local-newer' (or 'cloud-ready'/'error'), regardless of whether
+// this page's own timer ever fired.
 //
 // Before every push: flush pending debounced saves (ForceSave.flushAll),
 // require Supabase configured + signed in, require the browser online,
@@ -215,13 +222,37 @@
       var result = await window.CloudSync.pushToCloud();
       if (result.ok) {
         lastPushedSignature = sig;
-        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: new Date().toISOString(), lastSkipReason: '' });
+        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: result.updatedAt, lastSkipReason: '' });
       } else {
         setState({ status: 'action-needed', reason: result.error, lastError: result.error, lastSkipReason: result.error });
       }
     } finally {
       pushInFlight = false;
       if (pendingRerun) { pendingRerun = false; markDirty(); }
+    }
+  }
+
+  // The state-based counterpart to markDirty()'s debounce: checks the
+  // authoritative, persisted CloudSync.getSyncStatus() directly and only
+  // calls attemptPush() when it says there's really something to push
+  // ('local-newer' — Local Storage has edits the cloud doesn't; 'cloud-ready'
+  // — no cloud row exists yet at all; or 'error' — a past push/pull failed
+  // and deserves a retry, same self-healing reasoning as above). This is
+  // what makes a push happen even with zero in-memory history on this page
+  // — a fresh load, a page navigated to mid-debounce, or a browser restart
+  // all still see local-newer here via cloudSyncMeta.localChangedAt (set by
+  // markDirty() on whatever page made the edit) and push. Never triggers on
+  // 'synced' or 'cloud-newer' — no redundant pushes, no overwriting a
+  // genuinely newer cloud save.
+  async function maybeAutoPush() {
+    if (pushInFlight) return;
+    var base = computeBaseStatus();
+    if (base) return;
+    if (document.visibilityState === 'hidden') return;
+    if (!window.CloudSync) return;
+    var syncStatus = await window.CloudSync.getSyncStatus();
+    if (syncStatus.code === 'local-newer' || syncStatus.code === 'cloud-ready' || syncStatus.code === 'error') {
+      attemptPush();
     }
   }
 
@@ -312,18 +343,23 @@
     if (window.SupabaseAuth) window.SupabaseAuth.init();
     refreshStatus();
     checkCloudLoad();
-    // Also attempt a push on every auth change (not just refresh/checkCloudLoad)
-    // so signing in starts auto save immediately instead of waiting for the
-    // next edit or the 5-minute fallback tick. attemptPush() is always safe
-    // to call — it no-ops via computeBaseStatus() when signed out.
-    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); checkCloudLoad(); attemptPush(); });
+    // State-based checkpoint, not just the debounce path — checks
+    // getSyncStatus() directly so local-newer data from a *different* page's
+    // edit (or an edit whose 4s debounce never got to finish before
+    // navigation) still gets pushed on this page's load. See maybeAutoPush().
+    maybeAutoPush();
+    // Same checkpoint on every auth change, visibility/online recovery, and
+    // the periodic ticks below — so signing in, coming back online, or
+    // simply returning to the tab all re-check state instead of only
+    // reacting to this page's own in-memory dirty timer.
+    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); checkCloudLoad(); maybeAutoPush(); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') { attemptPush(); checkCloudLoad(); }
+      if (document.visibilityState === 'visible') { maybeAutoPush(); checkCloudLoad(); }
     });
-    window.addEventListener('online', function () { attemptPush(); checkCloudLoad(); });
+    window.addEventListener('online', function () { maybeAutoPush(); checkCloudLoad(); });
     window.addEventListener('offline', function () { setState({ status: 'offline' }); });
-    setInterval(function () { refreshStatus(); checkCloudLoad(); }, 60 * 1000);
-    setInterval(attemptPush, DIRTY_CHECK_MS);
+    setInterval(function () { refreshStatus(); checkCloudLoad(); maybeAutoPush(); }, 60 * 1000);
+    setInterval(maybeAutoPush, DIRTY_CHECK_MS);
   }
 
   window.AutoSync = {

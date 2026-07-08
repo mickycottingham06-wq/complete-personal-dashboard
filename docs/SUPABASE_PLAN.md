@@ -563,3 +563,37 @@ gained `lastSkipReason`, surfaced as a `title` tooltip on the existing Auto Save
 guards, manual push/pull/sync, no auto-pull, no data shape changes to any section.
 
 **Next step:** none required. Still Phase 1, still push-only.
+
+## 23. Auto Cloud Save: state-based push, not just dirty-event-based (2026-07-08)
+
+§22's `localChangedAt` fix made `getSyncStatus()` correctly report `local-newer` after an edit, but
+nothing actually pushed from that state alone — `attemptPush()` was only ever called from this
+page's own in-memory 4s debounce/45s max-wait timers, or a periodic interval. In this static
+multi-page app, navigating to another page (a full reload) kills those timers; `init()` on the new
+page only called `refreshStatus()` (display-only) and never re-attempted the push, so an edit made
+right before navigating could sit unpushed indefinitely — exactly the "still 33+ minutes ago"
+symptom.
+
+**Added:** `maybeAutoPush()` — checks `CloudSync.getSyncStatus()` directly and calls `attemptPush()`
+whenever it's `local-newer`, `cloud-ready` (never pushed at all), or `error` (retry, same
+self-healing reasoning §20 already established for the debounce path). Wired into every checkpoint:
+`init()`, the `SupabaseAuth` subscribe callback, `visibilitychange`→visible, the `online` event, the
+60s status tick, and in place of the old 5-minute fallback's bare `attemptPush()`. Never triggers on
+`synced` or `cloud-newer` — same conflict protection as before, just also state-based instead of
+purely memory-based.
+
+Also fixed the corollary bug this exposed: `pushToCloud()`/`pullToLocal()` now settle
+`cloudSyncMeta.localChangedAt` to the exact pushed/pulled timestamp on success. Without this, a
+device's *own* successful push would immediately read back as `cloud-newer` (the push's wall-clock
+`updated_at` is always later than the edit's `localChangedAt`), permanently mistaking its own push
+for someone else's newer save — and after `maybeAutoPush()` started checking state on every page
+load, would have caused a real (if harmless) redundant push loop on every navigation.
+
+`AutoSync`'s skip/error reason is now also a visible line (`qsAutoSaveReason` / `asReason`, reusing
+`.preview-sub`/`.int-card-note`) next to the Auto Save tile on Command Centre and Integrations, not
+only the tile's `title` tooltip from §22.
+
+**Unchanged:** push-only, no auto-pull, cloud-newer conflict protection, dedup signature, in-flight/
+coalescing guards, manual Quick Sync/Force Local Save, `life_os_state` table/RLS, data shape.
+
+**Next step:** none required. Still Phase 1, still push-only.

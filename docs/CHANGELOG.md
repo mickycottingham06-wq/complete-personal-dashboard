@@ -898,6 +898,37 @@ Fix Auto Cloud Save not pushing after edits (local freshness detection)
 
 ---
 
+## 2026-07-08 (4)
+
+### Auto Cloud Save — push from local-newer state, not just the in-page dirty timer
+
+Freshness detection (previous entry) worked — `getSyncStatus()` correctly read `local-newer` after
+an edit — but nothing pushed from that alone. `attemptPush()` only ran off this page's own in-memory
+4s/45s timers or a 5-minute interval; navigating to another page (a full reload in this static
+multi-page app) killed those timers, and the new page's `init()` only refreshed the *display*, never
+re-attempted the push. An edit made shortly before navigating could sit unpushed indefinitely.
+
+Added `maybeAutoPush()`: checks `CloudSync.getSyncStatus()` directly and calls `attemptPush()` on
+`local-newer`, `cloud-ready`, or `error` (retry). Wired into `init()`, auth-change, visibility/online
+recovery, the 60s tick, and the 5-minute fallback. Also fixed the bug this exposed —
+`pushToCloud()`/`pullToLocal()` now settle `cloudSyncMeta.localChangedAt` to the pushed/pulled
+timestamp on success, so a device's own push doesn't immediately read back as "cloud newer" and
+cause a redundant push loop on the next page load. Skip/error reason is now a visible line next to
+the Auto Save tile (Command Centre, Integrations), not only a tooltip.
+
+Unchanged: push-only, no auto-pull, cloud-newer conflict protection, dedup/in-flight guards, manual
+Quick Sync/Force Local Save.
+
+Files affected:
+
+scripts/cloud-sync.js, scripts/auto-sync.js, index.html, pages/integrations.html
+
+Commit:
+
+Fix Auto Cloud Save: push from local-newer state across page navigation
+
+---
+
 ## Future Entries
 
 Example
