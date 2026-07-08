@@ -34,7 +34,7 @@ Weather
 
 Finance APIs
 
-Cloud Sync (Auto Cloud Save v2 done — scripts/auto-sync.js, push-only background save now covers all core Life OS pages, plus a guarded confirm-before-load prompt when another device's cloud save is newer and this device has no unsynced edits; manual Quick Sync/Force Local Save/Push/Pull/Sync unchanged)
+Cloud Sync (Auto Cloud Save v2 done — scripts/auto-sync.js, push-only background save now covers all core Life OS pages, plus a guarded confirm-before-load prompt when another device's cloud save is newer and this device has no unsynced edits; manual Quick Sync/Force Local Save/Push/Pull/Sync unchanged; fixed a bug where a stale past error permanently blocked all future auto-pushes, and Command Centre now shows a compact sign-in/status card near the top instead of sign-in being Integrations-only)
 
 Voice Assistant
 

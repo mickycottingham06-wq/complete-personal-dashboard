@@ -18,8 +18,10 @@
 // Before every push: flush pending debounced saves (ForceSave.flushAll),
 // require Supabase configured + signed in, require the browser online,
 // require the tab visible, then read CloudSync.getSyncStatus() and skip
-// if cloud is newer or in error — those need the user's manual choice via
-// Quick Sync / Integrations, never an automatic overwrite.
+// only if the cloud copy is newer — that needs the user's manual choice via
+// Quick Sync / Integrations, never an automatic overwrite. A past push/pull
+// *error* is never a gate here — it's retried on the next change so a fixed
+// cause (network blip, table not created yet) self-heals automatically.
 //
 // Cloud-load check (v2): on load, on visibility/online, and on the periodic
 // status refresh, flush + check CloudSync.getSyncStatus(). Only when the
@@ -64,20 +66,42 @@
     return false;
   }
 
+  // Six distinct states so the UI never has to guess *why* auto save isn't
+  // running — 'not-configured' and 'signed-out' used to be lumped into one
+  // 'offline' bucket, which is exactly what made "why isn't this saving?"
+  // hard to answer from the UI alone.
   var LABELS = {
+    'not-configured': 'Local only',
+    'signed-out': 'Signed out',
+    offline: 'Offline',
     'auto-on': 'Auto save on',
-    syncing: 'Syncing',
+    syncing: 'Syncing…',
     synced: 'Synced',
     'action-needed': 'Action needed',
-    offline: 'Offline / signed out',
   };
 
-  var state = { status: 'offline', label: LABELS.offline, lastError: '', lastPushAt: '' };
+  var state = { status: 'not-configured', label: LABELS['not-configured'], reason: '', lastError: '', lastPushAt: '' };
   var listeners = [];
   function setState(patch) {
+    var prevStatus = state.status;
     state = Object.assign({}, state, patch);
     state.label = LABELS[state.status] || '';
+    // One console line per genuine state change only — never per poll/tick,
+    // so this stays useful for debugging without spamming the console.
+    if (state.status !== prevStatus) {
+      try { console.info('[AutoSync] ' + prevStatus + ' -> ' + state.status + (state.reason ? ' (' + state.reason + ')' : '')); } catch (e) {}
+    }
     listeners.slice().forEach(function (fn) { try { fn(state); } catch (e) {} });
+  }
+
+  // The three reasons a push can't even be attempted — checked before ever
+  // touching CloudSync.getSyncStatus()/pushToCloud() so each has a distinct,
+  // correct label instead of everything collapsing into one generic state.
+  function computeBaseStatus() {
+    if (!window.SupabaseFoundation || !window.SupabaseFoundation.isConfigured()) return 'not-configured';
+    if (!window.CloudSync || !window.CloudSync.isSignedIn()) return 'signed-out';
+    if (!navigator.onLine) return 'offline';
+    return null;
   }
   function subscribe(fn) {
     listeners.push(fn);
@@ -137,27 +161,40 @@
   async function attemptPush() {
     if (pushInFlight) { pendingRerun = true; return; }
     if (!window.CloudSync || !window.Backup || !window.ForceSave) return;
-    if (!navigator.onLine || !window.CloudSync.isAvailable()) { setState({ status: 'offline' }); return; }
+    var base = computeBaseStatus();
+    if (base) { setState({ status: base, reason: '' }); return; }
     if (document.visibilityState === 'hidden') return; // retried on visibility/online events
 
+    // Only 'cloud-newer' blocks the push itself — pushing over a newer
+    // cloud save would silently discard another device's edits, and that
+    // needs the user's explicit choice (Quick Sync / Integrations).
+    //
+    // A stale 'error' status is deliberately NOT a gate here. Earlier this
+    // used to skip the push whenever the *last* push/pull had failed for
+    // any reason (including a one-off network blip, or the cloud table not
+    // existing yet during initial setup) — which meant a single past
+    // failure permanently stopped every future auto-push, silently, since
+    // nothing else ever retried it. Attempting the push and letting its own
+    // result decide the state lets a fixed cause self-heal on the very next
+    // edit instead of requiring a manual Quick Sync push to unstick it.
     var syncStatus = await window.CloudSync.getSyncStatus();
-    if (syncStatus.code === 'error' || syncStatus.code === 'cloud-newer') {
-      setState({ status: 'action-needed' });
+    if (syncStatus.code === 'cloud-newer') {
+      setState({ status: 'action-needed', reason: 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.' });
       return;
     }
 
     pushInFlight = true;
-    setState({ status: 'syncing' });
+    setState({ status: 'syncing', reason: '' });
     try {
       window.ForceSave.flushAll();
       var sig = computeSignature();
-      if (sig === lastPushedSignature) { setState({ status: 'synced' }); return; }
+      if (sig === lastPushedSignature) { setState({ status: 'synced', reason: '' }); return; }
       var result = await window.CloudSync.pushToCloud();
       if (result.ok) {
         lastPushedSignature = sig;
-        setState({ status: 'synced', lastError: '', lastPushAt: new Date().toISOString() });
+        setState({ status: 'synced', reason: '', lastError: '', lastPushAt: new Date().toISOString() });
       } else {
-        setState({ status: 'action-needed', lastError: result.error });
+        setState({ status: 'action-needed', reason: result.error, lastError: result.error });
       }
     } finally {
       pushInFlight = false;
@@ -166,15 +203,19 @@
   }
 
   // Status-only refresh (no push) — used on load and periodically so the
-  // indicator reflects reality even before any local edit happens.
+  // indicator reflects reality even before any local edit happens. Unlike
+  // attemptPush(), this is display-only, so a genuine last-push error is
+  // still surfaced as 'action-needed' here (honest reporting) — it just
+  // never blocks attemptPush() from trying again.
   async function refreshStatus() {
     if (pushInFlight) return;
-    if (!window.CloudSync) { setState({ status: 'offline' }); return; }
-    if (!navigator.onLine || !window.CloudSync.isAvailable()) { setState({ status: 'offline' }); return; }
+    var base = computeBaseStatus();
+    if (base) { setState({ status: base, reason: '' }); return; }
     var syncStatus = await window.CloudSync.getSyncStatus();
-    if (syncStatus.code === 'error' || syncStatus.code === 'cloud-newer') { setState({ status: 'action-needed' }); return; }
-    if (syncStatus.code === 'synced') { lastPushedSignature = computeSignature(); setState({ status: 'synced' }); return; }
-    setState({ status: 'auto-on' });
+    if (syncStatus.code === 'cloud-newer') { setState({ status: 'action-needed', reason: 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.' }); return; }
+    if (syncStatus.code === 'error') { setState({ status: 'action-needed', reason: state.lastError || 'The last cloud save failed — it will retry automatically on the next change.' }); return; }
+    if (syncStatus.code === 'synced') { lastPushedSignature = computeSignature(); setState({ status: 'synced', reason: '' }); return; }
+    setState({ status: 'auto-on', reason: '' });
   }
 
   // Cloud-load check (v2) — the only place this module ever pulls, and only
@@ -210,12 +251,12 @@
         'Load the latest cloud save now?'
       );
       if (!confirmed) return;
-      setState({ status: 'syncing' });
+      setState({ status: 'syncing', reason: '' });
       var result = await window.CloudSync.pullToLocal();
       if (result.ok) {
         window.location.reload();
       } else {
-        setState({ status: 'action-needed', lastError: result.error });
+        setState({ status: 'action-needed', reason: result.error, lastError: result.error });
       }
     } finally {
       loadCheckInFlight = false;
@@ -248,7 +289,11 @@
     if (window.SupabaseAuth) window.SupabaseAuth.init();
     refreshStatus();
     checkCloudLoad();
-    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); checkCloudLoad(); });
+    // Also attempt a push on every auth change (not just refresh/checkCloudLoad)
+    // so signing in starts auto save immediately instead of waiting for the
+    // next edit or the 5-minute fallback tick. attemptPush() is always safe
+    // to call — it no-ops via computeBaseStatus() when signed out.
+    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); checkCloudLoad(); attemptPush(); });
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') { attemptPush(); checkCloudLoad(); }
     });

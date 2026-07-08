@@ -751,6 +751,42 @@ Upgrade Auto Cloud Save to v2 — full core-page coverage + safe cloud-load prom
 
 ---
 
+## 2026-07-08 (5)
+
+### Fix Auto Cloud Save getting permanently stuck + surface sign-in on Command Centre
+
+Root cause of "AutoSync only local-saves on the live site": `attemptPush()` read
+`CloudSync.getSyncStatus()` and bailed out (no push attempted) whenever the status was `error` —
+but that status is driven by `cloudSyncMeta.lastError` in Local Storage, which only clears on a
+*successful* push/pull. One past failure (a network blip, or pushing before the `life_os_state`
+table/RLS existed) permanently set that flag, and since attemptPush never tried again after seeing
+it, every future auto-push silently no-opped forever — invisible unless the user opened Quick Sync
+or Integrations. Fixed by only gating the push itself on `cloud-newer` (the one case that could
+overwrite another device's edits); a stale `error` is now retried on the next edit and self-heals
+the moment its cause is fixed, instead of requiring a manual push to unstick it.
+
+`auto-sync.js` states also went from 5 to 7 (`not-configured`, `signed-out`, `offline`, `auto-on`,
+`syncing`, `synced`, `action-needed`, each with a human-readable `reason` for the last two) instead
+of collapsing "Supabase not configured", "signed out", and "browser offline" into one "Offline /
+signed out" label. `attemptPush` also now runs immediately on every `SupabaseAuth` state change (not
+just on the next edit or the 5-minute fallback tick), so signing in starts the first push right away.
+
+Command Centre gained a compact Cloud Card (hidden unless needed) directly under the header: a mini
+sign-in form when signed out — reusing `SupabaseAuth.signIn` exactly as Integrations → Account does
+— and a status/reason line for a few seconds after signing in or whenever `action-needed` is active.
+Quick Sync and the Integrations page are unchanged; they pick up the clearer AutoSync labels for
+free since both already just render `AutoSync.getState().label`.
+
+Files affected:
+
+scripts/auto-sync.js, index.html, docs/TODO.md
+
+Commit:
+
+Fix Auto Cloud Save getting stuck on a stale error + add Command Centre sign-in card
+
+---
+
 ## Future Entries
 
 Example

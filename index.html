@@ -329,6 +329,41 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     </div>
   </div>
 
+  <!-- ===== CLOUD CARD — compact sign-in / auto-save-status card, shown only
+       when needed (not signed in, or auto save needs attention). Reuses
+       window.SupabaseAuth.signIn (same call Integrations → Account makes)
+       and window.AutoSync's live status — no new sync system, just a
+       shorter, more visible path to the same sign-in/status that used to
+       live only on the Integrations page. ===== -->
+  <div class="section" id="cloudCardSection" style="display:none">
+    <div class="gm-card" id="cloudCard">
+      <div id="cloudCardSignedOut" style="display:none">
+        <div class="gm-eyebrow">☁ Cloud auto save is off</div>
+        <div class="preview-sub" style="margin-bottom:12px;">Sign in to turn on automatic cloud backup — auto save starts right away.</div>
+        <div class="qs-err" id="cloudCardErrBox" style="display:none"></div>
+        <form id="cloudCardForm" class="field-row" style="flex-wrap:wrap;">
+          <input class="set-input" id="cloudCardEmail" type="email" placeholder="Email" autocomplete="email" required style="flex:1 1 160px;">
+          <input class="set-input" id="cloudCardPassword" type="password" placeholder="Password" autocomplete="current-password" required style="flex:1 1 140px;">
+          <button class="qs-btn" id="cloudCardSigninBtn" type="submit" style="flex:0 0 auto;min-width:96px;">Sign in</button>
+        </form>
+        <a class="qs-full-link" href="pages/integrations.html#cloud-sync" style="margin-top:10px;">New here? Create an account →</a>
+      </div>
+      <div id="cloudCardActionNeeded" style="display:none">
+        <div class="gm-eyebrow">☁ Cloud auto save needs attention</div>
+        <div class="qs-err" id="cloudCardReason" style="margin-top:6px;">—</div>
+        <a class="qs-full-link" href="pages/integrations.html#cloud-sync">Open Cloud Sync →</a>
+      </div>
+      <div id="cloudCardStatus" style="display:none">
+        <div class="gm-eyebrow">☁ Cloud auto save</div>
+        <div class="preview-sub" id="cloudCardStatusText">—</div>
+      </div>
+      <div id="cloudCardNotConfigured" style="display:none">
+        <div class="gm-eyebrow">☁ Cloud Sync not configured</div>
+        <div class="preview-sub">This device is local-only. Check the Supabase environment variables in Vercel to enable cloud sign-in and auto save.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== TODAY BAR — compact status strip: date, completion %,
        streak, weather, next calendar event. All read live from
        existing data (Streaks, Integrations) — nothing owned here. ===== -->
@@ -1596,6 +1631,103 @@ button.quick-action { font-family: inherit; cursor: pointer; }
   }
   // Cloud status can go stale while the page sits open — refresh periodically.
   setInterval(renderIndicator, 60 * 1000);
+})();
+</script>
+
+<!-- ===== Cloud card — logic. Reuses window.SupabaseAuth.signIn (identical
+     call to Integrations → Account) and window.AutoSync's status; the only
+     new behaviour here is showing/hiding this card. ===== -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var section = $('cloudCardSection');
+  if (!section) return;
+
+  var lastUserFlag = null;   // null until the first real auth state arrives
+  var signInJustHappened = false;
+  var hideTimer = null;
+
+  function render() {
+    var authState = window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false, user: null };
+    var auto = window.AutoSync ? window.AutoSync.getState() : { status: 'not-configured', label: '', reason: '' };
+    var nowUser = !!authState.user;
+
+    // Detect a genuine sign-in transition (not the initial page-load read)
+    // so the card can briefly confirm auto save turned on, instead of just
+    // vanishing the moment the form is replaced.
+    if (lastUserFlag === false && nowUser === true) {
+      signInJustHappened = true;
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(function () { signInJustHappened = false; hideTimer = null; render(); }, 4000);
+    }
+    lastUserFlag = nowUser;
+
+    var signedOutEl = $('cloudCardSignedOut'), actionNeededEl = $('cloudCardActionNeeded'),
+        statusEl = $('cloudCardStatus'), notConfiguredEl = $('cloudCardNotConfigured');
+
+    // Supabase not configured at all (no env vars) — distinct from "signed
+    // out": there's nothing to sign into yet, so no sign-in fields, just a
+    // minimal, non-alarming note pointing at the env var config.
+    if (!authState.configured || auto.status === 'not-configured') {
+      section.style.display = '';
+      signedOutEl.style.display = 'none';
+      actionNeededEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      notConfiguredEl.style.display = '';
+      return;
+    }
+    notConfiguredEl.style.display = 'none';
+
+    if (!nowUser) {
+      section.style.display = '';
+      signedOutEl.style.display = '';
+      actionNeededEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      $('cloudCardSigninBtn').disabled = !!authState.loading;
+      return;
+    }
+
+    if (auto.status === 'action-needed') {
+      section.style.display = '';
+      signedOutEl.style.display = 'none';
+      actionNeededEl.style.display = '';
+      statusEl.style.display = 'none';
+      $('cloudCardReason').textContent = auto.reason || 'Cloud auto save could not complete — open Cloud Sync to check.';
+      return;
+    }
+
+    if (signInJustHappened) {
+      section.style.display = '';
+      signedOutEl.style.display = 'none';
+      actionNeededEl.style.display = 'none';
+      statusEl.style.display = '';
+      $('cloudCardStatusText').textContent = auto.label + (auto.reason ? ' — ' + auto.reason : '');
+      return;
+    }
+
+    section.style.display = 'none';
+  }
+
+  function showCloudCardErr(msg) {
+    var box = $('cloudCardErrBox');
+    if (!msg) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.textContent = msg;
+  }
+
+  $('cloudCardForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (!window.SupabaseAuth) return;
+    showCloudCardErr('');
+    var result = await window.SupabaseAuth.signIn($('cloudCardEmail').value.trim(), $('cloudCardPassword').value);
+    if (result && result.error) showCloudCardErr(result.error);
+    else $('cloudCardPassword').value = '';
+  });
+
+  if (window.SupabaseAuth) window.SupabaseAuth.subscribe(render);
+  if (window.AutoSync) window.AutoSync.subscribe(render);
+  render();
 })();
 </script>
 </body>
