@@ -311,6 +311,7 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
   <div class="wr-section">
     <div class="section-title">Reflection</div>
     <div class="stack-card">
+      <div class="wr-empty-note" id="wrSuggestNote" style="display:none">Draft filled from this week's Daily Snapshot history — edit freely.</div>
       <div class="wr-field">
         <label class="wr-label">What went well this week?</label>
         <textarea class="wr-input" id="wrWentWell" rows="3"></textarea>
@@ -418,6 +419,23 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
 
   var wr = window.WeeklyReview.loadOrInit();
   function save() { window.WeeklyReview.save(wr); }
+
+  // Prefill blank Reflection/Next-Week fields from the last 7 days of
+  // Daily Snapshot history, so the user doesn't retype daily reflections.
+  // Only ever fills a field that is currently empty — never touches text
+  // the user (or a prior week's suggestion) already put there.
+  function applySuggestions() {
+    if (!window.WeeklyReview.computeSuggestions) return false;
+    var sug = window.WeeklyReview.computeSuggestions();
+    var changed = false;
+    if (!wr.wentWell && sug.wentWell) { wr.wentWell = sug.wentWell; changed = true; }
+    if (!wr.slipped && sug.slipped) { wr.slipped = sug.slipped; changed = true; }
+    if (!wr.mainLesson && sug.mainLesson) { wr.mainLesson = sug.mainLesson; changed = true; }
+    if (!wr.nextWeekFocus && sug.nextWeekFocus) { wr.nextWeekFocus = sug.nextWeekFocus; changed = true; }
+    if (changed) save();
+    return changed;
+  }
+  if (applySuggestions()) $('wrSuggestNote').style.display = '';
 
   var fieldTimer = null;
   function debouncedSave() { clearTimeout(fieldTimer); fieldTimer = setTimeout(save, 300); }

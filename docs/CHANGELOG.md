@@ -660,6 +660,29 @@ Add Daily Snapshot reflection history archive on 6 AM rollover
 
 ---
 
+## 2026-07-08 (2)
+
+### Weekly Review — draft suggestions from Daily Snapshot history
+
+Weekly Review made the user retype reflections they'd already logged daily, even though Daily Snapshot
+now archives them into `dailySnapshot.history`. New `window.WeeklyReview.computeSuggestions()` in
+`scripts/weekly-review-data.js` reads the last 7 archived days and builds deterministic draft text
+(bulleted `wentWell`/`slipped`, most recent `lesson`, and a `nextWeekFocus` from the latest
+`tomorrowPriority` or a repeated slipped theme) — no AI, no NLP, plain string joins only.
+`pages/weekly-review.html` applies this once per fresh weekly review, filling only fields still blank;
+user-entered text (or a prior suggestion) is never overwritten, so a same-week reload is a no-op. A
+small existing-style note appears in the Reflection card when a draft was applied.
+
+Files affected:
+
+scripts/weekly-review-data.js, pages/weekly-review.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add Weekly Review draft suggestions from Daily Snapshot history
+
+---
+
 ## Future Entries
 
 Example

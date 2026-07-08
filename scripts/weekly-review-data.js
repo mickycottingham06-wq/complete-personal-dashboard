@@ -17,6 +17,11 @@
 // No AI API is called here — same "prompt builder, not a live
 // integration" pattern as window.AiCeo.
 //
+// computeSuggestions() reads window.DailySnapshot.getHistory() (the
+// last 7 archived days) and builds deterministic draft text for
+// wentWell/slipped/mainLesson/nextWeekFocus, so the page can prefill
+// blank fields instead of asking the user to retype daily reflections.
+//
 // Include this with a plain (non-defer) <script src="..."> tag,
 // AFTER streaks-data.js / boxing-data.js / business-data.js /
 // money-data.js / health-data.js / goals-data.js / heatmap-data.js
@@ -184,6 +189,60 @@
     return out;
   }
 
+  // Deterministic draft suggestions built from Daily Snapshot's archived
+  // history (window.DailySnapshot.getHistory()) — the last 7 archived days,
+  // oldest -> newest. Pure read, no side effects. Blank daily fields are
+  // skipped; no NLP, no AI, just simple string joins/lookups so the user
+  // doesn't have to retype what they already logged daily. Callers decide
+  // whether/where to apply these (only into blank Weekly Review fields).
+  function computeSuggestions() {
+    var out = { wentWell: '', slipped: '', mainLesson: '', nextWeekFocus: '' };
+    if (!window.DailySnapshot || typeof window.DailySnapshot.getHistory !== 'function') return out;
+    var history = window.DailySnapshot.getHistory();
+    if (!Array.isArray(history)) return out;
+    var days = history.slice(-7);
+
+    function bulletLines(field) {
+      return days
+        .filter(function (d) { return d && d[field] && String(d[field]).trim(); })
+        .map(function (d) { return '- ' + (d.date || '?') + ': ' + String(d[field]).trim(); })
+        .join('\n');
+    }
+
+    out.wentWell = bulletLines('wentWell');
+    out.slipped = bulletLines('slipped');
+
+    var lessons = days.filter(function (d) { return d && d.lesson && String(d.lesson).trim(); });
+    if (lessons.length) out.mainLesson = String(lessons[lessons.length - 1].lesson).trim();
+
+    // Next week's focus: prefer the most recent day's stated tomorrowPriority.
+    var lastPriority = '';
+    for (var i = days.length - 1; i >= 0; i--) {
+      if (days[i] && days[i].tomorrowPriority && String(days[i].tomorrowPriority).trim()) {
+        lastPriority = String(days[i].tomorrowPriority).trim();
+        break;
+      }
+    }
+    if (lastPriority) {
+      out.nextWeekFocus = lastPriority;
+    } else {
+      // Fallback: an exact-match slipped theme repeated on 2+ days.
+      var counts = {};
+      days.forEach(function (d) {
+        if (!d || !d.slipped) return;
+        var norm = String(d.slipped).trim().toLowerCase();
+        if (norm) counts[norm] = (counts[norm] || 0) + 1;
+      });
+      var repeated = Object.keys(counts).filter(function (k) { return counts[k] > 1; })[0];
+      if (repeated) {
+        var match = days.filter(function (d) { return d && d.slipped && String(d.slipped).trim().toLowerCase() === repeated; })[0];
+        if (match) out.nextWeekFocus = 'Fix repeated slip: ' + String(match.slipped).trim();
+      }
+    }
+
+    return out;
+  }
+
   function fmtMoney(n) {
     var v = Number(n) || 0;
     return '£' + v.toLocaleString('en-GB', { maximumFractionDigits: 0 });
@@ -249,6 +308,7 @@
     loadOrInit: loadOrInit,
     save: save,
     computePerformance: computePerformance,
+    computeSuggestions: computeSuggestions,
     generatePrompt: generatePrompt,
   };
 })();

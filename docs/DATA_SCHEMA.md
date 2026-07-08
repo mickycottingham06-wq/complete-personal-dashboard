@@ -859,6 +859,8 @@ Uses the same 6 AM day-rollover convention as Daily Snapshot / Streaks / Heatmap
 
 Any section without data yet returns its own safe defaults, so `computePerformance()` never throws.
 
+`window.WeeklyReview.computeSuggestions()` is a pure read of `window.DailySnapshot.getHistory()` (the last 7 archived days, oldest → newest) that builds deterministic draft text — no AI, no NLP, simple string joins/lookups only — for `wentWell` (bulleted daily entries), `slipped` (bulleted daily entries), `mainLesson` (most recent non-blank day's lesson), and `nextWeekFocus` (most recent day's `tomorrowPriority`, falling back to an exact-match slipped theme repeated on 2+ days). Blank daily fields are skipped, so 1-3 days of history still produces a clean draft with no noisy filler, and zero history returns all-blank strings. `pages/weekly-review.html` applies this once per fresh (blank) weekly review, filling only fields that are still empty — it never overwrites text the user or a prior suggestion already put there, so a same-week reload is a no-op.
+
 `window.WeeklyReview.generatePrompt(wr)` is a pure function (no network request) that builds a copy-paste prompt combining the manual review answers with a live `computePerformance()` read, asking the pasted-in AI to review the week, identify patterns, give direct feedback, and suggest next week's priorities with a simple action plan — same "prompt builder, not a live API" pattern as `window.AiCeo`. No AI API is called from this file or the page.
 
 **Cross-feed:** `nextWeekFocus` is exposed (read-only) through `window.Core.getSnapshot()` as `nextWeekFocus`, the same safe one-way pattern `getSnapshot()` already uses for Daily Snapshot's `mainFocus`. Core never persists or owns this value — it only reads it live.
