@@ -787,6 +787,40 @@ Fix Auto Cloud Save getting stuck on a stale error + add Command Centre sign-in 
 
 ---
 
+## 2026-07-08
+
+### Auto Cloud Save onboarding fix — on-by-default, top button sign-in
+
+Fixed three live-behaviour bugs: the Integrations Cloud Sync toggle defaulted off and gated
+nothing real; Command Centre showed an always-open email/password form instead of a compact
+button-triggered one; and the "last cloud update" displays didn't refresh after a background
+autosync push, only on next reload.
+
+`integrations-data.js`'s `cloudSync.enabled` (previously unused by real sync) is now the actual
+Auto Cloud Save on/off preference, defaulting to `true` for new and existing data (one-time
+migration, explicit user choice respected afterwards). `auto-sync.js` reads it via
+`computeBaseStatus()` and reports a new distinct `disabled` state ("Off (disabled by you)")
+instead of silently doing nothing.
+
+Command Centre's small top status button now opens a compact sign-in form inside the existing
+Quick Sync modal when signed out, replacing the old always-visible inline form card. Both Quick
+Sync and Integrations now re-render their cloud-timestamp tiles on every `AutoSync` state change,
+not just the Auto Save label tile, so "Last cloud update" reflects a successful background push
+immediately instead of waiting for a manual reopen/reload.
+
+Push-only behaviour, manual Quick Sync/Push/Pull/Sync buttons, and the `life_os_state` table/RLS
+are all unchanged.
+
+Files affected:
+
+scripts/integrations-data.js, scripts/auto-sync.js, index.html, pages/integrations.html
+
+Commit:
+
+Fix Auto Cloud Save defaulting off + Command Centre sign-in UX
+
+---
+
 ## Future Entries
 
 Example
