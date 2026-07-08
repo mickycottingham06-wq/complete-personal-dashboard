@@ -683,6 +683,37 @@ Add Weekly Review draft suggestions from Daily Snapshot history
 
 ---
 
+## 2026-07-08 (3)
+
+### Auto Cloud Save v1 — push-only background sync
+
+Manual Quick Sync worked but required remembering to click it, so meaningful edits could sit
+unsynced across devices. New `scripts/auto-sync.js` (`window.AutoSync`) wraps
+`localStorage.setItem`/`.removeItem` once to detect meaningful changes (an exclude-list filters out
+UI/ephemeral keys and, critically, `cloudSyncMeta`/Supabase's own `sb-*` keys so a push's own
+bookkeeping write can never re-trigger itself), then debounces a push through the existing
+`CloudSync.pushToCloud()` — 4s after the last edit, 45s max-wait during continuous editing, plus a
+cheap 5-minute fallback check. Before every push it flushes pending debounced saves
+(`ForceSave.flushAll()`) and requires Supabase configured + signed in, the browser online, the tab
+visible, and `CloudSync.getSyncStatus()` to not be cloud-newer/error — otherwise it skips and waits
+for the user's manual choice. It never calls `pullToLocal()` — push-only, by design, so it can
+never overwrite this device's data. An in-flight guard, mid-push coalescing, and a cheap payload
+hash keep it to one push at a time and skip no-op pushes. Command Centre's Quick Sync panel and
+Integrations' Cloud Sync card each gained an "Auto Save" + "Last auto push" stat tile, reusing the
+existing tile styling. Only Command Centre and Integrations already load the full Supabase/CloudSync
+script chain this needs, so those are the only two pages covered — every other HQ page is a
+coverage gap, not extended in this pass to avoid overbuilding a v1.
+
+Files affected:
+
+scripts/auto-sync.js, index.html, pages/integrations.html, docs/SUPABASE_PLAN.md, docs/TODO.md
+
+Commit:
+
+Add Auto Cloud Save v1 — push-only background sync on Command Centre and Integrations
+
+---
+
 ## Future Entries
 
 Example

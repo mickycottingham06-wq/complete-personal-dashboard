@@ -17,6 +17,7 @@
 <script src="../scripts/backup-data.js"></script>
 <script src="../scripts/cloud-sync.js"></script>
 <script src="../scripts/force-save.js"></script>
+<script src="../scripts/auto-sync.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -418,6 +419,10 @@ body::after {
         <div class="int-stat"><div class="v" id="csDeviceSync">—</div><div class="l">This device's last sync</div></div>
         <div class="int-stat"><div class="v" id="csStatus">—</div><div class="l">Status</div></div>
       </div>
+      <div class="int-stats-2">
+        <div class="int-stat"><div class="v" id="asStatus">—</div><div class="l">Auto Save</div></div>
+        <div class="int-stat"><div class="v" id="asLastPush">—</div><div class="l">Last auto push</div></div>
+      </div>
 
       <div class="int-err-box" id="csErrBox" style="display:none"></div>
       <div class="bk-msg" id="csMsgBox" style="display:none"></div>
@@ -745,6 +750,17 @@ body::after {
     $('csCloudUpdated').textContent = status.exists ? fmtTime(status.updatedAt) : 'No cloud data yet';
   }
 
+  // Auto Cloud Save (v1) status — reuses the same int-stat tiles, no new
+  // styling. window.AutoSync only ever pushes, so this is purely a status
+  // readout; it never changes what the Push/Pull/Sync now buttons do.
+  function renderAutoSave() {
+    if (!window.AutoSync) { $('asStatus').textContent = 'Not available'; return; }
+    const s = window.AutoSync.getState();
+    $('asStatus').textContent = s.label;
+    $('asLastPush').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
+  }
+  if (window.AutoSync) window.AutoSync.subscribe(renderAutoSave);
+
   $('csForceSaveBtn').addEventListener('click', () => {
     const result = window.ForceSave ? window.ForceSave.run() : { ok: true, timestamp: '' };
     if (!result.ok) { showCsMsg(result.error, true); return; }
@@ -923,7 +939,7 @@ body::after {
     reader.readAsText(file);
   });
 
-  function renderAll() { renderBackup(); renderWeather(); renderCal(); renderAi(); renderCloud(); renderCloudSyncReal(); }
+  function renderAll() { renderBackup(); renderWeather(); renderCal(); renderAi(); renderCloud(); renderCloudSyncReal(); renderAutoSave(); }
 
   renderAll();
   window.addEventListener('storage', renderAll);

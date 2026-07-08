@@ -15,6 +15,7 @@
 <script src="scripts/backup-data.js"></script>
 <script src="scripts/cloud-sync.js"></script>
 <script src="scripts/force-save.js"></script>
+<script src="scripts/auto-sync.js"></script>
 <script src="scripts/daily-snapshot-data.js"></script>
 <script src="scripts/streaks-data.js"></script>
 <script src="scripts/business-data.js"></script>
@@ -760,6 +761,8 @@ button.quick-action { font-family: inherit; cursor: pointer; }
       <div class="qs-stat"><div class="v" id="qsLocalSave">—</div><div class="l">Last local save</div></div>
       <div class="qs-stat"><div class="v" id="qsCloudSync">—</div><div class="l">Last cloud update</div></div>
       <div class="qs-stat"><div class="v" id="qsStatus">—</div><div class="l">Status</div></div>
+      <div class="qs-stat"><div class="v" id="qsAutoSave">—</div><div class="l">Auto Save</div></div>
+      <div class="qs-stat"><div class="v" id="qsAutoSaveLast">—</div><div class="l">Last auto push</div></div>
     </div>
 
     <div class="qs-err" id="qsErrBox" style="display:none"></div>
@@ -1444,6 +1447,8 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     $('qsPullBtn').disabled = !canUse;
     $('qsSyncBtn').disabled = !canUse;
 
+    renderAutoSave();
+
     const status = await renderIndicator();
     $('qsStatus').textContent = status.label;
 
@@ -1455,6 +1460,17 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     const meta = window.CloudSync.loadMeta();
     if (meta.lastError) showQsMsg('Last sync error: ' + meta.lastError, true);
   }
+
+  // Auto Cloud Save (v1) status — reuses the same qs-stat tiles, no new
+  // styling. window.AutoSync only ever pushes, so this is purely a status
+  // readout; it never changes what the push/pull buttons above do.
+  function renderAutoSave() {
+    if (!window.AutoSync) { $('qsAutoSave').textContent = 'Not available'; return; }
+    const s = window.AutoSync.getState();
+    $('qsAutoSave').textContent = s.label;
+    $('qsAutoSaveLast').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
+  }
+  if (window.AutoSync) window.AutoSync.subscribe(() => { if ($('quickSyncBg').classList.contains('show')) renderAutoSave(); });
 
   function openPanel() { clearQsMsg(); renderPanel(); $('quickSyncBg').classList.add('show'); }
   function closePanel() { $('quickSyncBg').classList.remove('show'); }

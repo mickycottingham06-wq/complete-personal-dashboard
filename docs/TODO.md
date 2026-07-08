@@ -34,7 +34,7 @@ Weather
 
 Finance APIs
 
-Cloud Sync
+Cloud Sync (Auto Cloud Save v1 done — scripts/auto-sync.js, push-only background save on Command Centre + Integrations; manual Quick Sync/Force Local Save unchanged; other HQ pages still a coverage gap)
 
 Voice Assistant
 

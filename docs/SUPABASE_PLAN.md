@@ -469,3 +469,42 @@ button-triggered only, still never silently overwrites either side.
 
 **Next step:** none required. Still Phase 1 only — no further phase without a separate go-ahead
 per §13.
+
+## 20. Auto Cloud Save v1 (2026-07-08)
+
+The first background sync in the Life OS, built directly on §17's `CloudSync.pushToCloud()` —
+**push-only, by design**. It never calls `pullToLocal()`, so it can never overwrite this device's
+Local Storage; pulling remains a manual, confirmed action via Quick Sync / Integrations exactly as
+in §17–§19.
+
+**Added:**
+- `scripts/auto-sync.js` — new module, `window.AutoSync`. Wraps `localStorage.setItem`/
+  `.removeItem` once to detect meaningful writes (an exclude-list filters out UI/ephemeral keys —
+  `sidebar_collapsed_groups_v1`, the WHOOP demo timestamp, ForceSave's write probe — and, critically,
+  `cloudSyncMeta` and Supabase's own `sb-*` session-token keys, so a push's own bookkeeping write can
+  never re-trigger itself). Each meaningful change debounces a push 4s after the last edit, with a
+  45s max-wait ceiling during continuous editing, plus a cheap 5-minute fallback check. Before every
+  push it calls `ForceSave.flushAll()`, then requires Supabase configured + signed in, the browser
+  online, and the tab visible; it reads `CloudSync.getSyncStatus()` and skips if cloud is newer or
+  in error (those states need the user's manual choice, never an automatic overwrite). An in-flight
+  guard means only one push runs at a time; a change that lands mid-push coalesces into one
+  follow-up push instead of a second concurrent one; and a cheap hash of the exportable payload
+  (same exclude-list applied) skips the network call entirely when nothing meaningful changed.
+- Command Centre's Quick Sync panel and Integrations' Cloud Sync card each gained two small stat
+  tiles — Auto Save (one of: Auto save on / Syncing / Synced / Action needed / Offline / signed
+  out) and Last auto push — reusing the existing `qs-stat`/`int-stat` tile styling exactly, no new
+  UI pattern introduced.
+
+**Coverage:** only Command Centre (`index.html`) and Integrations (`pages/integrations.html`)
+load the full `SupabaseFoundation` + `SupabaseAuth` + `Backup` + `CloudSync` + `ForceSave` chain
+`auto-sync.js` needs — those are the only two pages wired up. Every other HQ page (Daily Snapshot,
+Money HQ, Business HQ, Gym, Health, etc.) is a coverage gap for this pass — none of them load the
+Supabase/CloudSync scripts, and adding that whole chain to each just for background save would be
+overbuilding a v1. Extending coverage to the rest of the Life OS is future work, not required here.
+
+**Unchanged:** manual Quick Sync (push/pull/sync now), Force Local Save, the `life_os_state` table,
+RLS, and every existing push/pull confirm-before-overwrite dialog — all exactly as §17–§19 left
+them. No new Local Storage key, no Supabase schema change.
+
+**Next step:** none required. Still push-only background save — no auto-pull, no conflict
+auto-resolution, no further phase without a separate go-ahead per §13.
