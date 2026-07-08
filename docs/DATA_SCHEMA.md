@@ -1064,6 +1064,8 @@ Owns **no localStorage key of its own** — a pure read/compute layer, `scripts/
 
 `pages/daily-snapshot.html` also renders the full `computeGuidance()` output read-only in a "Suggested Today" card above Morning Plan (rows hide themselves when a suggestion is empty). `index.html`'s Daily Control Panel preview card surfaces the single most relevant nudge, if any, as a small `💡` line — kept to one line to stay minimal.
 
+**v2 — history-informed guidance:** `computeGuidance()` also reads `window.DailySnapshot.getHistory()`'s most recent archived day (`lastDay`) for three deterministic signals, no AI/NLP: (1) any of `lastDay.priorities` left incomplete surface as a `nudges` entry ("Carry over: …"), never auto-filled into today's priority slots — that stays in `applyDefaultsToSnapshot()`'s existing fixed business/training/goal mapping; (2) `lastDay.tomorrowPriority`, if set, becomes `todayFocus` ("Continue: …") when nothing more urgent (goal deadline, recovery) outranks it; (3) `lastDay.dayScore`/`energyLevel`/`stress` looking rough (low score/energy, high stress) biases `todayFocus` toward the same "Protect recovery and complete training" theme as a poor live Health reading. `lastDay.lesson`/`slipped`, if present, also surface as a one-line nudge. All of this only ever changes `computeGuidance()`'s return value — `applyDefaultsToSnapshot()`'s blank-fields-only / never-overwrite behaviour is untouched, so a same-day refresh still changes nothing once the user has typed something.
+
 ---
 
 # Rules

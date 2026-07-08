@@ -2,8 +2,15 @@
 // Daily Guidance Engine — read/compute layer, not a new source of truth.
 // Owns no localStorage key of its own. computeGuidance() reads (never
 // duplicates) existing Business, Boxing HQ, Goals and Health data plus
-// today's Daily Snapshot, and derives today's suggested plan: todayFocus,
-// businessTask, trainingTask, goalAction, healthReminder, nudges.
+// today's Daily Snapshot and its archived history (window.DailySnapshot
+// .getHistory()), and derives today's suggested plan: todayFocus,
+// businessTask, trainingTask, goalAction, healthReminder, nudges. History
+// is used for three light, deterministic signals: yesterday's unfinished
+// priorities surface as a "Carry over" nudge, yesterday's tomorrowPriority
+// can become today's focus theme, and a rough yesterday (low dayScore/
+// energy or high stress) biases the focus theme toward recovery alongside
+// the existing live-Health recovery check. No AI, no NLP — plain field
+// reads and string joins only.
 // Same defensive pattern as window.LifeStats.computeStats() — every read
 // checks the section script is loaded first, falling back to '' / []
 // instead of throwing.
@@ -147,20 +154,53 @@
     return '';
   }
 
-  // Priority order: urgent deadlines > health/recovery > business/revenue
-  // > training > goals/habits, per docs/AI_ASSISTANT_BEHAVIOUR.md. Returns a
-  // broad theme for the day rather than the exact businessTask/trainingTask/
-  // goalAction wording, since those already fill Top 3 Priorities — repeating
-  // them verbatim here made Suggested Today read as duplicated.
+  // Most recently archived day from Daily Snapshot's history (yesterday, in
+  // the common case where the app is opened daily) — read-only, never a
+  // second source of truth. Returns null if there's no history yet.
+  function mostRecentHistoryDay() {
+    var history = (window.DailySnapshot && window.DailySnapshot.getHistory) ? window.DailySnapshot.getHistory() : [];
+    return history.length ? history[history.length - 1] : null;
+  }
+
+  // Priorities the user typed on the most recent archived day but never
+  // completed — surfaced as a nudge only, never auto-filled into today's
+  // priority slots (that would fight applyDefaultsToSnapshot's fixed
+  // business/training/goal mapping and risk creating a second place a
+  // priority "lives").
+  function computeMissedPriorities(lastDay) {
+    if (!lastDay) return [];
+    return (lastDay.priorities || []).filter(function (p) {
+      return p && p.text && p.text.trim() && !p.completed;
+    }).map(function (p) { return p.text.trim(); });
+  }
+
+  // True when the most recent archived day's own numbers (not just today's
+  // live Health reading) suggest the user is running down — light trend
+  // signal alongside the existing Health-based recovery check.
+  function historyLooksRough(lastDay) {
+    if (!lastDay) return false;
+    var lowScore = Number(lastDay.dayScore) > 0 && Number(lastDay.dayScore) <= 4;
+    var lowEnergy = Number(lastDay.energyLevel) > 0 && Number(lastDay.energyLevel) <= 3;
+    var highStress = Number(lastDay.stress) >= 8;
+    return lowScore || lowEnergy || highStress;
+  }
+
+  // Priority order: urgent deadlines > health/recovery > yesterday's stated
+  // tomorrow priority > business/revenue > training > goals/habits, per
+  // docs/AI_ASSISTANT_BEHAVIOUR.md. Returns a broad theme for the day rather
+  // than the exact businessTask/trainingTask/goalAction wording, since those
+  // already fill Top 3 Priorities — repeating them verbatim here made
+  // Suggested Today read as duplicated.
   function computeTodayFocus(ctx) {
     if (ctx.urgentGoal) {
       return 'Deadline: ' + (ctx.urgentGoal.goal.title || 'goal').trim() + ' — ' + ctx.urgentGoal.days + ' day' + (ctx.urgentGoal.days === 1 ? '' : 's') + ' left';
     }
+    var poorRecovery = false;
     if (ctx.health) {
-      var poorRecovery = Number(ctx.health.recoveryScore) > 0 && Number(ctx.health.recoveryScore) < 33;
-      var highStress = Number(ctx.health.stressLevel) >= 8;
-      if (poorRecovery || highStress) return 'Protect recovery and complete training';
+      poorRecovery = (Number(ctx.health.recoveryScore) > 0 && Number(ctx.health.recoveryScore) < 33) || Number(ctx.health.stressLevel) >= 8;
     }
+    if (poorRecovery || ctx.historyRough) return 'Protect recovery and complete training';
+    if (ctx.tomorrowFocus) return 'Continue: ' + ctx.tomorrowFocus;
     if (ctx.businessTask) return 'Move business forward today';
     if (ctx.trainingTask) return 'Protect recovery and complete training';
     if (ctx.goalAction) return 'Move your goal forward today';
@@ -179,10 +219,22 @@
   }
 
   // Short, simple call-outs already supported by existing data — never a
-  // second source of truth, just a read of Streaks / Boxing HQ fight date /
-  // Health's Sleep Planner.
+  // second source of truth, just a read of Daily Snapshot history / Streaks /
+  // Boxing HQ fight date / Health's Sleep Planner.
   function computeNudges(ctx) {
     var nudges = [];
+
+    // History-informed nudges go first — the most "coach remembers
+    // yesterday" signals available, ahead of the streak/fight-camp call-outs.
+    if (ctx.lastDay) {
+      var missed = computeMissedPriorities(ctx.lastDay);
+      if (missed.length) {
+        nudges.push('Carry over: ' + missed[0] + (missed.length > 1 ? ' (+' + (missed.length - 1) + ' more)' : ''));
+      }
+      var note = (ctx.lastDay.lesson && ctx.lastDay.lesson.trim()) || (ctx.lastDay.slipped && ctx.lastDay.slipped.trim());
+      if (note) nudges.push('From last time: ' + note);
+    }
+
     var streaks = window.Streaks && window.Streaks.get ? window.Streaks.get() : null;
     if (streaks && Number(streaks.currentStreak) > 0) {
       var n = Number(streaks.currentStreak);
@@ -211,6 +263,8 @@
     var goals = (window.Goals && window.Goals.load) ? window.Goals.load() : null;
     var health = (window.Health && window.Health.load) ? window.Health.load() : null;
 
+    var lastDay = mostRecentHistoryDay();
+
     var businessTask = computeBusinessTask(business);
     var trainingTask = computeTrainingTask(boxing);
     var goalAction = computeGoalAction(goals);
@@ -224,9 +278,11 @@
       businessTask: businessTask,
       trainingTask: trainingTask,
       goalAction: goalAction,
+      historyRough: historyLooksRough(lastDay),
+      tomorrowFocus: lastDay && lastDay.tomorrowPriority && lastDay.tomorrowPriority.trim(),
     });
 
-    var nudges = computeNudges({ boxing: boxing, health: health });
+    var nudges = computeNudges({ boxing: boxing, health: health, lastDay: lastDay });
 
     return {
       todayFocus: todayFocus,

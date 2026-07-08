@@ -898,6 +898,37 @@ Fix Auto Cloud Save not pushing after edits (local freshness detection)
 
 ---
 
+## 2026-07-08 (6)
+
+### Daily Guidance Engine v2 — history-informed guidance
+
+Daily Guidance only ever looked at today's live Business/Boxing/Goals/Health data, so it couldn't
+carry any memory of yesterday even though `dailySnapshot.history` (added earlier) already archives
+it. `computeGuidance()` in `scripts/daily-guidance-data.js` now also reads
+`window.DailySnapshot.getHistory()`'s most recent archived day for three deterministic, no-AI
+signals: unfinished priorities from that day surface as a "Carry over: …" nudge (never auto-filled
+into today's priority slots, so the existing fixed business/training/goal mapping in
+`applyDefaultsToSnapshot()` is untouched); a set `tomorrowPriority` from that day becomes today's
+`todayFocus` theme ("Continue: …") when nothing more urgent outranks it; and a rough day (low
+`dayScore`/`energyLevel` or high `stress`) biases `todayFocus` toward the same "Protect recovery and
+complete training" theme as a poor live Health reading. A non-blank `lesson`/`slipped` from that day
+also surfaces as a one-line nudge.
+
+No new section, no redesign, no new localStorage key or schema change — pure read/compute layer,
+same as v1. `applyDefaultsToSnapshot()`'s blank-fields-only / never-overwrite-a-user-edit behaviour
+is unchanged, so a same-day refresh still changes nothing once the user has typed something, and
+existing saved data upgrades with no migration needed.
+
+Files affected:
+
+scripts/daily-guidance-data.js, docs/DATA_SCHEMA.md, docs/ROADMAP.md, docs/TODO.md
+
+Commit:
+
+Upgrade Daily Guidance Engine to v2 — history-informed carry-over, tomorrow-priority focus, recovery bias
+
+---
+
 ## 2026-07-08 (4)
 
 ### Auto Cloud Save — push from local-newer state, not just the in-page dirty timer

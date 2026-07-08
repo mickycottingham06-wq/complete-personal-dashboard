@@ -156,6 +156,8 @@ Weekly Review ✅ (pages/weekly-review.html — `weeklyReview` localStorage key;
 
 Daily Guidance Engine v1 ✅ (scripts/daily-guidance-data.js — deterministic, local, no AI API; reads Business/Boxing/Goals/Health and fills blank Daily Snapshot mainFocus/priorities as defaults only; full Morning Briefings / AI Coaching below are still future work)
 
+Daily Guidance Engine v2 ✅ (scripts/daily-guidance-data.js — now also reads Daily Snapshot's archived `history` for the most recent day: unfinished priorities become a "Carry over" nudge, yesterday's `tomorrowPriority` can become today's focus theme, and a rough yesterday biases the focus toward recovery, same rules/deterministic-only as v1)
+
 ---
 
 ## Phase 9 (future — not started)
