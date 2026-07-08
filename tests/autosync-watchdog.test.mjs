@@ -231,6 +231,79 @@ async function test5_dedupCannotSkipLocalNewer() {
   check('an unchanged-payload watchdog tick while status is local-newer still pushes again (no dedup-skip)', secondPushHappened, 'pushCalls=' + client._pushCalls());
 }
 
+// Tests 6-8 target the "stuck on pushing forever" bug: the push sequence
+// used to be wrapped in try/finally with no catch, so a throw/rejection
+// anywhere between flushAll() and the result being read left state stuck on
+// 'syncing' ("-> pushing") with no visible error, forever, even though
+// pushInFlight was silently cleared. Each proves a different throw site
+// is now caught, surfaced, and the guard is still released afterwards.
+
+async function test6_forceSaveThrowClearsPushingAndShowsError() {
+  console.log('\n6. ForceSave.flushAll() throwing shows an error and clears "pushing" (not stuck)');
+  const ls = localNewerFixture();
+  const client = makeClient({
+    sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
+    upsertImpl: () => ({ error: null }),
+  });
+  let shouldThrow = true;
+  const sandbox = buildSandbox({
+    client, localStorage: ls,
+    flushSpy: () => { if (shouldThrow) throw new Error('flush boom'); },
+  });
+  // checkCloudLoad() also calls ForceSave.flushAll() (unrelated to the push
+  // path under test here) — disable it via isAvailable() so the shared
+  // flushAll mock throwing doesn't also blow up that unrelated code path.
+  sandbox.window.CloudSync.isAvailable = () => false;
+  await waitUntil(() => sandbox.window.AutoSync.getState().status === 'action-needed', 5000);
+  const state = sandbox.window.AutoSync.getState();
+  check('status is "action-needed" (not stuck on "syncing"/"pushing")', state.status === 'action-needed', state.status);
+  check('lastReason shows the exact flushAll error', state.lastReason === 'Auto push failed: flush boom', state.lastReason);
+  check('lastError recorded', state.lastError === 'flush boom', state.lastError);
+  // Guard released even after a throw: a later check can push again.
+  shouldThrow = false;
+  sandbox.window.AutoSync.refresh();
+  await waitUntil(() => sandbox.window.AutoSync.getState().status === 'synced', 2000);
+  check('in-flight guard was released after the throw (a later check succeeds)', sandbox.window.AutoSync.getState().status === 'synced');
+}
+
+async function test7_pushToCloudRejectionClearsPushingAndShowsError() {
+  console.log('\n7. CloudSync.pushToCloud() rejecting shows an error and clears "pushing" (not stuck)');
+  const ls = localNewerFixture();
+  const client = makeClient({
+    sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
+    upsertImpl: () => ({ error: null }),
+  });
+  const sandbox = buildSandbox({ client, localStorage: ls });
+  // Simulate pushToCloud() itself rejecting instead of resolving {ok:false} —
+  // e.g. a bug or an unexpected exception outside its own try/catch.
+  sandbox.window.CloudSync.pushToCloud = () => Promise.reject(new Error('boom-reject'));
+  sandbox.window.AutoSync.refresh();
+  await waitUntil(() => sandbox.window.AutoSync.getState().status === 'action-needed', 5000);
+  const state = sandbox.window.AutoSync.getState();
+  check('status is "action-needed" (not stuck on "syncing"/"pushing")', state.status === 'action-needed', state.status);
+  check('lastReason shows the exact rejection message', state.lastReason === 'Auto push failed: boom-reject', state.lastReason);
+  check('lastError recorded', state.lastError === 'boom-reject', state.lastError);
+}
+
+async function test8_pushToCloudTimeoutClearsPushingAndShowsTimeout() {
+  console.log('\n8. CloudSync.pushToCloud() hanging past the timeout shows "timed out" and clears "pushing"');
+  const patched = autoSyncSrc.replace('var PUSH_TIMEOUT_MS = 20000;', 'var PUSH_TIMEOUT_MS = 50;');
+  if (patched === autoSyncSrc) throw new Error('PUSH_TIMEOUT_MS constant not found to patch — harness is out of sync with auto-sync.js');
+  const ls = localNewerFixture();
+  const client = makeClient({
+    sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
+    upsertImpl: () => ({ error: null }),
+  });
+  const sandbox = buildSandbox({ client, localStorage: ls, autoSyncSource: patched });
+  // Simulate a hung network call: a promise that never settles.
+  sandbox.window.CloudSync.pushToCloud = () => new Promise(() => {});
+  await waitUntil(() => sandbox.window.AutoSync.getState().status === 'action-needed', 2000);
+  const state = sandbox.window.AutoSync.getState();
+  check('status is "action-needed" (not stuck on "syncing"/"pushing")', state.status === 'action-needed', state.status);
+  check('lastReason is "Auto push timed out"', state.lastReason === 'Auto push timed out', state.lastReason);
+  check('lastResult is "failed"', state.lastResult === 'failed', state.lastResult);
+}
+
 (async function main() {
   console.log('AutoSync v3 harness');
   await test1_localNewerCallsPush();
@@ -238,6 +311,9 @@ async function test5_dedupCannotSkipLocalNewer() {
   await test3_successUpdatesLastAutoPush();
   await test4_failureClearsInFlightAndShowsError();
   await test5_dedupCannotSkipLocalNewer();
+  await test6_forceSaveThrowClearsPushingAndShowsError();
+  await test7_pushToCloudRejectionClearsPushingAndShowsError();
+  await test8_pushToCloudTimeoutClearsPushingAndShowsTimeout();
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 })();

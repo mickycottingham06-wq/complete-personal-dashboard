@@ -208,24 +208,42 @@
       setState({ lastAttemptAt: new Date().toISOString() });
 
       // The exact same sequence as the manual Push Local -> Cloud button:
-      // flush pending debounced field writes, then push.
-      window.ForceSave.flushAll();
-      var result = await Promise.race([
-        window.CloudSync.pushToCloud(),
-        new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, timedOut: true }); }, PUSH_TIMEOUT_MS); }),
-      ]);
+      // flush pending debounced field writes, then push. Everything from
+      // here down used to be catch-less (try/finally only) — any throw
+      // (flushAll, pushToCloud, or anything unforeseen) left state stuck on
+      // 'syncing'/"-> pushing" forever with no visible error, since finally
+      // only cleared pushInFlight and the exception became a silent
+      // unhandled rejection. The catch below is the fix; the setState calls
+      // in between are the visible stage markers requested alongside it.
+      try {
+        setState({ lastReason: 'Auto push: flushing local saves' });
+        window.ForceSave.flushAll();
 
-      if (result.timedOut) {
-        setState({ status: 'action-needed', reason: 'Push timed out.', lastResult: 'failed', lastReason: 'Auto push timed out' });
-      } else if (result.ok) {
+        setState({ lastReason: 'Auto push: calling cloud push' });
+        var result = await Promise.race([
+          window.CloudSync.pushToCloud(),
+          new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, timedOut: true }); }, PUSH_TIMEOUT_MS); }),
+        ]);
+        setState({ lastReason: 'Auto push: cloud push returned' });
+
+        if (result.timedOut) {
+          setState({ status: 'action-needed', reason: 'Push timed out.', lastResult: 'failed', lastReason: 'Auto push timed out' });
+        } else if (result.ok) {
+          setState({
+            status: 'synced', reason: '', lastError: '', lastPushAt: result.updatedAt,
+            lastResult: 'success', lastReason: 'Auto push succeeded ' + fmtHM(result.updatedAt),
+          });
+        } else {
+          setState({
+            status: 'action-needed', reason: result.error, lastError: result.error,
+            lastResult: 'failed', lastReason: 'Auto push failed: ' + result.error,
+          });
+        }
+      } catch (e) {
+        var msg = (e && e.message) ? e.message : String(e);
         setState({
-          status: 'synced', reason: '', lastError: '', lastPushAt: result.updatedAt,
-          lastResult: 'success', lastReason: 'Auto push succeeded ' + fmtHM(result.updatedAt),
-        });
-      } else {
-        setState({
-          status: 'action-needed', reason: result.error, lastError: result.error,
-          lastResult: 'failed', lastReason: 'Auto push failed: ' + result.error,
+          status: 'action-needed', reason: msg, lastError: msg,
+          lastResult: 'failed', lastReason: 'Auto push failed: ' + msg,
         });
       }
     } finally {
