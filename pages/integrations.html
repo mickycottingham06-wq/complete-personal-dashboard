@@ -427,6 +427,9 @@ body::after {
       <!-- Why Auto Save isn't pushing right now, if it isn't — visible
            text, not just the asStatus tile's title tooltip. -->
       <p class="int-card-note" id="asReason" style="display:none; margin-top:-8px;"></p>
+      <!-- Live diagnostics: last check time, current status code, last auto
+           attempt time — always visible, not hidden in a tooltip. -->
+      <p class="int-card-note" id="asDiag" style="display:none; margin-top:-8px; opacity:0.65;"></p>
 
       <div class="int-err-box" id="csErrBox" style="display:none"></div>
       <div class="bk-msg" id="csMsgBox" style="display:none"></div>
@@ -774,12 +777,23 @@ body::after {
     if (!window.AutoSync) { $('asStatus').textContent = 'Not available'; return; }
     const s = window.AutoSync.getState();
     $('asStatus').textContent = s.label;
-    const reasonTxt = s.lastSkipReason || s.reason || '';
+    const reasonTxt = s.lastReason || s.reason || '';
     $('asStatus').title = reasonTxt;
     const reasonEl = $('asReason');
     if (reasonTxt) { reasonEl.style.display = ''; reasonEl.textContent = reasonTxt; }
     else { reasonEl.style.display = 'none'; }
     $('asLastPush').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
+    // Visible diagnostics — last check time, current status code, last auto
+    // attempt time — never only a tooltip.
+    const diagEl = $('asDiag');
+    if (diagEl) {
+      const bits = [];
+      if (s.lastCheckAt) bits.push('checked ' + fmtTime(s.lastCheckAt));
+      if (s.lastStatusCode) bits.push('status: ' + s.lastStatusCode);
+      if (s.lastAttemptAt) bits.push('last attempt ' + fmtTime(s.lastAttemptAt));
+      diagEl.textContent = bits.join(' · ');
+      diagEl.style.display = bits.length ? '' : 'none';
+    }
     // A push just completed — the "Real Cloud Sync" section's own
     // Status/Last cloud update tiles otherwise only refresh on button
     // clicks, so they'd look stale even though the push succeeded. Reuse

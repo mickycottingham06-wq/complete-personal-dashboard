@@ -671,3 +671,52 @@ tick still pushes while status is local-newer (dedup can't hide behind it); a su
 Save, `life_os_state` table/RLS, data shape.
 
 **Next step:** none required. Still Phase 1, still push-only.
+
+## 26. Auto Cloud Save v3 — simple push path, same sequence as manual push (2026-07-08)
+
+Live symptom despite §20-25: signed in, Cloud Sync on, status still read "Local newer", "Last cloud
+update" never advanced, "Last auto push" stayed blank — Manual Push worked every time. Rather than
+add another edge-case fix on top of the debounce/watchdog/hash-dedup stack, `scripts/auto-sync.js`'s
+push path was rewritten as one function, `runAutoSync()`, that always runs the exact same sequence
+the manual "Push Local -> Cloud" button uses: `ForceSave.flushAll()` -> `CloudSync.pushToCloud()` ->
+update `cloudSyncMeta`/`AutoSync` state -> notify subscribers.
+
+**Removed:** the payload hash/signature dedup (`computeSignature`/`hashString`/
+`lastPushedSignature`/`alreadyPushed`), the debounce+max-wait timer pair, the pending-rerun
+coalescing queue, and the separate display-only `refreshStatus()` — folded into `runAutoSync()`,
+which now updates status on every call whether it pushes or not. `runAutoSync()` reads
+`CloudSync.getSyncStatus()` fresh on every trigger and pushes immediately whenever it says
+`local-newer`, `cloud-ready`, or `error` — there is no dedup/hash check anywhere in the file, so a
+real `local-newer` status can never be silently skipped.
+
+**Six triggers**, all funnelling into `runAutoSync()`: page load (once auth is ready), a 10s
+watchdog tick while visible, `visibilitychange` back to visible, the `online` event, an auth state
+change, and a 2s-debounced meaningful `localStorage` write (debounce only batches rapid edits — it
+is never the sole trigger, since the other five checkpoints all call `runAutoSync()` directly).
+Push is skipped only for the six required reasons: signed out, offline, hidden tab, auto save
+disabled, a genuine cloud-newer conflict, or a push already in flight. The in-flight flag is still
+claimed synchronously with zero `await`s in between the check and the claim, ruling out a
+double-push race between two overlapping triggers (same protection §25 added, preserved here).
+
+**Added — visible diagnostics:** `AutoSync`'s state gained `lastCheckAt`, `lastStatusCode`,
+`lastAttemptAt`, `lastResult`, `lastReason`. Both the Quick Sync panel (`#qsAutoSaveDiag`) and
+Integrations (`#asDiag`) gained a small always-visible status line (not only the tile's title
+tooltip) reading e.g. "checked just now · status: local-newer · last attempt 20:44", alongside the
+existing reason line which now reads `lastReason` directly (e.g. "Auto push succeeded 20:44",
+"Auto push skipped: cloud newer", "Auto push skipped: signed out", "Auto push failed: <error>").
+
+Verified with a rewritten `tests/autosync-watchdog.test.mjs`: local-newer+signed-in+visible+online+
+enabled calls `CloudSync.pushToCloud()`; `ForceSave.flushAll()` runs before `pushToCloud()` (same
+order as the manual button); a push success sets `AutoSync.getState().lastPushAt`; a push failure
+clears the in-flight guard (a later check pushes again immediately) and leaves a visible error; an
+unchanged-payload watchdog tick while status stays local-newer still pushes again (no dedup exists
+to skip it).
+
+**Unchanged:** push-only, no auto-pull (`checkCloudLoad()`'s confirm-gated cloud-load prompt is
+untouched), cloud-newer conflict protection, manual Quick Sync/Force Local Save/Push/Pull/Sync,
+`life_os_state` table/RLS, Supabase schema.
+
+**Next step:** none required. Still Phase 1, still push-only. If auto-push still doesn't fire live
+after this, the cause is outside this module (e.g. a stale cached script, or Supabase env vars not
+actually set in the deployed environment) — check the new diagnostic line first, it will say
+exactly which of the six gates is blocking, or show a real push error.

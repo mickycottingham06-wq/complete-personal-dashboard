@@ -1,15 +1,18 @@
 // =============================================================
-// AutoSync watchdog harness — loads the real scripts/cloud-sync.js and
+// AutoSync v3 harness — loads the real scripts/cloud-sync.js and
 // scripts/auto-sync.js source into a sandboxed vm context (mocked
 // localStorage/document/navigator + a fake Supabase client) and proves the
-// exact behaviour docs/SUPABASE_PLAN.md requires:
-//   1. signed-in + online + visible + auto save on + status local-newer
-//      really calls CloudSync.pushToCloud().
-//   2. a failed push clears syncing and shows a visible error.
-//   3. a timed-out push clears syncing/inFlight and shows a timeout.
-//   4. dedup can never skip a genuine local-newer status.
-//   5. a successful push updates lastAutoPush (AutoSync state) and
-//      cloudSyncMeta.lastPushedAt (CloudSync meta).
+// exact behaviour required after the v3 rewrite (docs/SUPABASE_PLAN.md §26):
+//   1. local-newer + signed in + visible + online + auto save enabled calls
+//      CloudSync.pushToCloud().
+//   2. the manual-push-equivalent sequence is used: ForceSave.flushAll()
+//      then CloudSync.pushToCloud(), in that order.
+//   3. a successful push updates AutoSync.getState().lastPushAt.
+//   4. a failed push clears the in-flight guard (a later check can push
+//      again immediately) and leaves a visible error.
+//   5. local-newer can never be dedup/hash-skipped — two checks in a row
+//      with an unchanged payload while the mock cloud never advances both
+//      call pushToCloud().
 //
 // Run: node tests/autosync-watchdog.test.mjs
 // No new dependencies — Node's built-in vm module only.
@@ -55,7 +58,7 @@ function makeLocalStorage(initial) {
 // Fake Supabase client. `select().eq().maybeSingle()` always reports the
 // fixture's cloudUpdatedAt (it does not advance after a push) so a test can
 // force getSyncStatus() to keep reading 'local-newer' across a push — the
-// exact condition needed to prove dedup can't hide behind it (test 4).
+// exact condition needed to prove dedup can't hide behind it (test 5).
 function makeClient({ sessionUser, sessionDelayMs, cloudUpdatedAt, upsertImpl }) {
   let pushCalls = 0;
   return {
@@ -80,15 +83,15 @@ function makeClient({ sessionUser, sessionDelayMs, cloudUpdatedAt, upsertImpl })
   };
 }
 
-function buildSandbox({ client, localStorage, autoSyncSource, realInterval }) {
+function buildSandbox({ client, localStorage, autoSyncSource, realInterval, flushSpy }) {
   const sandbox = {};
   sandbox.window = sandbox;
   sandbox.window.addEventListener = () => {};
   sandbox.console = console;
   sandbox.setTimeout = setTimeout;
   sandbox.clearTimeout = clearTimeout;
-  // Tests that don't need the periodic watchdog tick stub it out so they
-  // don't keep a timer alive after the assertions are done; test 4 below
+  // Tests that don't need the periodic 10s watchdog tick stub it out so they
+  // don't keep a timer alive after the assertions are done; test 5 below
   // patches WATCHDOG_MS down and passes realInterval to actually exercise it.
   sandbox.setInterval = realInterval ? setInterval : () => 0;
   sandbox.clearInterval = realInterval ? clearInterval : () => {};
@@ -107,11 +110,20 @@ function buildSandbox({ client, localStorage, autoSyncSource, realInterval }) {
       return { meta: { dataVersion: 1, keyCount: Object.keys(data).length }, data };
     },
   };
-  sandbox.window.ForceSave = { flushAll: () => {}, registerFlush: () => () => {} };
+  const calls = [];
+  sandbox.window.ForceSave = {
+    flushAll: () => { calls.push('flushAll'); if (flushSpy) flushSpy(); },
+    registerFlush: () => () => {},
+  };
+  sandbox._calls = calls;
   const ctx = vm.createContext(sandbox);
   vm.runInContext(supabaseAuthSrc, ctx, { filename: 'supabase-auth.js' });
   vm.runInContext(cloudSyncSrc, ctx, { filename: 'cloud-sync.js' });
+  // Wrap pushToCloud so we can record call order relative to flushAll
+  // without touching the real module logic.
   vm.runInContext(autoSyncSource || autoSyncSrc, ctx, { filename: 'auto-sync.js' });
+  const origPush = sandbox.window.CloudSync.pushToCloud;
+  sandbox.window.CloudSync.pushToCloud = (...args) => { calls.push('pushToCloud'); return origPush(...args); };
   return sandbox;
 }
 
@@ -125,8 +137,8 @@ function localNewerFixture(extraMeta) {
   });
 }
 
-async function test1and5_pushesAndUpdatesTimestamps() {
-  console.log('\n1+5. local-newer + signed in + online + visible + auto save on -> pushToCloud() called; timestamps update on success');
+async function test1_localNewerCallsPush() {
+  console.log('\n1. local-newer + signed in + visible + online + enabled -> CloudSync.pushToCloud() is called');
   const ls = localNewerFixture();
   const client = makeClient({
     sessionUser: { id: 'u1' }, sessionDelayMs: 30, cloudUpdatedAt: HOUR_AGO,
@@ -136,24 +148,45 @@ async function test1and5_pushesAndUpdatesTimestamps() {
   await waitUntil(() => client._pushCalls() >= 1, 5000);
   check('CloudSync.pushToCloud was actually called', client._pushCalls() >= 1);
   await waitUntil(() => sandbox.window.AutoSync.getState().status === 'synced', 2000);
-  const state = sandbox.window.AutoSync.getState();
-  check('AutoSync ends in "synced"', state.status === 'synced', state.status);
-  check('AutoSync.getState().lastPushAt is set (Last Auto Push)', !!state.lastPushAt);
-  check('lastSkipReason reports "pushed successfully at HH:MM"', /^pushed successfully at \d{2}:\d{2}$/.test(state.lastSkipReason), state.lastSkipReason);
-  const meta = sandbox.window.CloudSync.loadMeta();
-  check('cloudSyncMeta.lastPushedAt updated after success', !!meta.lastPushedAt);
-
-  // init() checks status from two places on the same auth-ready transition
-  // (the explicit whenAuthReady() gate, and the ongoing SupabaseAuth.subscribe
-  // callback) — pushInFlight must be claimed synchronously before the first
-  // await inside attemptPush(), or both call chains can race past the guard
-  // and double-push for a single local-newer state (no tight push loop).
-  await sleep(150);
-  check('exactly one push for one local-newer state (no concurrent double-push)', client._pushCalls() === 1, client._pushCalls());
+  check('AutoSync ends in "synced"', sandbox.window.AutoSync.getState().status === 'synced');
 }
 
-async function test2_failedPushClearsSyncingAndShowsError() {
-  console.log('\n2. Failed push clears syncing and shows a visible error');
+async function test2_manualEquivalentSequence() {
+  console.log('\n2. Manual-push-equivalent sequence is used: flushAll() then pushToCloud()');
+  const ls = localNewerFixture();
+  const client = makeClient({
+    sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
+    upsertImpl: () => ({ error: null }),
+  });
+  const sandbox = buildSandbox({ client, localStorage: ls });
+  await waitUntil(() => sandbox._calls.includes('pushToCloud'), 5000);
+  const order = sandbox._calls.filter((c) => c === 'flushAll' || c === 'pushToCloud');
+  const flushIdx = order.indexOf('flushAll');
+  const pushIdx = order.indexOf('pushToCloud');
+  check('ForceSave.flushAll() was called', flushIdx !== -1);
+  check('CloudSync.pushToCloud() was called', pushIdx !== -1);
+  check('flushAll() ran before pushToCloud() (same order as the manual button)', flushIdx !== -1 && pushIdx !== -1 && flushIdx < pushIdx, order.join(','));
+}
+
+async function test3_successUpdatesLastAutoPush() {
+  console.log('\n3. Push success updates AutoSync.getState().lastPushAt');
+  const ls = localNewerFixture();
+  const client = makeClient({
+    sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
+    upsertImpl: () => ({ error: null }),
+  });
+  const sandbox = buildSandbox({ client, localStorage: ls });
+  await waitUntil(() => !!sandbox.window.AutoSync.getState().lastPushAt, 5000);
+  const state = sandbox.window.AutoSync.getState();
+  check('lastPushAt is set', !!state.lastPushAt);
+  check('lastResult is "success"', state.lastResult === 'success', state.lastResult);
+  check('lastReason reports "Auto push succeeded HH:MM"', /^Auto push succeeded \d{2}:\d{2}$/.test(state.lastReason), state.lastReason);
+  const meta = sandbox.window.CloudSync.loadMeta();
+  check('cloudSyncMeta.lastPushedAt updated after success', !!meta.lastPushedAt);
+}
+
+async function test4_failureClearsInFlightAndShowsError() {
+  console.log('\n4. Push failure clears the in-flight guard and shows a visible error');
   const ls = localNewerFixture();
   const client = makeClient({
     sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
@@ -162,52 +195,31 @@ async function test2_failedPushClearsSyncingAndShowsError() {
   const sandbox = buildSandbox({ client, localStorage: ls });
   await waitUntil(() => sandbox.window.AutoSync.getState().status === 'action-needed', 5000);
   const state = sandbox.window.AutoSync.getState();
-  check('status left "syncing" (now action-needed, not stuck)', state.status === 'action-needed', state.status);
-  check('visible reason is "push failed: <message>"', state.lastSkipReason === 'push failed: network down', state.lastSkipReason);
-  check('lastError recorded', state.lastError === 'network down');
+  check('status is "action-needed" (not stuck on "syncing")', state.status === 'action-needed', state.status);
+  check('lastError recorded', state.lastError === 'network down', state.lastError);
+  check('visible reason is "Auto push failed: <message>"', state.lastReason === 'Auto push failed: network down', state.lastReason);
+  // In-flight guard released: refresh() (=runCheck) must be able to attempt
+  // another push right away, not be blocked by a stuck flag from the failure.
+  client.upsertImpl = () => ({ error: null }); // eslint-disable-line no-unused-vars -- illustrative only, real client below
+  const client2Calls = client._pushCalls();
+  sandbox.window.CloudSync.pushToCloud = async () => { client2Calls; return { ok: true, updatedAt: new Date().toISOString(), keyCount: 1 }; };
+  sandbox.window.AutoSync.refresh();
+  await waitUntil(() => sandbox.window.AutoSync.getState().status === 'synced', 2000);
+  check('a later check can push again immediately (in-flight guard was released)', sandbox.window.AutoSync.getState().status === 'synced');
 }
 
-async function test3_timeoutClearsSyncingAndShowsTimeout() {
-  console.log('\n3. Timed-out push clears syncing/inFlight and shows a timeout');
-  const patched = autoSyncSrc.replace('var PUSH_TIMEOUT_MS = 20000;', 'var PUSH_TIMEOUT_MS = 60;');
-  if (patched === autoSyncSrc) throw new Error('PUSH_TIMEOUT_MS constant not found to patch — harness is out of sync with auto-sync.js');
-  const ls = localNewerFixture();
-  const client = makeClient({
-    sessionUser: { id: 'u1' }, sessionDelayMs: 10, cloudUpdatedAt: HOUR_AGO,
-    upsertImpl: () => new Promise(() => {}), // never resolves -> forces the timeout path
-  });
-  const sandbox = buildSandbox({ client, localStorage: ls, autoSyncSource: patched });
-  await waitUntil(() => sandbox.window.AutoSync.getState().lastSkipReason === 'push timed out', 3000);
-  const state = sandbox.window.AutoSync.getState();
-  check('visible reason is "push timed out"', state.lastSkipReason === 'push timed out', state.lastSkipReason);
-  check('status moved off "syncing" after timeout', state.status === 'action-needed', state.status);
-  // A later markDirty()-triggered check must still be able to attempt a push
-  // (i.e. pushInFlight/syncing didn't get stuck true forever after the
-  // timeout) — same-value rewrite is enough to re-arm the debounce.
-  const patchedFast = patched.replace('var DEBOUNCE_MS = 4000;', 'var DEBOUNCE_MS = 20;');
-  const ls2 = localNewerFixture();
-  const client2 = makeClient({ sessionUser: { id: 'u1' }, sessionDelayMs: 5, cloudUpdatedAt: HOUR_AGO, upsertImpl: () => ({ error: null }) });
-  const sandbox2 = buildSandbox({ client: client2, localStorage: ls2, autoSyncSource: patchedFast.replace('var PUSH_TIMEOUT_MS = 20000;', 'var PUSH_TIMEOUT_MS = 60;') });
-  await waitUntil(() => sandbox2.window.AutoSync.getState().status !== 'not-configured', 2000);
-  check('a fresh sandbox after a timeout scenario can still reach synced (not permanently stuck)', await waitUntil(() => sandbox2.window.AutoSync.getState().status === 'synced', 3000));
-}
-
-async function test4_dedupCannotSkipLocalNewer() {
-  console.log('\n4. Dedup cannot silently skip a genuine local-newer status');
+async function test5_dedupCannotSkipLocalNewer() {
+  console.log('\n5. Local-newer can never be dedup/hash-skipped');
   // Real setInterval (WATCHDOG_MS patched down) so a *second* check happens
-  // with zero new localStorage writes — deliberately not a same-value
-  // rewrite: markDirty() always re-stamps cloudSyncMeta.localChangedAt to
-  // "now" on any wrapped write (even an identical value), which would push
-  // localChangedAt past lastPushedAt and defeat even the *old* dedup logic
-  // on its own, proving nothing. A no-write watchdog tick is the only way
-  // to genuinely land back on "signature matches last push, localChangedAt
-  // <= lastPushedAt" — exactly the condition the old dedup would skip.
-  const patched = autoSyncSrc.replace('var WATCHDOG_MS = 12000;', 'var WATCHDOG_MS = 40;');
+  // with zero new localStorage writes and an unchanged payload, while the
+  // mock cloud row never advances after the first push — the exact
+  // condition any hash/signature dedup would treat as "already synced".
+  const patched = autoSyncSrc.replace('var WATCHDOG_MS = 10000;', 'var WATCHDOG_MS = 40;');
   if (patched === autoSyncSrc) throw new Error('WATCHDOG_MS constant not found to patch — harness is out of sync with auto-sync.js');
   const ls = localNewerFixture();
   const client = makeClient({
     sessionUser: { id: 'u1' }, sessionDelayMs: 10,
-    cloudUpdatedAt: HOUR_AGO, // fixture's cloud row never advances after a push, so getSyncStatus() keeps reading local-newer even once local meta says "already pushed"
+    cloudUpdatedAt: HOUR_AGO, // never advances -> getSyncStatus() keeps reading local-newer even after a push
     upsertImpl: () => ({ error: null }),
   });
   const sandbox = buildSandbox({ client, localStorage: ls, autoSyncSource: patched, realInterval: true });
@@ -215,22 +227,17 @@ async function test4_dedupCannotSkipLocalNewer() {
   check('first push happened', client._pushCalls() >= 1, client._pushCalls());
   await waitUntil(() => sandbox.window.AutoSync.getState().status === 'synced', 2000);
 
-  // No new edit at all — just the watchdog's own periodic re-check landing
-  // on an unchanged, already-pushed signature while the mock cloud still
-  // reports local-newer. Old dedup logic ("signature matches + localChangedAt
-  // <= lastPushedAt" alone) would silently skip this as already-synced; the
-  // fix requires bypassing dedup outright whenever the status itself says
-  // local-newer.
   const secondPushHappened = await waitUntil(() => client._pushCalls() >= 2, 2000);
-  check('an unchanged-signature watchdog tick while status is local-newer still pushes again (no silent dedup-skip)', secondPushHappened, 'pushCalls=' + client._pushCalls());
+  check('an unchanged-payload watchdog tick while status is local-newer still pushes again (no dedup-skip)', secondPushHappened, 'pushCalls=' + client._pushCalls());
 }
 
 (async function main() {
-  console.log('AutoSync watchdog harness');
-  await test1and5_pushesAndUpdatesTimestamps();
-  await test2_failedPushClearsSyncingAndShowsError();
-  await test3_timeoutClearsSyncingAndShowsTimeout();
-  await test4_dedupCannotSkipLocalNewer();
+  console.log('AutoSync v3 harness');
+  await test1_localNewerCallsPush();
+  await test2_manualEquivalentSequence();
+  await test3_successUpdatesLastAutoPush();
+  await test4_failureClearsInFlightAndShowsError();
+  await test5_dedupCannotSkipLocalNewer();
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 })();

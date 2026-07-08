@@ -1018,6 +1018,61 @@ Fix Auto Cloud Save: reliable watchdog so local-newer + auto save on always push
 
 ---
 
+## 2026-07-08 (8)
+
+### Auto Cloud Save v3 — simple push path, same sequence as manual Push Local -> Cloud
+
+Live symptom despite (5)-(7): signed in, Cloud Sync on, status still read "Local newer", "Last
+cloud update" never changed, "Last auto push" stayed blank — while Manual Push worked every time.
+Rather than chase another edge case in the debounce/watchdog/hash-dedup stack, rewrote
+`scripts/auto-sync.js`'s push path from scratch as one function, `runAutoSync()`, that always runs
+the exact same sequence the manual button uses: `ForceSave.flushAll()` -> `CloudSync.pushToCloud()`
+-> update `cloudSyncMeta`/`AutoSync` state -> notify subscribers so Quick Sync/Integrations re-render.
+
+Removed entirely: the payload hash/signature dedup (`computeSignature`/`hashString`/
+`lastPushedSignature`/`alreadyPushed`), the separate debounce+max-wait timer pair, the
+pending-rerun coalescing queue, and the separate display-only `refreshStatus()` (folded into
+`runAutoSync()`, which now updates status on every call whether it pushes or not). None of that
+machinery is needed: `runAutoSync()` reads `CloudSync.getSyncStatus()` fresh on every trigger and
+pushes immediately whenever it says `local-newer`, `cloud-ready`, or `error` — never dedup-gated.
+
+Six explicit triggers, all funnelling into `runAutoSync()`: page load (once auth is ready), a 10s
+watchdog tick while visible, `visibilitychange` back to visible, the `online` event, an auth state
+change, and a (2s-debounced, purely to batch rapid edits, never the sole trigger) meaningful
+`localStorage` write. Push is skipped only for the six required reasons: signed out, offline,
+hidden tab, auto save disabled, a genuine cloud-newer conflict, or a push already in flight — the
+in-flight flag is still claimed synchronously with zero `await`s in between to rule out a
+double-push race between two overlapping triggers.
+
+Added visible diagnostics (`lastCheckAt`, `lastStatusCode`, `lastAttemptAt`, `lastResult`,
+`lastReason`) to `AutoSync`'s state, and a new always-visible status line (not just the tile's
+title tooltip) on both the Quick Sync panel (`#qsAutoSaveDiag`) and Integrations (`#asDiag`) reading
+e.g. "checked just now · status: local-newer · last attempt 20:44", plus the existing reason line
+now reads `lastReason` (e.g. "Auto push succeeded 20:44", "Auto push skipped: cloud newer").
+
+Verified with a rewritten `tests/autosync-watchdog.test.mjs` (Node `vm` harness, real
+`cloud-sync.js`/`auto-sync.js`/`supabase-auth.js` source, mocked Supabase client): local-newer +
+signed-in + visible + online + enabled calls `CloudSync.pushToCloud()`; `ForceSave.flushAll()` runs
+before `pushToCloud()` (same order as the manual button); a push success sets
+`AutoSync.getState().lastPushAt`; a push failure clears the in-flight guard (a later check can push
+again immediately) and leaves a visible error; an unchanged-payload watchdog tick while status stays
+local-newer still pushes again (no dedup-skip possible, because there is no dedup).
+
+Unchanged: push-only, no auto-pull (`checkCloudLoad()`'s confirm-gated cloud-load prompt is
+untouched), cloud-newer conflict protection, manual Quick Sync/Force Local Save/Push/Pull/Sync
+buttons, `life_os_state` table/RLS, Supabase schema.
+
+Files affected:
+
+scripts/auto-sync.js, index.html, pages/integrations.html, tests/autosync-watchdog.test.mjs,
+docs/SUPABASE_PLAN.md
+
+Commit:
+
+Auto Cloud Save v3: simple push path matching manual Push Local -> Cloud, visible diagnostics
+
+---
+
 ## Future Entries
 
 Example
