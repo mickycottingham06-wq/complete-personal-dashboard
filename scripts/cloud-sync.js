@@ -211,10 +211,20 @@
     if (!status.ok) return { code: 'error', label: 'Sync error' };
     if (!status.exists) return { code: 'cloud-ready', label: 'Cloud ready' };
     var localTime = latestLocalTimestamp();
-    if (localTime && status.updatedAt && localTime !== status.updatedAt) {
-      return localTime > status.updatedAt
-        ? { code: 'local-newer', label: 'Local newer' }
-        : { code: 'cloud-newer', label: 'Cloud newer' };
+    if (localTime && status.updatedAt) {
+      // Compare as actual instants, not raw strings: Postgres/PostgREST
+      // round-trips a timestamptz column back with a "+00:00" offset suffix,
+      // not the "Z" suffix new Date().toISOString() sends — a raw string
+      // compare treats every post-push state as "local newer" forever
+      // (since 'Z' > '+' lexically), which never resolves to Synced and
+      // makes Cloud newer unreachable. See docs/SUPABASE_PLAN.md §24.
+      var localMs = Date.parse(localTime);
+      var cloudMs = Date.parse(status.updatedAt);
+      if (!isNaN(localMs) && !isNaN(cloudMs) && localMs !== cloudMs) {
+        return localMs > cloudMs
+          ? { code: 'local-newer', label: 'Local newer' }
+          : { code: 'cloud-newer', label: 'Cloud newer' };
+      }
     }
     return { code: 'synced', label: 'Synced' };
   }

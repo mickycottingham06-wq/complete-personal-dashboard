@@ -780,6 +780,16 @@ body::after {
     if (reasonTxt) { reasonEl.style.display = ''; reasonEl.textContent = reasonTxt; }
     else { reasonEl.style.display = 'none'; }
     $('asLastPush').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
+    // A push just completed — the "Real Cloud Sync" section's own
+    // Status/Last cloud update tiles otherwise only refresh on button
+    // clicks, so they'd look stale even though the push succeeded. Reuse
+    // the state's own lastPushAt instead of another network round trip.
+    if (s.status === 'synced' && s.lastPushAt) {
+      $('csCloudUpdated').textContent = fmtTime(s.lastPushAt);
+      $('csStatus').textContent = 'Synced';
+      $('csLocalUpdated').textContent = window.CloudSync ? fmtTime(window.CloudSync.latestLocalTimestamp()) : '—';
+      $('csDeviceSync').textContent = window.CloudSync ? fmtTime(window.CloudSync.lastDeviceSyncAt()) : '—';
+    }
   }
   if (window.AutoSync) window.AutoSync.subscribe(renderAutoSave);
 

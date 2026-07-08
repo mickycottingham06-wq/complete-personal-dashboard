@@ -597,3 +597,47 @@ only the tile's `title` tooltip from §22.
 coalescing guards, manual Quick Sync/Force Local Save, `life_os_state` table/RLS, data shape.
 
 **Next step:** none required. Still Phase 1, still push-only.
+
+## 24. Auto Cloud Save: timestamp-format bug + dedup hash tightened to a real-push signature (2026-07-08)
+
+Live symptom despite §20–23: status correctly read `local-newer` after an edit (freshness detection
+was fine), but the auto-push path never visibly completed — Manual Push worked, AutoSync didn't.
+
+**Root cause #1 (`cloud-sync.js` `getSyncStatus()`):** `localTime`/`status.updatedAt` were compared as
+raw strings. `new Date().toISOString()` (what this device stamps) always ends `Z`; Postgres/PostgREST
+round-trips a `timestamptz` column back with a `+00:00` offset suffix, not `Z`. Since `'Z' > '+'`
+lexically, *any* local timestamp compared against *any* cloud timestamp for the same instant read as
+`local-newer` — `synced` was unreachable after a push, and the status label stayed "Local newer"
+forever, exactly matching what was observed live. Fixed by comparing `Date.parse()` values (actual
+instants) instead of raw strings.
+
+**Root cause #2 (`auto-sync.js` `attemptPush()`/`refreshStatus()`):** because `synced` was effectively
+unreachable (root cause #1), `refreshStatus()`'s `if (syncStatus.code === 'synced') { lastPushedSignature
+= computeSignature(); ... }` line — meant only to note "already matches cloud" — instead behaved as a
+general "seed the dedup hash from whatever's on screen right now" trap the moment any code path *did*
+misreport synced. That violates the intended dedup contract: the last-pushed hash must only ever come
+from a payload `CloudSync.pushToCloud()` actually confirmed as pushed, never from a status-check read.
+Removed that assignment entirely — `lastPushedSignature` is now set in exactly one place, on
+`result.ok` inside `attemptPush()`. The skip condition itself was also tightened to require both the
+hash match *and* `cloudSyncMeta.localChangedAt <= cloudSyncMeta.lastPushedAt` (both fields already
+written by `pushToCloud()`), so a hash coincidence alone can never fake a "nothing changed" skip.
+
+Also reordered `attemptPush()` to call `ForceSave.flushAll()` *before* reading `getSyncStatus()`
+(previously after), so a pending debounced field edit can't be missed by the cloud-newer gate check.
+
+**UI:** `AutoSync.subscribe()` on Command Centre and Integrations now also refreshes the "Last cloud
+update"/"Status" tiles (reusing the state's own `lastPushAt`, no extra network call) the moment a push
+completes, instead of only on next manual panel reopen. Command Centre's top sync button `title` now
+always carries the current skip/error reason (hover-visible even with the Quick Sync panel closed) —
+kept to the existing tooltip pattern, no new always-open card.
+
+Verified with a local Node/`vm` harness (loads the real `auto-sync.js`/`cloud-sync.js` source with a
+mocked Supabase client returning `+00:00`-suffixed timestamps): confirms `synced` is now reached after
+a push, confirms a genuine follow-up edit still pushes (dedup isn't over-corrected), confirms exactly
+one network push per genuine edit (no more redundant push on every load caused by the false
+`local-newer` reading).
+
+**Unchanged:** push-only, no auto-pull, cloud-newer conflict protection (now actually reachable),
+in-flight/coalescing guards, manual Quick Sync/Force Local Save, `life_os_state` table/RLS, data shape.
+
+**Next step:** none required. Still Phase 1, still push-only.

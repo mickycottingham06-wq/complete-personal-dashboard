@@ -929,6 +929,48 @@ Fix Auto Cloud Save: push from local-newer state across page navigation
 
 ---
 
+## 2026-07-08 (6)
+
+### Fix Auto Cloud Save: timestamp-format bug + dedup hash tightened to a real-push signature
+
+Live symptom: status correctly showed "Local newer" after an edit, Manual Push worked, but AutoSync's
+own push never visibly completed. Two compounding root causes in the local-newer → attemptPush →
+CloudSync.pushToCloud → lastPushedAt/UI path.
+
+`cloud-sync.js`'s `getSyncStatus()` compared local vs. cloud timestamps as raw strings — Postgres/
+PostgREST returns a `timestamptz` back with a `+00:00` suffix, not the `Z` suffix this device stamps
+via `toISOString()`, and `'Z' > '+'` lexically, so *any* same-instant comparison misread as
+`local-newer`. `Synced` was unreachable after a push; the status label stayed "Local newer" forever.
+Now compares `Date.parse()` values instead of raw strings.
+
+That made `refreshStatus()`'s `synced` branch — which seeded `AutoSync`'s dedup hash
+(`lastPushedSignature`) from whatever was currently on screen — fire on a false "synced" read,
+poisoning the dedup check against a payload that was never actually confirmed pushed. Removed that
+seed entirely; `lastPushedSignature` is now set in exactly one place (a real `pushToCloud()` success),
+and the skip condition additionally requires `cloudSyncMeta.localChangedAt <= cloudSyncMeta.lastPushedAt`
+so a hash coincidence alone can't fake a "nothing to push" skip. `attemptPush()` also now flushes
+pending debounced field writes before reading sync status, not after.
+
+Command Centre and Integrations now refresh their "Last cloud update"/Status tiles the instant a push
+completes (reusing the state's own timestamp, no extra network call) instead of only on next manual
+reopen, and Command Centre's top sync button always carries the current skip/error reason as its
+hover tooltip. Verified with a local Node/`vm` harness that loads the real source files against a
+mocked Supabase client returning `+00:00`-suffixed timestamps — confirms `synced` is reachable again,
+a genuine follow-up edit still pushes, and exactly one network push happens per genuine edit.
+
+Unchanged: push-only, no auto-pull, cloud-newer conflict protection (now actually reachable), manual
+Quick Sync/Push/Pull/Sync, `life_os_state` table/RLS.
+
+Files affected:
+
+scripts/cloud-sync.js, scripts/auto-sync.js, index.html, pages/integrations.html, docs/SUPABASE_PLAN.md
+
+Commit:
+
+Fix Auto Cloud Save: Postgres timestamp-format bug + dedup hash tightened to a confirmed-push signature
+
+---
+
 ## Future Entries
 
 Example

@@ -194,6 +194,12 @@
     if (base) { setState({ status: base, reason: '', lastSkipReason: LABELS[base] + ' — see the Auto Save state above.' }); return; }
     if (document.visibilityState === 'hidden') { setState({ lastSkipReason: 'Tab not visible — retried when it becomes visible again.' }); return; } // retried on visibility/online events
 
+    // Flush any pending debounced field writes (e.g. a text input mid-typing
+    // debounce) into Local Storage *before* reading sync status — otherwise
+    // the freshness check below can miss an edit that hasn't hit
+    // localStorage.setItem yet and misjudge cloud-newer/local-newer.
+    window.ForceSave.flushAll();
+
     // Only 'cloud-newer' blocks the push itself — pushing over a newer
     // cloud save would silently discard another device's edits, and that
     // needs the user's explicit choice (Quick Sync / Integrations).
@@ -216,9 +222,18 @@
     pushInFlight = true;
     setState({ status: 'syncing', reason: '' });
     try {
-      window.ForceSave.flushAll();
       var sig = computeSignature();
-      if (sig === lastPushedSignature) { setState({ status: 'synced', reason: '', lastSkipReason: 'No meaningful changes since the last push.' }); return; }
+      // Only skip as a no-op when the export matches the hash of the last
+      // *successfully pushed* payload (set below, only on a real push
+      // success) AND this device has nothing newer than that push's own
+      // timestamp. Never dedup against a hash computed from just "what's
+      // on screen right now" (e.g. a boot-time/status-check read) — that
+      // would skip a genuine unpushed local-newer edit as if it were
+      // already synced. If either signal is missing or ambiguous, push.
+      var meta = window.CloudSync.loadMeta();
+      var alreadyPushed = sig === lastPushedSignature &&
+        !!meta.lastPushedAt && !!meta.localChangedAt && meta.localChangedAt <= meta.lastPushedAt;
+      if (alreadyPushed) { setState({ status: 'synced', reason: '', lastSkipReason: 'No meaningful changes since the last push.' }); return; }
       var result = await window.CloudSync.pushToCloud();
       if (result.ok) {
         lastPushedSignature = sig;
@@ -268,7 +283,13 @@
     var syncStatus = await window.CloudSync.getSyncStatus();
     if (syncStatus.code === 'cloud-newer') { setState({ status: 'action-needed', reason: 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.' }); return; }
     if (syncStatus.code === 'error') { setState({ status: 'action-needed', reason: state.lastError || 'The last cloud save failed — it will retry automatically on the next change.' }); return; }
-    if (syncStatus.code === 'synced') { lastPushedSignature = computeSignature(); setState({ status: 'synced', reason: '' }); return; }
+    // Deliberately does NOT set lastPushedSignature here. That hash must
+    // only ever come from a payload CloudSync.pushToCloud() actually
+    // confirmed as pushed (see attemptPush) — seeding it from "whatever's
+    // on screen right now just because getSyncStatus() currently reads
+    // synced" would let a later genuine local-newer edit dedup-skip itself
+    // if it happened to hash-collide with this boot-time read.
+    if (syncStatus.code === 'synced') { setState({ status: 'synced', reason: '' }); return; }
     setState({ status: 'auto-on', reason: '' });
   }
 

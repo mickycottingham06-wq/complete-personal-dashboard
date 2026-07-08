@@ -1498,8 +1498,24 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     if (reasonTxt) { reasonEl.style.display = ''; reasonEl.textContent = reasonTxt; }
     else { reasonEl.style.display = 'none'; }
     $('qsAutoSaveLast').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
+    // A push just completed — "Last cloud update"/"Last local save" and the
+    // top status indicator would otherwise stay stale until the panel is
+    // next reopened. Reuse the state's own lastPushAt instead of another
+    // network round trip.
+    if (s.status === 'synced' && s.lastPushAt) {
+      $('qsCloudSync').textContent = fmtTime(s.lastPushAt);
+      $('qsLocalSave').textContent = window.CloudSync ? fmtTime(window.CloudSync.latestLocalTimestamp()) : '—';
+      renderIndicator();
+    }
   }
-  if (window.AutoSync) window.AutoSync.subscribe(() => { if ($('quickSyncBg').classList.contains('show')) renderAutoSave(); });
+  // Keeps the reason visible even with the panel closed — hover the top
+  // status button, same compact pattern as the Integrations asStatus tile's
+  // title, without adding a new always-open card.
+  if (window.AutoSync) window.AutoSync.subscribe((s) => {
+    const reasonTxt = s.lastSkipReason || s.reason || '';
+    syncEl.title = reasonTxt ? ('Cloud sync status — ' + reasonTxt) : 'Cloud sync status — click for quick sync';
+    if ($('quickSyncBg').classList.contains('show')) renderAutoSave();
+  });
 
   function showQsSignInErr(msg) {
     const box = $('qsSignInErrBox');
