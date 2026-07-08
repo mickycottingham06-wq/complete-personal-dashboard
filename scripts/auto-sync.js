@@ -1,10 +1,12 @@
 // =============================================================
-// Auto Cloud Save (v1) — safe background push, no auto-pull.
+// Auto Cloud Save (v2) — safe background push on every core Life OS page,
+// plus a guarded, opt-in cloud-load check for picking up another device's
+// newer save.
 //
 // Builds on window.CloudSync / window.Backup / window.ForceSave exactly as
-// the Quick Sync panel and Integrations Cloud Sync card do. This module
-// only ever calls CloudSync.pushToCloud() — it never calls pullToLocal(),
-// so it can never overwrite this device's Local Storage.
+// the Quick Sync panel and Integrations Cloud Sync card do. Push path only
+// ever calls CloudSync.pushToCloud() — it never pulls on its own, so it can
+// never overwrite this device's Local Storage.
 //
 // How it works: wraps localStorage.setItem/removeItem once to detect
 // meaningful writes (an exclude-list filters out UI/ephemeral and
@@ -18,6 +20,15 @@
 // require the tab visible, then read CloudSync.getSyncStatus() and skip
 // if cloud is newer or in error — those need the user's manual choice via
 // Quick Sync / Integrations, never an automatic overwrite.
+//
+// Cloud-load check (v2): on load, on visibility/online, and on the periodic
+// status refresh, flush + check CloudSync.getSyncStatus(). Only when the
+// status is exactly 'cloud-newer' (this device's own latest-timestamp scan
+// is behind the cloud row — i.e. no unsynced local edits) does it ask, via
+// a single confirm(), whether to load the newer cloud save. Declining or
+// accepting is remembered per cloud updated_at in sessionStorage so the
+// same version is never asked about twice — no repeated prompts/loops.
+// 'local-newer' and 'error' are left entirely to manual Quick Sync.
 //
 // Safe when Supabase isn't configured or no one is signed in: every
 // internal check just skips the push and reports status; nothing here
@@ -166,6 +177,51 @@
     setState({ status: 'auto-on' });
   }
 
+  // Cloud-load check (v2) — the only place this module ever pulls, and only
+  // after an explicit confirm(). sessionStorage remembers the cloud row's
+  // updated_at already asked about, so re-running this (on visibility,
+  // online, sign-in, or the periodic tick) never re-prompts for the same
+  // cloud version twice, i.e. no repeated-prompt loop.
+  var CLOUD_PROMPT_SEEN_KEY = 'autoSyncCloudPromptSeen';
+  var loadCheckInFlight = false;
+  async function checkCloudLoad() {
+    if (loadCheckInFlight || pushInFlight) return;
+    if (!window.CloudSync || !window.ForceSave) return;
+    if (!navigator.onLine || !window.CloudSync.isAvailable()) return;
+    if (document.visibilityState === 'hidden') return;
+    loadCheckInFlight = true;
+    try {
+      // Flush first so a not-yet-committed debounced edit can never be
+      // mistaken for "no unsynced local changes".
+      window.ForceSave.flushAll();
+      var syncStatus = await window.CloudSync.getSyncStatus();
+      if (syncStatus.code !== 'cloud-newer') return;
+      var cloudStatus = await window.CloudSync.getCloudStatus();
+      if (!cloudStatus.ok || !cloudStatus.exists) return;
+      var seen = null;
+      try { seen = sessionStorage.getItem(CLOUD_PROMPT_SEEN_KEY); } catch (e) {}
+      if (seen === cloudStatus.updatedAt) return;
+      try { sessionStorage.setItem(CLOUD_PROMPT_SEEN_KEY, cloudStatus.updatedAt); } catch (e) {}
+
+      var when = new Date(cloudStatus.updatedAt).toLocaleString();
+      var confirmed = window.confirm(
+        'A newer Life OS save was found in the cloud (' + when + ').\n\n' +
+        'This device has no unsynced local changes, so it is safe to load it.\n\n' +
+        'Load the latest cloud save now?'
+      );
+      if (!confirmed) return;
+      setState({ status: 'syncing' });
+      var result = await window.CloudSync.pullToLocal();
+      if (result.ok) {
+        window.location.reload();
+      } else {
+        setState({ status: 'action-needed', lastError: result.error });
+      }
+    } finally {
+      loadCheckInFlight = false;
+    }
+  }
+
   function wrapStorage() {
     if (localStorage.setItem.__autoSyncWrapped) return;
     var origSet = localStorage.setItem.bind(localStorage);
@@ -185,14 +241,20 @@
 
   function init() {
     wrapStorage();
+    // Idempotent (SupabaseAuth guards against double-init) — this is what
+    // actually fetches the signed-in session on pages that don't already
+    // have their own sign-in UI calling it (only Command Centre and
+    // Integrations did before v2).
+    if (window.SupabaseAuth) window.SupabaseAuth.init();
     refreshStatus();
-    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); });
+    checkCloudLoad();
+    if (window.SupabaseAuth) window.SupabaseAuth.subscribe(function () { refreshStatus(); checkCloudLoad(); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') attemptPush();
+      if (document.visibilityState === 'visible') { attemptPush(); checkCloudLoad(); }
     });
-    window.addEventListener('online', function () { attemptPush(); });
+    window.addEventListener('online', function () { attemptPush(); checkCloudLoad(); });
     window.addEventListener('offline', function () { setState({ status: 'offline' }); });
-    setInterval(refreshStatus, 60 * 1000);
+    setInterval(function () { refreshStatus(); checkCloudLoad(); }, 60 * 1000);
     setInterval(attemptPush, DIRTY_CHECK_MS);
   }
 

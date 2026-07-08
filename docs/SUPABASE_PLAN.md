@@ -496,11 +496,42 @@ in §17–§19.
   UI pattern introduced.
 
 **Coverage:** only Command Centre (`index.html`) and Integrations (`pages/integrations.html`)
-load the full `SupabaseFoundation` + `SupabaseAuth` + `Backup` + `CloudSync` + `ForceSave` chain
-`auto-sync.js` needs — those are the only two pages wired up. Every other HQ page (Daily Snapshot,
-Money HQ, Business HQ, Gym, Health, etc.) is a coverage gap for this pass — none of them load the
-Supabase/CloudSync scripts, and adding that whole chain to each just for background save would be
-overbuilding a v1. Extending coverage to the rest of the Life OS is future work, not required here.
+loaded the full `SupabaseFoundation` + `SupabaseAuth` + `Backup` + `CloudSync` + `ForceSave` chain
+`auto-sync.js` needs — those were the only two pages wired up. Extended to full core-page coverage
+in v2, see §21.
+
+## 21. Auto Cloud Save v2 — full core-page coverage + safe cloud-load prompt (2026-07-08)
+
+**Added:**
+- Every core editable Life OS page (Daily Snapshot, Goals, Business HQ, Boxing HQ, Health HQ,
+  Hormone Optimisation, Appearance, Money HQ, Weekly Review, Life Stats, Heatmap) now loads
+  `supabase-status.js` → `supabase-auth.js` → `backup-data.js` → `cloud-sync.js` → `force-save.js` →
+  `auto-sync.js`, same order and script tags as Command Centre/Integrations. No new script content
+  per page — just the existing chain.
+- `auto-sync.js`'s `init()` now calls `window.SupabaseAuth.init()` itself (idempotent — `SupabaseAuth`
+  already guards against double-init), since most of these pages have no sign-in UI of their own to
+  trigger the session fetch. Command Centre/Integrations already called it from their own settings/
+  sign-in UI, so no change in behaviour there.
+- Pages with debounced fields but no existing `ForceSave.registerFlush()` call (Goals, Business HQ,
+  Boxing HQ, Health HQ, Hormone Optimisation, Appearance, Weekly Review, Life Stats, Heatmap) each
+  gained the smallest possible flush registration — clear the pending debounce timer(s) and call the
+  page's existing `save()` — following the exact pattern Daily Snapshot already used. Money HQ has no
+  debounced fields, so none was needed.
+- New guarded cloud-load check, `checkCloudLoad()` inside `auto-sync.js` — the only place this module
+  ever calls `CloudSync.pullToLocal()`, and only after an explicit `confirm()`. Runs on load, on
+  visibility/online, on sign-in change, and on the existing 60s status tick. It flushes pending saves
+  first, then only proceeds when `CloudSync.getSyncStatus()` is exactly `cloud-newer` — meaning this
+  device's own latest-timestamp scan is behind the cloud row, i.e. no unsynced local edits by the
+  same logic §17's Quick Sync already relies on. `local-newer` and `error` are untouched — still
+  manual Quick Sync only, never auto-pulled. A `sessionStorage` key remembers the cloud row's
+  `updated_at` already asked about, so the same cloud version is never prompted for twice — no
+  repeated-prompt loop across page navigations or the periodic tick.
+
+**Unchanged:** the push path (still push-only, still dedup/coalesce/in-flight-guarded as in §20), the
+`life_os_state` table shape and RLS policies, and manual Quick Sync/Force Local Save/Push/Pull/Sync
+buttons on Command Centre and Integrations.
+
+**Next step:** none required. Still Phase 1 only.
 
 **Unchanged:** manual Quick Sync (push/pull/sync now), Force Local Save, the `life_os_state` table,
 RLS, and every existing push/pull confirm-before-overwrite dialog — all exactly as §17–§19 left

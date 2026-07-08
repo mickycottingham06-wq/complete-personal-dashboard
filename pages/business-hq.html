@@ -9,6 +9,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/auto-sync.js"></script>
 <script src="../scripts/business-data.js"></script>
 <style>
 :root {
@@ -423,6 +429,16 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     biz.projects.push({ id: window.Business.uid(), name: '', status: STATUSES[0], priority: PRIORITIES[1] });
     save(); renderProjects(); renderActiveProjectOptions();
   });
+
+  // Lets Force Local Save / AutoSync commit a pending debounced field edit
+  // immediately instead of waiting out its timer before a cloud sync reads
+  // Local Storage.
+  if (window.ForceSave) {
+    window.ForceSave.registerFlush(() => {
+      clearTimeout(fieldTimer);
+      save();
+    });
+  }
 
   // Re-render if another tab / device changes business data.
   window.addEventListener('storage', () => {

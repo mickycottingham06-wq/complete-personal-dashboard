@@ -714,6 +714,43 @@ Add Auto Cloud Save v1 — push-only background sync on Command Centre and Integ
 
 ---
 
+## 2026-07-08 (4)
+
+### Auto Cloud Save v2 — full core-page coverage + safe cloud-load prompt
+
+v1 only covered Command Centre and Integrations because those were the only pages loading the full
+Supabase/CloudSync/ForceSave chain. Every other core Life OS page (Daily Snapshot, Goals, Business
+HQ, Boxing HQ, Health HQ, Hormone Optimisation, Appearance, Money HQ, Weekly Review, Life Stats,
+Heatmap) now loads `supabase-status.js`, `supabase-auth.js`, `backup-data.js`, `cloud-sync.js`,
+`force-save.js`, `auto-sync.js` in the same order as Command Centre, so an edit made on any of them
+auto-pushes the same way. `auto-sync.js` itself now calls `SupabaseAuth.init()` (idempotent, guarded
+against double-init) since most of these pages have no sign-in UI of their own to do it. Pages with
+debounced fields but no existing flush registration (Goals, Business HQ, Boxing HQ, Health HQ,
+Hormone Optimisation, Appearance, Weekly Review, Life Stats, Heatmap) each gained the smallest
+possible `ForceSave.registerFlush()` call — clear the pending timer(s) and save — so a push can never
+miss an edit still sitting in its debounce window.
+
+Added a guarded cloud-load check (`AutoSync.checkCloudLoad`, still push-only for local safety) that
+runs on load, on visibility/online, on sign-in, and on the existing 60s status tick: it flushes
+pending saves, reads `CloudSync.getSyncStatus()`, and only when the status is exactly `cloud-newer`
+(this device has no unsynced local edits by its own timestamp scan) does it ask, via one `confirm()`,
+whether to load the newer cloud save. `local-newer` and `error` are left entirely to manual Quick
+Sync — never auto-pulled. sessionStorage remembers the cloud row's `updated_at` already asked about
+so the same version is never re-prompted, avoiding a repeat-prompt loop across page navigations.
+
+Files affected:
+
+scripts/auto-sync.js, pages/daily-snapshot.html, pages/goals.html, pages/business-hq.html,
+pages/boxing-hq.html, pages/health.html, pages/hormone-optimisation.html, pages/appearance.html,
+pages/money-hq.html, pages/weekly-review.html, pages/life-stats.html, pages/heatmap.html,
+docs/SUPABASE_PLAN.md, docs/TODO.md
+
+Commit:
+
+Upgrade Auto Cloud Save to v2 — full core-page coverage + safe cloud-load prompt
+
+---
+
 ## Future Entries
 
 Example

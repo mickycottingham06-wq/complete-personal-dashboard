@@ -10,6 +10,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/auto-sync.js"></script>
 <script src="../scripts/health-data.js"></script>
 <script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/appearance-data.js"></script>
@@ -558,6 +564,17 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
       a.progressPhotos.push({ id: window.Appearance.uid(), date: '', label: '', notes: '', imageUrl: '' });
       save(); renderPhotos();
     });
+
+    // Lets Force Local Save / AutoSync commit pending debounced field/
+    // photo edits immediately instead of waiting out their timers before
+    // a cloud sync reads Local Storage.
+    if (window.ForceSave) {
+      window.ForceSave.registerFlush(function () {
+        clearTimeout(fieldTimer);
+        clearTimeout(photoTimer);
+        save();
+      });
+    }
 
     // Re-render if another tab / device changes appearance data.
     window.addEventListener('storage', function () {
