@@ -1073,6 +1073,44 @@ Auto Cloud Save v3: simple push path matching manual Push Local -> Cloud, visibl
 
 ---
 
+## 2026-07-08 (9)
+
+### Fix: Auto Push failing with "window.ForceSave.flushAll is not a function"
+
+(8) above wrote `runAutoSync()`/`checkCloudLoad()` to call `window.ForceSave.flushAll()`, but
+`scripts/force-save.js` never attaches `flushAll` to `window.ForceSave` — it only exports
+`registerFlush` and `run` (`run()` calls the internal `flushAll()` itself, then confirms Local
+Storage is writable and returns `{ ok, timestamp, error }`). The manual Push Local -> Cloud /
+Quick Sync / Integrations Sync buttons in `index.html` and `pages/integrations.html` always called
+`window.ForceSave.run()`, never `flushAll()` directly — so manual push worked while every Auto Push
+threw immediately and left status stuck on "action-needed".
+
+Added `runForceSave()` in `scripts/auto-sync.js`: calls `window.ForceSave.run()` if present, falls
+back to an ok result if `ForceSave` is missing, and never throws (catches any error and returns
+`{ ok: false, error }`). Both call sites (`runAutoSync()`'s push path and `checkCloudLoad()`) now
+use it instead of the non-existent `flushAll()`. A `ForceSave.run()` failure now stops before
+`CloudSync.pushToCloud()` and sets `status: 'action-needed'` with the error surfaced via
+`lastError`/`lastReason`, same as any other push-path failure.
+
+No change to trigger logic, gating, dedup-free push behaviour, or push-only/no-auto-pull guarantees
+from (8) — this only fixes the ForceSave API mismatch.
+
+Updated `tests/autosync-watchdog.test.mjs`: the mock `window.ForceSave` now only exposes
+`run()`/`registerFlush()` (matching the real API, so a regression back to calling `flushAll()`
+throws in the harness), test 2 asserts `run()` runs before `pushToCloud()`, a new test 1b statically
+asserts `scripts/auto-sync.js` contains no `ForceSave.flushAll` reference, and test 6 asserts a
+`ForceSave.run()` failure stops the push before `pushToCloud()` is ever called.
+
+Files affected:
+
+scripts/auto-sync.js, tests/autosync-watchdog.test.mjs, docs/CHANGELOG.md
+
+Commit:
+
+Fix Auto Push: use ForceSave.run() instead of non-existent flushAll()
+
+---
+
 ## Future Entries
 
 Example
