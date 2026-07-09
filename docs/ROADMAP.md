@@ -88,7 +88,7 @@ Net Worth ✅ (bank, cash, crypto, other assets, liabilities, auto-calculated to
 
 Cash ✅ (tracked as its own Net Worth category)
 
-Investments ✅ (accounts with contributed vs current value, gain/loss)
+Investments ✅ (optional shares/currentPrice holdings model with ticker/account, auto-calculated value, gain/loss, allocation by type — foundation for a future Trading 212 import, no external API yet)
 
 Bills ✅ (Bills / Subscriptions tab — due dates, frequency, status, monthly recurring total)
 

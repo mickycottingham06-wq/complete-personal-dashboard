@@ -52,7 +52,7 @@
       income: [],        // { id, date, source, type, amount, notes }
       budgets: defaultBudgets(), // { id, category, monthlyLimit, spent }
       budgetTarget: 0,
-      investments: [],   // { id, name, type, currentValue, contributed, notes }
+      investments: [],   // { id, name, type, ticker, shares, averageCost, currentPrice, currentValue, contributed, account, notes }
       bills: [],         // { id, name, amount, dueDate, frequency, category, status }
       receipts: [],      // { id, date, merchant, amount, category, status, notes }
       netWorthHistory: [], // { date, value }
@@ -73,8 +73,26 @@
     // without touching limits/spend a user already saved.
     var existingCats = m.budgets.map(function (b) { return b.category; });
     defaultBudgets().forEach(function (b) { if (existingCats.indexOf(b.category) === -1) m.budgets.push(b); });
+    // Upgrade path: fill in new optional holding fields on older
+    // investment rows without touching any value already saved.
+    m.investments = m.investments.map(function (i) {
+      return Object.assign({
+        ticker: '', shares: 0, averageCost: 0, currentPrice: 0,
+        currentValue: 0, contributed: 0, account: '', notes: '',
+      }, i);
+    });
     m.currency = 'GBP';
     return m;
+  }
+
+  // A holding's value is derived from shares × current price whenever
+  // both are set (Trading 212-style tracking); otherwise it falls back
+  // to the manually-entered currentValue, so older rows keep working
+  // untouched.
+  function investmentValue(inv) {
+    var shares = num(inv.shares), price = num(inv.currentPrice);
+    if (shares > 0 && price > 0) return shares * price;
+    return num(inv.currentValue);
   }
 
   function totalAccounts(m, type) {
@@ -89,10 +107,31 @@
     return m.liabilities.reduce(function (s, l) { return s + num(l.balance); }, 0);
   }
   function totalInvestmentsValue(m) {
-    return m.investments.reduce(function (s, i) { return s + num(i.currentValue); }, 0);
+    return m.investments.reduce(function (s, i) { return s + investmentValue(i); }, 0);
   }
   function totalInvestmentsContributed(m) {
     return m.investments.reduce(function (s, i) { return s + num(i.contributed); }, 0);
+  }
+  function totalInvestmentsGain(m) {
+    return totalInvestmentsValue(m) - totalInvestmentsContributed(m);
+  }
+  function totalInvestmentsGainPct(m) {
+    var c = totalInvestmentsContributed(m);
+    if (c <= 0) return 0;
+    return Math.round((totalInvestmentsGain(m) / c) * 100);
+  }
+  // Allocation of current investment value by type or account —
+  // same shape/pattern as spendingByCategory. groupBy defaults to 'type'.
+  function investmentAllocation(m, groupBy) {
+    var field = groupBy === 'account' ? 'account' : 'type';
+    var map = {};
+    m.investments.forEach(function (i) {
+      var key = i[field] || 'Other';
+      map[key] = (map[key] || 0) + investmentValue(i);
+    });
+    var total = Object.keys(map).reduce(function (s, k) { return s + map[k]; }, 0) || 1;
+    return Object.keys(map).map(function (k) { return { label: k, value: map[k], pct: Math.round((map[k] / total) * 100) }; })
+      .sort(function (a, b) { return b.value - a.value; });
   }
   function netWorth(m) {
     return totalAccounts(m, 'bank') + totalAccounts(m, 'cash')
@@ -213,6 +252,8 @@
       monthlySavings: monthlySavings(m),
       savingsRate: savingsRate(m),
       totalInvestments: totalInvestmentsValue(m),
+      investmentsGain: totalInvestmentsGain(m),
+      investmentsGainPct: totalInvestmentsGainPct(m),
       upcomingBillsCount: upcomingBills(m).length,
       nextBill: bills[0] || null,
     };
@@ -235,6 +276,10 @@
     totalLiabilities: totalLiabilities,
     totalInvestmentsValue: totalInvestmentsValue,
     totalInvestmentsContributed: totalInvestmentsContributed,
+    totalInvestmentsGain: totalInvestmentsGain,
+    totalInvestmentsGainPct: totalInvestmentsGainPct,
+    investmentValue: investmentValue,
+    investmentAllocation: investmentAllocation,
     monthlyIncome: monthlyIncome,
     monthlySpending: monthlySpending,
     monthlySavings: monthlySavings,

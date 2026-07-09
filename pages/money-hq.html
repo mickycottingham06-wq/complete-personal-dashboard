@@ -443,10 +443,16 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     <div class="mh-form">
       <input type="text" id="invName" placeholder="Name (e.g. S&P 500 fund)">
       <select id="invType"></select>
+      <input type="text" id="invTicker" placeholder="Ticker (optional)">
+      <input type="text" id="invAccount" placeholder="Account / platform (optional)">
+      <input type="number" id="invShares" placeholder="Shares / units (optional)" step="0.000001">
+      <input type="number" id="invAvgCost" placeholder="Average cost (optional)" step="0.01">
+      <input type="number" id="invCurrentPrice" placeholder="Current price (optional)" step="0.01">
       <input type="number" id="invContributed" placeholder="Contributed" step="0.01">
-      <input type="number" id="invCurrentValue" placeholder="Current value" step="0.01">
+      <input type="number" id="invCurrentValue" placeholder="Current value (if no shares/price)" step="0.01">
       <input type="text" id="invNotes" placeholder="Notes (optional)">
     </div>
+    <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px">If shares and current price are both set, current value is calculated automatically — the manual value above is only used when either is missing.</div>
     <button class="mh-btn" id="invAddBtn">Add investment</button>
   </div>
 
@@ -454,6 +460,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     <div class="mh-stat"><div class="mh-stat-label">Total invested</div><div class="mh-stat-val" id="invTotalContributed">£0</div></div>
     <div class="mh-stat"><div class="mh-stat-label">Current value</div><div class="mh-stat-val" id="invTotalValue">£0</div></div>
     <div class="mh-stat"><div class="mh-stat-label">Gain / loss</div><div class="mh-stat-val" id="invGain">£0</div></div>
+    <div class="mh-stat"><div class="mh-stat-label">Gain / loss %</div><div class="mh-stat-val" id="invGainPct">0%</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Allocation by type</div>
+    <div id="invAllocation"></div>
+    <div class="empty-state" id="invAllocationEmpty">No investments logged yet</div>
   </div>
 
   <div class="card">
@@ -896,13 +909,25 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var name = document.getElementById('invName').value.trim();
     var contributed = Number(document.getElementById('invContributed').value) || 0;
     var currentValue = Number(document.getElementById('invCurrentValue').value) || 0;
-    if (!name || (!contributed && !currentValue)) return;
+    var shares = Number(document.getElementById('invShares').value) || 0;
+    var currentPrice = Number(document.getElementById('invCurrentPrice').value) || 0;
+    if (!name || (!contributed && !currentValue && !(shares && currentPrice))) return;
     money.investments.push({
       id: M.uid(), name: name, type: document.getElementById('invType').value,
+      ticker: document.getElementById('invTicker').value.trim(),
+      account: document.getElementById('invAccount').value.trim(),
+      shares: shares,
+      averageCost: Number(document.getElementById('invAvgCost').value) || 0,
+      currentPrice: currentPrice,
       contributed: contributed, currentValue: currentValue,
       notes: document.getElementById('invNotes').value.trim(),
     });
     document.getElementById('invName').value = '';
+    document.getElementById('invTicker').value = '';
+    document.getElementById('invAccount').value = '';
+    document.getElementById('invShares').value = '';
+    document.getElementById('invAvgCost').value = '';
+    document.getElementById('invCurrentPrice').value = '';
     document.getElementById('invContributed').value = '';
     document.getElementById('invCurrentValue').value = '';
     document.getElementById('invNotes').value = '';
@@ -919,18 +944,34 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function renderInvestments() {
     var contributed = M.totalInvestmentsContributed(money);
     var value = M.totalInvestmentsValue(money);
-    var gain = value - contributed;
+    var gain = M.totalInvestmentsGain(money);
+    var gainPct = M.totalInvestmentsGainPct(money);
     document.getElementById('invTotalContributed').textContent = fmt(contributed);
     document.getElementById('invTotalValue').textContent = fmt(value);
     var gainEl = document.getElementById('invGain');
     gainEl.textContent = (gain >= 0 ? '+' : '') + fmt(gain);
     gainEl.className = 'mh-stat-val ' + (gain >= 0 ? 'pos' : 'neg');
+    var gainPctEl = document.getElementById('invGainPct');
+    gainPctEl.textContent = (gainPct >= 0 ? '+' : '') + gainPct + '%';
+    gainPctEl.className = 'mh-stat-val ' + (gainPct >= 0 ? 'pos' : 'neg');
+
+    var alloc = M.investmentAllocation(money, 'type');
+    document.getElementById('invAllocationEmpty').style.display = alloc.length ? 'none' : '';
+    document.getElementById('invAllocation').innerHTML = alloc.map(function (a) {
+      return '<div class="mh-leg"><span class="mh-leg-dot" style="background:' + catColor(a.label) + ';color:' + catColor(a.label) + '"></span><span class="mh-leg-name">' + esc(a.label) + '</span><span class="mh-leg-amt">' + fmt(a.value) + ' · ' + a.pct + '%</span></div>';
+    }).join('');
 
     document.getElementById('invEmpty').style.display = money.investments.length ? 'none' : '';
     document.getElementById('invList').innerHTML = money.investments.map(function (i) {
-      var g = Number(i.currentValue) - Number(i.contributed);
+      var v = M.investmentValue(i);
+      var g = v - Number(i.contributed);
       var gp = Number(i.contributed) > 0 ? Math.round((g / Number(i.contributed)) * 100) : 0;
-      return '<div class="custom-item"><span class="item-dot" style="background:' + (g >= 0 ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="item-body"><div class="item-title">' + esc(i.name) + '</div><div class="item-meta">' + esc(i.type) + ' · contributed ' + fmt(i.contributed) + '</div>' + (i.notes ? '<div class="item-meta">' + esc(i.notes) + '</div>' : '') + '</div><span class="item-amt ' + (g >= 0 ? 'pos' : 'neg') + '">' + fmt(i.currentValue) + ' (' + (gp >= 0 ? '+' : '') + gp + '%)</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
+      var metaParts = [i.type];
+      if (i.ticker) metaParts.push(i.ticker);
+      if (i.account) metaParts.push(i.account);
+      if (Number(i.shares) > 0) metaParts.push(i.shares + ' shares @ ' + fmt(i.currentPrice, 2));
+      metaParts.push('contributed ' + fmt(i.contributed));
+      return '<div class="custom-item"><span class="item-dot" style="background:' + (g >= 0 ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="item-body"><div class="item-title">' + esc(i.name) + '</div><div class="item-meta">' + esc(metaParts.filter(Boolean).join(' · ')) + '</div>' + (i.notes ? '<div class="item-meta">' + esc(i.notes) + '</div>' : '') + '</div><span class="item-amt ' + (g >= 0 ? 'pos' : 'neg') + '">' + fmt(v) + ' (' + (gp >= 0 ? '+' : '') + gp + '%)</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
     }).join('');
   }
 

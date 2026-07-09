@@ -1350,6 +1350,50 @@ Add real Google Calendar OAuth integration
 
 ---
 
+## 2026-07-09 (5)
+
+### Money HQ — Investments holdings model upgrade
+
+Upgraded Money HQ's Investments tab from plain manual `currentValue`/`contributed` entries to an
+optional per-holding model, laying the foundation for a future Trading 212 import — no external
+API or credentials added yet.
+
+Each investment row gained optional fields: `ticker`, `shares`, `averageCost`, `currentPrice`, and
+`account` (platform/pie). `currentValue` and `contributed` are unchanged. `window.Money.load()`
+upgrades every existing investment row with these new fields defaulted (never overwriting a value
+already saved), so old manual entries keep working exactly as before.
+
+`window.Money.investmentValue(inv)` derives a holding's value as `shares × currentPrice` whenever
+both are set; otherwise it falls back to the manually-entered `currentValue`. `totalInvestmentsValue()`
+now sums this derived value instead of raw `currentValue`, so Net Worth and the Command Centre
+summary automatically become more accurate for holdings that have share/price data without any
+change to their own code. Added `totalInvestmentsGain()`, `totalInvestmentsGainPct()`, and
+`investmentAllocation(m, 'type'|'account')` (same grouped/sorted shape as `spendingByCategory`).
+`computeSummary()` gained `investmentsGain`/`investmentsGainPct`.
+
+`pages/money-hq.html`'s Investments tab: the add-investment form gained optional Ticker, Account/
+platform, Shares, Average cost, and Current price inputs alongside the existing Name/Type/
+Contributed/Current value/Notes fields, with an inline hint explaining the calculated-vs-manual
+value rule. The stat grid gained a Gain/Loss % tile. Added an "Allocation by type" card (reusing
+the existing `.mh-leg` legend row styling from Spending/Income). Each holding row now shows
+ticker/account/shares-at-price in its meta line when present, still using the existing
+`.custom-item` row styling — no new CSS, no new page, dark glassmorphism unchanged.
+
+Weekly Review, AI CEO, and Life Stats are unaffected — they only ever read
+`window.Money.computeSummary()`, which kept its existing fields and only gained new ones.
+AutoSync/CloudSync/ForceSave/Backup/Supabase files untouched; investments still live inside the
+same `money` localStorage key, no new storage key added.
+
+Files affected:
+
+scripts/money-data.js, pages/money-hq.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Upgrade Money HQ Investments to a per-holding shares/price model
+
+---
+
 ## Future Entries
 
 Example
