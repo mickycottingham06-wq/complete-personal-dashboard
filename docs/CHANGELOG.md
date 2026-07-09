@@ -1265,6 +1265,45 @@ Add weekly counter rollover to Boxing HQ
 
 ---
 
+## 2026-07-09 (3)
+
+### Business HQ — pipeline value roll-up
+
+Fixed the audit finding that Business HQ captured pipeline item values but never summed them into
+anything useful.
+
+Added `window.Business.computePipelineValue(biz)` (pure read, no new storage) which sums
+`pipeline[].value`, ignoring blank/invalid entries, into `{ total, active, won, lost, count }` —
+`won`/`lost` come from pipeline items with `stage: 'Won'`/`'Lost'`, `active` is every other stage,
+`total` is the sum of all three. Reuses the existing `pipeline` array — no new data key, no shape
+change.
+
+`pages/business-hq.html` shows a small 4-tile stat grid (Total Pipeline / Active / Won / Lost)
+above the pipeline row list, styled with the same glass-card/tile language already used elsewhere
+(e.g. Money HQ's `.mh-stat-grid`). index.html's Business HQ preview card gained one extra line
+("Pipeline: £X total (£Y active)"), reusing the existing `.preview-sub` class. Weekly Review's
+Performance card gained a "Pipeline" badge next to Business Progress, reading
+`window.WeeklyReview.computePerformance()`'s new `pipelineTotal`/`pipelineActive`/`pipelineWon`/
+`pipelineLost` fields, also folded into `generatePrompt()`'s text. AI CEO's `buildContext()` and
+`generatePrompt()` now append the same total/active/won/lost breakdown to the existing Pipeline
+context line.
+
+Existing users upgrade safely: `computePipelineValue()` is a pure function over the existing
+`pipeline` array, so old saved businesses with no changes needed just start showing correct totals.
+Sync is unaffected — no new localStorage keys, AutoSync/CloudSync/ForceSave/Backup/Supabase files
+untouched.
+
+Files affected:
+
+scripts/business-data.js, scripts/weekly-review-data.js, scripts/ai-ceo-data.js,
+pages/business-hq.html, pages/weekly-review.html, index.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add Business HQ pipeline value roll-up
+
+---
+
 ## Future Entries
 
 Example

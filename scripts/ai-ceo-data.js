@@ -93,12 +93,14 @@
     var weeklyReview = (window.WeeklyReview && window.WeeklyReview.loadOrInit) ? window.WeeklyReview.loadOrInit() : null;
 
     var pipelineSummary = '';
+    var pipelineValue = { total: 0, active: 0, won: 0, lost: 0, count: 0 };
     if (biz && Array.isArray(biz.pipeline) && biz.pipeline.length) {
       pipelineSummary = biz.pipeline
         .filter(function (p) { return p.name; })
         .map(function (p) { return p.name + ' (' + (p.stage || 'New Lead') + (p.value ? ', ' + fmtMoney(p.value) : '') + ')'; })
         .join('; ');
     }
+    if (biz && window.Business.computePipelineValue) pipelineValue = window.Business.computePipelineValue(biz);
 
     var activeGoals = (goals && Array.isArray(goals.activeGoals)) ? goals.activeGoals : [];
 
@@ -111,6 +113,7 @@
       money: money,
       weeklyReview: weeklyReview,
       pipelineSummary: pipelineSummary,
+      pipelineValue: pipelineValue,
     };
   }
 
@@ -136,7 +139,7 @@
     lines.push('- Weekly target: ' + (biz.weeklyTarget || 'Not set'));
     lines.push('- Revenue target: ' + fmtMoney(biz.revenueTarget));
     lines.push('- Current revenue: ' + fmtMoney(biz.currentRevenue));
-    lines.push('- Pipeline: ' + (ctx.pipelineSummary || 'Empty'));
+    lines.push('- Pipeline: ' + (ctx.pipelineSummary || 'Empty') + (ctx.pipelineValue.count ? ' [Total value: ' + fmtMoney(ctx.pipelineValue.total) + ', active: ' + fmtMoney(ctx.pipelineValue.active) + ', won: ' + fmtMoney(ctx.pipelineValue.won) + ', lost: ' + fmtMoney(ctx.pipelineValue.lost) + ']' : ''));
     lines.push('- Current problem / blocker: ' + (ceo.currentBlocker || 'None stated'));
     if (snap && snap.mainFocus) lines.push('- Today\'s main focus (Daily Snapshot): ' + snap.mainFocus);
     if (ctx.streaks && typeof ctx.streaks.currentStreak === 'number') lines.push('- Current habit streak: ' + ctx.streaks.currentStreak + ' days');

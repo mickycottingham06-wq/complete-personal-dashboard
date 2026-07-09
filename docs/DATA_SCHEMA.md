@@ -459,9 +459,9 @@ business: {
 
 Default projects: AI automation agency, Digital products, Reselling / Whatnot, Property sourcing, Content / faceless TikTok.
 
-`window.Business.load()` returns stored business data, filling in any fields missing against the default shape (upgrades older saved data). `window.Business.save(biz)` persists changes. `window.Business.uid()` generates ids for new pipeline/project rows.
+`window.Business.load()` returns stored business data, filling in any fields missing against the default shape (upgrades older saved data). `window.Business.save(biz)` persists changes. `window.Business.uid()` generates ids for new pipeline/project rows. `window.Business.computePipelineValue(biz)` is a pure read (owns no state, never persists) that sums `pipeline[].value`, ignoring blank/invalid values, into `{ total, active, won, lost, count }` — `won`/`lost` are pipeline items with `stage: 'Won'`/`'Lost'`, `active` is every other stage (New Lead, Contacted, Proposal Sent, Negotiating), and `total` is the sum of all three (every pipeline item regardless of stage).
 
-The full interactive UI lives at `pages/business-hq.html`. index.html shows a compact preview card (current focus, active project, revenue progress, today's task) that links to it.
+The full interactive UI lives at `pages/business-hq.html`, which shows a small pipeline value stat grid (Total Pipeline / Active / Won / Lost) above the pipeline row list. index.html shows a compact preview card (current focus, active project, revenue progress, today's task, pipeline total/active value) that links to it. `window.WeeklyReview.computePerformance()` and `window.AiCeo.buildContext()`/`generatePrompt()` both read `computePipelineValue()` for their own pipeline value lines — see Weekly Review and AI CEO sections below.
 
 `aiCeoPrompt` is a legacy free-text placeholder field, kept for backwards compatibility. The full AI CEO (below) supersedes it.
 
@@ -469,7 +469,7 @@ The full interactive UI lives at `pages/business-hq.html`. index.html shows a co
 
 # AI CEO / Business Assistant Data
 
-Implemented. Lives in `localStorage` under the key `aiCeo`. The load/save/prompt-generation logic lives in `scripts/ai-ceo-data.js` (shared business logic), used by both the full page at `pages/ai-ceo.html` and the preview card on index.html. It reads (never duplicates) context from `window.Business`, `window.DailySnapshot`, `window.Streaks`, `window.Goals`, `window.Money` and `window.WeeklyReview` — it owns none of that data itself.
+Implemented. Lives in `localStorage` under the key `aiCeo`. The load/save/prompt-generation logic lives in `scripts/ai-ceo-data.js` (shared business logic), used by both the full page at `pages/ai-ceo.html` and the preview card on index.html. It reads (never duplicates) context from `window.Business` (including `computePipelineValue()`), `window.DailySnapshot`, `window.Streaks`, `window.Goals`, `window.Money` and `window.WeeklyReview` — it owns none of that data itself.
 
 Shape:
 
@@ -865,7 +865,7 @@ Uses the same 6 AM day-rollover convention as Daily Snapshot / Streaks / Heatmap
 
 - `window.Streaks` → current streak, today's habit %, weekly habit completion average
 - `window.Boxing` → completed vs target weekly training sessions
-- `window.Business` → current vs target revenue
+- `window.Business` → current vs target revenue, and `computePipelineValue()` for total/active/won/lost pipeline value (surfaced as a small "Pipeline" badge on the Performance card)
 - `window.Money` → `computeSummary()` for net worth, monthly income/spending/savings, savings rate
 - `window.Health` → last night's sleep, recovery score, energy level, hydration
 - `window.Goals` → active goal count, average progress

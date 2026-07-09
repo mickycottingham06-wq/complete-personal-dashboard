@@ -127,6 +127,7 @@
       habitPct: 0, currentStreak: 0, weeklyHabitAvg: 0,
       boxingCompleted: 0, boxingTarget: 0, boxingPct: 0,
       revenueCurrent: 0, revenueTarget: 0, revenuePct: 0,
+      pipelineTotal: 0, pipelineActive: 0, pipelineWon: 0, pipelineLost: 0,
       netWorth: 0, monthlyIncome: 0, monthlySpending: 0, monthlySavings: 0, savingsRate: 0,
       sleepHours: 0, recoveryScore: 0, energyLevel: 0, hydrationLiters: 0,
       goalsCount: 0, goalsAvgProgress: 0,
@@ -157,6 +158,13 @@
       out.revenueCurrent = Number(biz.currentRevenue) || 0;
       out.revenueTarget = Number(biz.revenueTarget) || 0;
       out.revenuePct = out.revenueTarget > 0 ? Math.min(100, Math.round((out.revenueCurrent / out.revenueTarget) * 100)) : 0;
+      if (window.Business.computePipelineValue) {
+        var pipe = window.Business.computePipelineValue(biz);
+        out.pipelineTotal = pipe.total;
+        out.pipelineActive = pipe.active;
+        out.pipelineWon = pipe.won;
+        out.pipelineLost = pipe.lost;
+      }
     }
 
     if (window.Money && window.Money.computeSummary) {
@@ -303,6 +311,7 @@
     lines.push('- Habit completion today: ' + p.habitPct + '%, weekly average: ' + p.weeklyHabitAvg + '%, current streak: ' + p.currentStreak + ' days');
     lines.push('- Boxing/training: ' + p.boxingCompleted + ' of ' + p.boxingTarget + ' sessions this week (' + p.boxingPct + '%)');
     lines.push('- Business revenue: ' + fmtMoney(p.revenueCurrent) + ' of ' + fmtMoney(p.revenueTarget) + ' target (' + p.revenuePct + '%)');
+    lines.push('- Pipeline value: ' + fmtMoney(p.pipelineTotal) + ' total (' + fmtMoney(p.pipelineActive) + ' active, ' + fmtMoney(p.pipelineWon) + ' won, ' + fmtMoney(p.pipelineLost) + ' lost)');
     lines.push('- Money: net worth ' + fmtMoney(p.netWorth) + ', income ' + fmtMoney(p.monthlyIncome) + ', spending ' + fmtMoney(p.monthlySpending) + ', savings rate ' + p.savingsRate + '%');
     lines.push('- Health: last night\'s sleep ' + p.sleepHours + 'h, recovery ' + p.recoveryScore + ', energy ' + p.energyLevel + '/10, hydration ' + p.hydrationLiters + 'L');
     lines.push('- Goals: ' + p.goalsCount + ' active, average progress ' + p.goalsAvgProgress + '%');

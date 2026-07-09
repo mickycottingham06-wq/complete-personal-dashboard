@@ -301,6 +301,10 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
       </div>
 
       <div class="wr-badge-row">
+        <span class="wr-badge" id="wrPipeline">Pipeline —</span>
+      </div>
+
+      <div class="wr-badge-row">
         <span class="wr-badge" id="wrMoneyNetWorth">Net worth —</span>
         <span class="wr-badge" id="wrMoneySavings">Savings —</span>
         <span class="wr-badge" id="wrMoneyRate">Savings rate —</span>
@@ -519,6 +523,8 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
 
     $('wrBizPct').textContent = p.revenuePct + '%';
     $('wrBizFill').style.width = p.revenuePct + '%';
+
+    $('wrPipeline').textContent = 'Pipeline ' + fmtMoney(p.pipelineTotal) + ' total · ' + fmtMoney(p.pipelineActive) + ' active';
 
     $('wrMoneyNetWorth').textContent = 'Net worth ' + fmtMoney(p.netWorth);
     $('wrMoneySavings').textContent = (p.monthlySavings >= 0 ? 'Saving ' : 'Overspent ') + fmtMoney(Math.abs(p.monthlySavings));

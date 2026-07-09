@@ -55,11 +55,31 @@
 
   function save(b) { saveJSON(KEY, b); }
 
+  // Pure read — sums pipeline item values by stage. Never persists.
+  // Blank/invalid values are ignored safely. 'Won'/'Lost' stages are
+  // broken out; every other stage (New Lead, Contacted, Proposal Sent,
+  // Negotiating) counts as active/open. total = active + won + lost,
+  // i.e. every pipeline item regardless of stage.
+  function computePipelineValue(biz) {
+    var pipeline = (biz && Array.isArray(biz.pipeline)) ? biz.pipeline : [];
+    var out = { total: 0, active: 0, won: 0, lost: 0, count: pipeline.length };
+    pipeline.forEach(function (row) {
+      var v = Number(row && row.value);
+      if (!isFinite(v) || v <= 0) return;
+      out.total += v;
+      if (row.stage === 'Won') out.won += v;
+      else if (row.stage === 'Lost') out.lost += v;
+      else out.active += v;
+    });
+    return out;
+  }
+
   window.Business = {
     KEY: KEY,
     DEFAULT_PROJECTS: DEFAULT_PROJECTS,
     uid: uid,
     load: load,
     save: save,
+    computePipelineValue: computePipelineValue,
   };
 })();

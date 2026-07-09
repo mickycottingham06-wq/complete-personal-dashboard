@@ -428,6 +428,7 @@ button.quick-action { font-family: inherit; cursor: pointer; }
         <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBizRevFill" style="width:0%"></div></div>
         <div class="preview-rev-pct" id="previewBizRevPct">£0 of £0</div>
         <div class="preview-sub" id="previewBizTask" style="margin-top:12px">—</div>
+        <div class="preview-sub" id="previewBizPipeline" style="margin-top:4px"></div>
         <div class="preview-sub" id="previewBizDsFlag" style="margin-top:4px"></div>
       </a>
     </div>
@@ -1131,6 +1132,11 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     const taskEl = $('previewBizTask');
     const hasTask = !!(biz.todayTask && biz.todayTask.trim());
     taskEl.textContent = hasTask ? 'Today: ' + biz.todayTask.trim() : 'No task set for today';
+
+    const pipe = window.Business.computePipelineValue(biz);
+    $('previewBizPipeline').textContent = pipe.count
+      ? 'Pipeline: ' + fmtMoney(pipe.total) + ' total (' + fmtMoney(pipe.active) + ' active)'
+      : '';
 
     const snap = window.DailySnapshot.loadOrInit();
     $('previewBizDsFlag').textContent = snap.businessTaskCompleted ? '✓ Marked done in Daily Snapshot' : '';

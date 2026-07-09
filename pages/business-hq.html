@@ -110,6 +110,12 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
 .rev-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #6BE3A4, #A7F3D0); transition: width 0.3s ease; }
 .rev-pct { margin-top: 8px; font-size: 12px; color: var(--text-tertiary); text-align: right; }
 
+/* ---- Pipeline value summary ---- */
+.pipe-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.pipe-stat { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 14px; }
+.pipe-stat-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); }
+.pipe-stat-val { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
 /* ---- Pipeline / project rows ---- */
 .row-list { display: flex; flex-direction: column; gap: 8px; }
 .row-card {
@@ -221,6 +227,12 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
   <div class="section">
     <div class="section-title">Lead / Client Pipeline</div>
     <div class="gm-card">
+      <div class="pipe-stat-grid" id="pipeStats">
+        <div class="pipe-stat"><div class="pipe-stat-label">Total Pipeline</div><div class="pipe-stat-val" id="pipeTotal">£0</div></div>
+        <div class="pipe-stat"><div class="pipe-stat-label">Active / Open</div><div class="pipe-stat-val" id="pipeActive">£0</div></div>
+        <div class="pipe-stat"><div class="pipe-stat-label">Won</div><div class="pipe-stat-val" id="pipeWon">£0</div></div>
+        <div class="pipe-stat"><div class="pipe-stat-label">Lost</div><div class="pipe-stat-val" id="pipeLost">£0</div></div>
+      </div>
       <div class="row-list" id="pipelineList"></div>
       <button class="add-btn" id="addPipelineRow" type="button">+ Add lead / client</button>
     </div>
@@ -307,7 +319,16 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     return list.map((v) => `<option value="${v}"${v === current ? ' selected' : ''}>${v}</option>`).join('');
   }
 
+  function renderPipelineStats() {
+    const v = window.Business.computePipelineValue(biz);
+    $('pipeTotal').textContent = fmtMoney(v.total);
+    $('pipeActive').textContent = fmtMoney(v.active);
+    $('pipeWon').textContent = fmtMoney(v.won);
+    $('pipeLost').textContent = fmtMoney(v.lost);
+  }
+
   function renderPipeline() {
+    renderPipelineStats();
     const wrap = $('pipelineList');
     wrap.innerHTML = '';
     if (biz.pipeline.length === 0) {
@@ -328,12 +349,12 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
       const stage = document.createElement('select');
       stage.className = 'row-input';
       stage.innerHTML = selectOptions(STAGES, row.stage || STAGES[0]);
-      stage.addEventListener('change', () => { row.stage = stage.value; save(); });
+      stage.addEventListener('change', () => { row.stage = stage.value; save(); renderPipelineStats(); });
 
       const value = document.createElement('input');
       value.className = 'row-input'; value.type = 'number'; value.min = '0'; value.placeholder = 'Value';
       value.value = row.value || '';
-      value.addEventListener('input', () => { row.value = Number(value.value) || 0; save(); });
+      value.addEventListener('input', () => { row.value = Number(value.value) || 0; save(); renderPipelineStats(); });
 
       const notes = document.createElement('input');
       notes.className = 'row-input'; notes.type = 'text'; notes.placeholder = 'Notes'; notes.value = row.notes || '';
