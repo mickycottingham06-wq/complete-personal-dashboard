@@ -1,5 +1,20 @@
 # ROADMAP.md
 
+## V1 Status — Complete (2026-07-09)
+
+Life OS v1 is feature-complete and stable enough for daily use. Phases 1-8 below are done, plus
+AutoSync/Supabase cloud sync, Google Calendar, Weather, WHOOP (available with env setup), Money HQ
+Investments v1, Trading 212 read-only import, Daily Snapshot / Daily Guidance, Weekly Review, Goals,
+Business HQ, Boxing HQ, and Health / Hormones / Appearance.
+
+**Rule: use v1 daily for 7-14 days before starting any major new build.** The point of this window
+is to find out which parts actually get used and which rough edges show up in real daily use, before
+committing more build time. Small fixes/polish to existing v1 sections are fine during this window —
+it's new v2-scale features that should wait. See "V2 Candidate Backlog" below for what's queued
+after the window, and the "V2 rule" for what should actually get built from it.
+
+---
+
 ## AI Integration Direction
 
 Live AI API integration (OpenAI/Claude) is deferred until later.
@@ -177,6 +192,104 @@ Supabase Storage for receipt images / progress photos (currently metadata-only p
 Local Storage stays as the offline/fallback storage layer where possible — this is an additive cloud stage, not a rewrite of the existing data layer. `scripts/sync.js` already mirrors a few keys (Health, Gym, Water) to Supabase as an early proof of concept; this phase generalises that pattern to the whole Life OS.
 
 No Supabase code, auth, or database wiring is implemented as part of this roadmap entry — planning note only.
+
+---
+
+## V2 Candidate Backlog (not started / future)
+
+Everything in this section is an idea, not a plan. Nothing here is scheduled, nothing here is in
+progress, and none of it should be started before the v1 daily-use window above has run its course.
+Each group splits **Bugs / known issues** (things already partly broken or missing that a v2 pass
+would fix) from **Feature ideas** (net-new capability). See also `docs/FEATURE_REQUESTS.md`, the
+existing long-form innovation backlog — the groups below are a v2-focused re-cut of that same list,
+not a replacement for it.
+
+### Daily Intelligence v2
+
+Bugs / known issues:
+- None known — v1 Daily Snapshot / Daily Guidance / Weekly Review are working as designed; log real issues here as they surface during daily use.
+
+Feature ideas:
+- AI Morning Briefing (calendar + business + weather + training + recovery + finance + goals, one generated summary)
+- AI Evening Review (auto-drafted from the day's logged data, not just manual reflection)
+- Richer trend view across Daily Snapshot's history archive (beyond Weekly Review's current draft-suggestions use of it)
+
+### Money HQ v2
+
+Bugs / known issues:
+- OCR for Receipts is still a manual/photo-assisted placeholder, not real text extraction (documented as a known future upgrade since Phase 5)
+- Property has no dedicated tracking yet — currently logged as a generic "Other asset" / "Liability" in Net Worth
+
+Feature ideas:
+- Net worth graph / history chart (snapshot history already exists, just not charted)
+- Dividend tracking
+- Cashflow analysis and savings projections
+- Property portfolio module (mortgage, equity, rental income)
+- Real OCR for Receipts
+- Additional brokerage/bank read-only imports beyond Trading 212
+
+### Business HQ v2
+
+Bugs / known issues:
+- None known — pipeline value roll-up and revenue tracking are working as designed.
+
+Feature ideas:
+- Lightweight CRM (clients/prospects beyond the current leads/pipeline model)
+- Revenue forecasting
+- Monthly auto-generated reports
+- Automation tracking (which business tasks are automated vs manual)
+
+### Boxing / Health v2
+
+Bugs / known issues:
+- None known — weekly counter rollover and Sleep Planner are working as designed.
+
+Feature ideas:
+- Performance graphs (weight trend, conditioning, training volume over time)
+- Running analytics
+- Recovery trend charts (beyond the current single WHOOP recovery score)
+- Sleep analytics (beyond the current Sleep Planner's single-night recommendation)
+- Coach feedback log tied to specific sessions
+
+### AI Coach layer v2
+
+Bugs / known issues:
+- None — this layer isn't built yet, so there's nothing to fix.
+
+Feature ideas:
+- Live AI API integration (OpenAI/Claude) — see "AI Integration Direction" above; still deliberately deferred
+- AI Knowledge Base (AI Assistant referencing project docs, goals, businesses, training, finance, notes)
+- Coaching that reads across sections automatically instead of the current copy-paste Prompt Builder workflow
+
+### UX / mobile polish v2
+
+Bugs / known issues:
+- No dedicated mobile layout pass has been done — usability on small screens is unverified.
+- Progress photos (Appearance) and Receipts (Money HQ) are metadata-only placeholders; no real image storage is wired up yet (Supabase Storage is the planned destination, per Phase 9).
+
+Feature ideas:
+- Mobile responsiveness pass across all HQ pages
+- Supabase Storage wiring for receipt images / progress photos
+- Global search across sections
+
+### Data quality / tests v2
+
+Bugs / known issues:
+- Automated test coverage is limited to `tests/autosync-watchdog.test.mjs` (Auto Cloud Save only) — no coverage elsewhere.
+
+Feature ideas:
+- Data validation pass across the `-data.js` layer (defensive reads exist per-section, but there's no shared/systematic validation)
+- Broader automated test coverage beyond Auto Cloud Save
+- A recurring "data health" check (e.g. surfacing stale/missing fields) rather than relying on manual audits
+
+---
+
+## V2 rule
+
+Only build a v2 feature once daily use has actually proven it's needed, or the user has explicitly
+asked for it. No building ahead of demonstrated use — see `docs/FEATURE_REQUESTS.md`'s own rule
+("never build features simply because they are possible") for the same principle applied to the
+wider backlog.
 
 ---
 
