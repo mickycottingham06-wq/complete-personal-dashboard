@@ -439,6 +439,15 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <div class="section-title"><span class="section-title-text">INVESTMENTS</span></div>
 
   <div class="card">
+    <div class="label" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>Trading 212 import</span>
+      <button class="mh-btn mh-btn-ghost" id="t212ImportBtn" type="button" style="padding:8px 14px;font-size:12px">Import / Refresh Trading 212</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">Pulls open positions from Trading 212 (read-only) and adds/updates rows below tagged "Trading 212" — manual investments are never touched. Manual refresh only.</div>
+    <div id="t212Status" style="font-size:12px;margin-top:8px;display:none"></div>
+  </div>
+
+  <div class="card">
     <div class="label">Add investment</div>
     <div class="mh-form">
       <input type="text" id="invName" placeholder="Name (e.g. S&P 500 fund)">
@@ -974,6 +983,38 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       return '<div class="custom-item"><span class="item-dot" style="background:' + (g >= 0 ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="item-body"><div class="item-title">' + esc(i.name) + '</div><div class="item-meta">' + esc(metaParts.filter(Boolean).join(' · ')) + '</div>' + (i.notes ? '<div class="item-meta">' + esc(i.notes) + '</div>' : '') + '</div><span class="item-amt ' + (g >= 0 ? 'pos' : 'neg') + '">' + fmt(v) + ' (' + (gp >= 0 ? '+' : '') + gp + '%)</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
     }).join('');
   }
+
+  function setT212Status(text, kind) {
+    var el = document.getElementById('t212Status');
+    el.style.display = text ? '' : 'none';
+    el.textContent = text || '';
+    el.style.color = kind === 'error' ? 'var(--danger)' : kind === 'success' ? 'var(--success)' : 'var(--text-tertiary)';
+  }
+
+  document.getElementById('t212ImportBtn').addEventListener('click', async function () {
+    var btn = this;
+    var prevLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    setT212Status('Fetching Trading 212 holdings…', '');
+    try {
+      var r = await fetch('/api/trading212-data');
+      var data = null;
+      try { data = await r.json(); } catch (e) {}
+      if (!r.ok || !data || data.error) {
+        setT212Status((data && data.error) || 'Trading 212 import failed.', 'error');
+      } else {
+        var result = M.importTrading212(money, data.holdings || []);
+        persist();
+        setT212Status('Imported: ' + result.added + ' added, ' + result.updated + ' updated.', 'success');
+      }
+    } catch (e) {
+      setT212Status('Trading 212 import failed — check your connection and try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prevLabel;
+    }
+  });
 
   // ============================================================
   // BILLS / SUBSCRIPTIONS

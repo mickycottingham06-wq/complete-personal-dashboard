@@ -1394,6 +1394,72 @@ Upgrade Money HQ Investments to a per-holding shares/price model
 
 ---
 
+## 2026-07-09 (6)
+
+### Money HQ — Trading 212 read-only portfolio import
+
+Added a new serverless proxy, `api/trading212-data.js`, following the existing WHOOP/Google
+Calendar/weather proxy pattern: reads `TRADING212_API_KEY` (required), `TRADING212_API_SECRET`
+(optional — enables Basic auth `API_KEY:API_SECRET`; otherwise the raw key is sent, matching
+Trading 212's actual public API), and `TRADING212_ENV` (`live`/`demo`) from Vercel env vars only,
+and calls Trading 212's read-only `/equity/portfolio` and `/equity/account/cash` endpoints — never
+an order/trading endpoint. Credentials never reach the browser, Local Storage, or any client file.
+
+`window.Money.importTrading212(m, holdings)` (scripts/money-data.js) merges the returned holdings
+into `m.investments`: matches existing rows by `source === 'trading212' && ticker`, updating
+`shares`/`averageCost`/`currentPrice`/`contributed` in place on a match (re-import never
+duplicates) or pushing a new row (`type: 'Stocks/Funds'`, `account: 'Trading 212'`,
+`source: 'trading212'`) otherwise. Manual investment rows are never read or touched. Investment
+rows gained an optional `source` field (`load()` upgrade path defaults it to `''` on existing rows).
+
+Money HQ's Investments tab gained a "Trading 212 import" card above "Add investment" with an
+"Import / Refresh Trading 212" button (manual click only — no auto-refresh, to respect Trading
+212 rate limits) and an inline status line reporting added/updated counts or a clear error
+(missing env vars, rejected credentials, network failure). Reuses the existing `.mh-btn-ghost`
+button and `--success`/`--danger` colour variables — no new CSS, no new page, dark glassmorphism
+unchanged. Net worth/totals pick up imported holdings automatically through the existing
+`investmentValue()`/`totalInvestmentsValue()` calculations — no change to that logic.
+
+AutoSync/CloudSync/ForceSave/Backup/Supabase auth/sync files untouched. Documented in
+`SETUP.md` §7 and `docs/DATA_SCHEMA.md`.
+
+Files affected:
+
+api/trading212-data.js, scripts/money-data.js, pages/money-hq.html, docs/DATA_SCHEMA.md,
+docs/ROADMAP.md, SETUP.md
+
+Commit:
+
+Add Trading 212 read-only portfolio import to Money HQ
+
+---
+
+## 2026-07-09 (7)
+
+### Trading 212 import — require API secret, drop raw-key fallback
+
+The v1 import (previous entry) treated `TRADING212_API_SECRET` as optional and fell back to
+sending the raw API key when it was unset. Tightened `api/trading212-data.js` so both
+`TRADING212_API_KEY` and `TRADING212_API_SECRET` are now required and requests always
+authenticate with HTTP Basic auth (`API_KEY:API_SECRET`) — the raw-key fallback path is removed.
+If either env var is missing, the endpoint returns a clear JSON error (`500`) without attempting
+any request to Trading 212. `pages/money-hq.html`'s existing error handling already surfaces
+`data.error` verbatim, so no UI changes were needed for the clearer message to show up.
+
+Updated `SETUP.md` §7 and `docs/DATA_SCHEMA.md` to describe both env vars as required. No change
+to the read-only endpoints called, the manual-refresh-only behaviour, or the import/merge logic in
+`scripts/money-data.js`. AutoSync/CloudSync/ForceSave/Backup/Supabase auth/sync files untouched.
+
+Files affected:
+
+api/trading212-data.js, SETUP.md, docs/DATA_SCHEMA.md, docs/CHANGELOG.md
+
+Commit:
+
+Require Trading 212 API secret and remove raw-key auth fallback
+
+---
+
 ## Future Entries
 
 Example

@@ -228,6 +228,32 @@ console.anthropic.com.
 
 ---
 
+## 7. Trading 212 (optional, read-only portfolio import)
+
+1. In the Trading 212 app: **Settings → API (Beta)** → generate an API key **and** its paired
+   secret.
+2. Add both in Vercel → **Settings → Environment Variables**, then redeploy:
+
+| Variable | Value |
+|---|---|
+| `TRADING212_API_KEY` | your Trading 212 API key (**secret**, required) |
+| `TRADING212_API_SECRET` | your Trading 212 API secret (**secret**, required) |
+| `TRADING212_ENV` | optional — `live` (default) or `demo` |
+
+3. Open the site → Money HQ → **Investments tab** → **Import / Refresh Trading 212**.
+
+> Read-only: only `/equity/portfolio` (open positions) and `/equity/account/cash` are called —
+> never an order/trading endpoint. Both env vars are required — requests always authenticate
+> with HTTP Basic auth (`API_KEY:API_SECRET`); there is no raw-key fallback. Credentials are
+> read only inside `api/trading212-data.js` and never reach the browser, Local Storage, or any
+> page. Manual refresh only — there is no auto-refresh, to respect Trading 212's rate limits.
+> Imported rows are tagged `account: 'Trading 212'` / `source: 'trading212'` and are matched by
+> ticker on re-import, so refreshing updates existing rows instead of duplicating them; your
+> manually-entered investments are never touched. If either env var is missing or the
+> credentials are rejected, the button shows a clear inline error instead of failing silently.
+
+---
+
 ## TL;DR
 1. Fork → import to Vercel → deploy.
 2. New Supabase → run the **SQL** above → set `SUPABASE_URL` + `SUPABASE_ANON_KEY` +
@@ -236,3 +262,5 @@ console.anthropic.com.
 4. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel. Done.
 5. (Optional) Google Calendar: OAuth client in Google Cloud + `GOOGLE_CLIENT_ID` +
    `GOOGLE_CLIENT_SECRET` in Vercel → Connect on the Integrations page. Done.
+6. (Optional) Trading 212: `TRADING212_API_KEY` + `TRADING212_API_SECRET` in Vercel → Money HQ →
+   Investments tab → Import / Refresh Trading 212. Done.

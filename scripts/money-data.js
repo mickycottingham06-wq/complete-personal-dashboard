@@ -52,7 +52,7 @@
       income: [],        // { id, date, source, type, amount, notes }
       budgets: defaultBudgets(), // { id, category, monthlyLimit, spent }
       budgetTarget: 0,
-      investments: [],   // { id, name, type, ticker, shares, averageCost, currentPrice, currentValue, contributed, account, notes }
+      investments: [],   // { id, name, type, ticker, shares, averageCost, currentPrice, currentValue, contributed, account, notes, source }
       bills: [],         // { id, name, amount, dueDate, frequency, category, status }
       receipts: [],      // { id, date, merchant, amount, category, status, notes }
       netWorthHistory: [], // { date, value }
@@ -78,7 +78,7 @@
     m.investments = m.investments.map(function (i) {
       return Object.assign({
         ticker: '', shares: 0, averageCost: 0, currentPrice: 0,
-        currentValue: 0, contributed: 0, account: '', notes: '',
+        currentValue: 0, contributed: 0, account: '', notes: '', source: '',
       }, i);
     });
     m.currency = 'GBP';
@@ -133,6 +133,42 @@
     return Object.keys(map).map(function (k) { return { label: k, value: map[k], pct: Math.round((map[k] / total) * 100) }; })
       .sort(function (a, b) { return b.value - a.value; });
   }
+  var TRADING212_ACCOUNT = 'Trading 212';
+
+  // Merges read-only Trading 212 holdings (from api/trading212-data.js)
+  // into m.investments. Matches existing rows by source==='trading212'
+  // + ticker so a re-import updates in place instead of duplicating.
+  // Manual rows (source !== 'trading212') are never touched. Mutates
+  // m.investments directly; caller is responsible for persisting.
+  function importTrading212(m, holdings) {
+    var added = 0, updated = 0;
+    (holdings || []).forEach(function (h) {
+      var ticker = (h.ticker || '').trim();
+      if (!ticker) return;
+      var quantity = num(h.quantity);
+      var avgPrice = num(h.averagePrice);
+      var currentPrice = num(h.currentPrice);
+      var existing = m.investments.find(function (i) { return i.source === 'trading212' && i.ticker === ticker; });
+      if (existing) {
+        existing.shares = quantity;
+        existing.averageCost = avgPrice;
+        existing.currentPrice = currentPrice;
+        existing.contributed = quantity * avgPrice;
+        if (h.name) existing.name = h.name;
+        updated++;
+      } else {
+        m.investments.push({
+          id: uid(), name: h.name || ticker, type: 'Stocks/Funds', ticker: ticker,
+          account: TRADING212_ACCOUNT, source: 'trading212',
+          shares: quantity, averageCost: avgPrice, currentPrice: currentPrice,
+          currentValue: 0, contributed: quantity * avgPrice, notes: '',
+        });
+        added++;
+      }
+    });
+    return { added: added, updated: updated };
+  }
+
   function netWorth(m) {
     return totalAccounts(m, 'bank') + totalAccounts(m, 'cash')
       + totalAssets(m, 'crypto') + totalAssets(m, 'other')
@@ -280,6 +316,7 @@
     totalInvestmentsGainPct: totalInvestmentsGainPct,
     investmentValue: investmentValue,
     investmentAllocation: investmentAllocation,
+    importTrading212: importTrading212,
     monthlyIncome: monthlyIncome,
     monthlySpending: monthlySpending,
     monthlySavings: monthlySavings,
