@@ -342,10 +342,6 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
         <textarea class="wr-input" id="wrNeedsChange" rows="3"></textarea>
       </div>
       <div class="wr-field">
-        <label class="wr-label">What is the one main priority next week?</label>
-        <input class="wr-input" id="wrNextWeekFocusA" type="text" placeholder="The single most important thing">
-      </div>
-      <div class="wr-field">
         <label class="wr-label">What should I stop doing?</label>
         <textarea class="wr-input" id="wrStopDoing" rows="2"></textarea>
       </div>
@@ -465,22 +461,6 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
     el.addEventListener('input', function () { wr.targets[key] = el.value; debouncedSave(); });
   }
 
-  // nextWeekFocus is shown in both Reflection and Next Week Plan —
-  // one field, two entry points, kept in sync on input.
-  function bindNextWeekFocus() {
-    var a = $('wrNextWeekFocusA');
-    var b = $('wrNextWeekFocusB');
-    a.value = wr.nextWeekFocus || '';
-    b.value = wr.nextWeekFocus || '';
-    function onInput(e) {
-      wr.nextWeekFocus = e.target.value;
-      (e.target === a ? b : a).value = e.target.value;
-      debouncedSave();
-    }
-    a.addEventListener('input', onInput);
-    b.addEventListener('input', onInput);
-  }
-
   function renderWeekBadge() {
     $('wrWeekBadge').textContent = (wr.weekStart || '—') + '  →  ' + (wr.weekEnd || '—');
   }
@@ -508,7 +488,7 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
   bindText('wrStopDoing', 'stopDoing');
   bindText('wrDoubleDown', 'doubleDown');
   bindText('wrNotes', 'notes');
-  bindNextWeekFocus();
+  bindText('wrNextWeekFocusB', 'nextWeekFocus');
   bindTargetText('wrTargetBusiness', 'business');
   bindTargetText('wrTargetBoxing', 'boxing');
   bindTargetText('wrTargetHealth', 'health');

@@ -785,7 +785,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var rows = money.spending.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 20);
     document.getElementById('spendEmpty').style.display = rows.length ? 'none' : '';
     document.getElementById('spendList').innerHTML = rows.map(function (s) {
-      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(s.category) + '"></span><div class="item-body"><div class="item-title">' + esc(s.merchant) + '</div><div class="item-meta">' + esc(s.category) + ' · ' + esc(s.paymentMethod || '') + ' · ' + fmtDate(s.date) + '</div></div><span class="item-amt neg">-' + fmt(s.amount) + '</span><button class="delete-x" data-id="' + s.id + '">×</button></div>';
+      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(s.category) + '"></span><div class="item-body"><div class="item-title">' + esc(s.merchant) + '</div><div class="item-meta">' + esc(s.category) + ' · ' + esc(s.paymentMethod || '') + ' · ' + fmtDate(s.date) + '</div>' + (s.notes ? '<div class="item-meta">' + esc(s.notes) + '</div>' : '') + '</div><span class="item-amt neg">-' + fmt(s.amount) + '</span><button class="delete-x" data-id="' + s.id + '">×</button></div>';
     }).join('');
   }
 
@@ -832,7 +832,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var rows = money.income.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 20);
     document.getElementById('incEmpty').style.display = rows.length ? 'none' : '';
     document.getElementById('incList').innerHTML = rows.map(function (i) {
-      return '<div class="custom-item"><span class="item-dot" style="background:#6BE3A4"></span><div class="item-body"><div class="item-title">' + esc(i.source) + '</div><div class="item-meta">' + esc(i.type) + ' · ' + fmtDate(i.date) + '</div></div><span class="item-amt pos">+' + fmt(i.amount) + '</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
+      return '<div class="custom-item"><span class="item-dot" style="background:#6BE3A4"></span><div class="item-body"><div class="item-title">' + esc(i.source) + '</div><div class="item-meta">' + esc(i.type) + ' · ' + fmtDate(i.date) + '</div>' + (i.notes ? '<div class="item-meta">' + esc(i.notes) + '</div>' : '') + '</div><span class="item-amt pos">+' + fmt(i.amount) + '</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
     }).join('');
   }
 
@@ -928,7 +928,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     document.getElementById('invList').innerHTML = money.investments.map(function (i) {
       var g = Number(i.currentValue) - Number(i.contributed);
       var gp = Number(i.contributed) > 0 ? Math.round((g / Number(i.contributed)) * 100) : 0;
-      return '<div class="custom-item"><span class="item-dot" style="background:' + (g >= 0 ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="item-body"><div class="item-title">' + esc(i.name) + '</div><div class="item-meta">' + esc(i.type) + ' · contributed ' + fmt(i.contributed) + '</div></div><span class="item-amt ' + (g >= 0 ? 'pos' : 'neg') + '">' + fmt(i.currentValue) + ' (' + (gp >= 0 ? '+' : '') + gp + '%)</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
+      return '<div class="custom-item"><span class="item-dot" style="background:' + (g >= 0 ? '#6BE3A4' : '#FF8A8A') + '"></span><div class="item-body"><div class="item-title">' + esc(i.name) + '</div><div class="item-meta">' + esc(i.type) + ' · contributed ' + fmt(i.contributed) + '</div>' + (i.notes ? '<div class="item-meta">' + esc(i.notes) + '</div>' : '') + '</div><span class="item-amt ' + (g >= 0 ? 'pos' : 'neg') + '">' + fmt(i.currentValue) + ' (' + (gp >= 0 ? '+' : '') + gp + '%)</span><button class="delete-x" data-id="' + i.id + '">×</button></div>';
     }).join('');
   }
 
@@ -1051,7 +1051,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var rows = money.receipts.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 15);
     document.getElementById('receiptEmpty').style.display = rows.length ? 'none' : '';
     document.getElementById('receiptList').innerHTML = rows.map(function (r) {
-      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(r.category) + '"></span><div class="item-body"><div class="item-title">' + esc(r.merchant) + '</div><div class="item-meta">' + esc(r.category) + ' · ' + fmtDate(r.date) + '</div></div><span class="item-amt neg">-' + fmt(r.amount) + '</span></div>';
+      return '<div class="custom-item"><span class="item-dot" style="background:' + catColor(r.category) + '"></span><div class="item-body"><div class="item-title">' + esc(r.merchant) + '</div><div class="item-meta">' + esc(r.category) + ' · ' + fmtDate(r.date) + '</div>' + (r.notes ? '<div class="item-meta">' + esc(r.notes) + '</div>' : '') + '</div><span class="item-amt neg">-' + fmt(r.amount) + '</span></div>';
     }).join('');
   }
 
