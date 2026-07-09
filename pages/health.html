@@ -578,7 +578,7 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
 .hhq-check-text { flex: 1; font-size: 14px; color: var(--text-primary); }
 .hhq-check-del {
   border: none; background: transparent; color: var(--text-tertiary); cursor: pointer;
-  font-size: 16px; line-height: 1; padding: 4px 6px; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+  font-size: 16px; line-height: 1; padding: 8px; margin: -8px -8px -8px 0; opacity: 0.6; transition: opacity 0.15s, color 0.15s;
 }
 .hhq-check-row:hover .hhq-check-del { opacity: 1; }
 .hhq-check-del:hover { color: #FF6B6B; }
@@ -634,6 +634,7 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
 
       <div class="hhq-field" style="margin-top:20px;padding-top:18px;border-top:1px solid var(--border-soft);margin-bottom:0">
         <label class="hhq-label">Sleep Planner</label>
+        <div class="hhq-prog-note" style="margin-top:-2px;margin-bottom:12px">Uses your Sleep Target above to suggest a bedtime.</div>
         <div class="hhq-grid3">
           <div class="hhq-field" style="margin-bottom:0">
             <label class="hhq-label">Wake-Up Time</label>

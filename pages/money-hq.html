@@ -88,6 +88,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   padding: 8px max(12px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right));
   background: linear-gradient(180deg, transparent, rgba(5,5,6,0.94) 30%);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent 100%);
 }
 .bottom-tabs::before {
   content: ''; position: absolute; top: 0; left: 12px; right: 12px; height: 1px;
@@ -197,7 +199,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nw-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; gap: 8px; min-width: 0; }
 .nw-name { color: var(--text-primary); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nw-amt { font-weight: 600; color: var(--text-primary); flex-shrink: 0; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
-.nw-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1; flex-shrink: 0; }
+.nw-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 8px; margin: -8px -8px -8px 0; line-height: 1; flex-shrink: 0; }
 .nw-del:hover { color: var(--danger); }
 
 /* ===== Custom rows (transactions, investments, bills, receipts) ===== */
@@ -210,7 +212,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .custom-item .item-amt { font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0; }
 .custom-item .item-amt.pos { color: var(--success); }
 .custom-item .item-amt.neg { color: #FF8A8A; }
-.custom-item .delete-x { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; flex-shrink: 0; }
+.custom-item .delete-x { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 16px; padding: 8px; margin: -8px -6px -8px 0; border-radius: 6px; flex-shrink: 0; }
 .custom-item .delete-x:hover { color: #FF8A8A; background: rgba(255,138,138,0.10); }
 
 /* ===== Legend rows (spending by category / income by source) ===== */

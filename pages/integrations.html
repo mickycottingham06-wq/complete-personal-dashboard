@@ -101,7 +101,7 @@ body::after {
 .int-card-note { font-size: 12px; color: var(--text-tertiary); line-height: 1.5; margin: -6px 0 14px; }
 
 .int-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-.int-sync-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.int-sync-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); overflow-wrap: anywhere; min-width: 0; }
 
 .field { margin-bottom: 14px; }
 .field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
@@ -130,7 +130,7 @@ body::after {
 
 .int-stats-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 16px; }
 .int-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
-.int-stat .v { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.int-stat .v { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1.25; overflow-wrap: anywhere; }
 .int-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
 
 .int-events { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
@@ -152,8 +152,6 @@ body::after {
 }
 .int-sync-btn:hover:not(:disabled) { background: rgba(255,255,255,0.05); color: var(--text-primary); }
 .int-sync-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.int-notes-status { font-size: 11px; color: var(--text-tertiary); min-height: 14px; margin-top: 6px; }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
