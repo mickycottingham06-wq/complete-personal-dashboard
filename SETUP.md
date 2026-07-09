@@ -1,7 +1,7 @@
 # Micky's Dashboard — Setup Guide (fork → deploy in ~5 min)
 
 This is a static dashboard (plain HTML/JS) that deploys on **Vercel** and syncs across your
-devices with **Supabase**. WHOOP is an optional add-on.
+devices with **Supabase**. WHOOP and Google Calendar are optional add-ons.
 
 ---
 
@@ -196,7 +196,31 @@ Want a different provider instead (e.g. OpenWeatherMap)? Add this in Vercel →
 
 ---
 
-## 5. Nova (AI mentor / gym coach) — optional
+## 5. Google Calendar (optional, read-only)
+
+1. **console.cloud.google.com** → create/select a project → **APIs & Services → Library** →
+   enable the **Google Calendar API**.
+2. **APIs & Services → Credentials** → Create Credentials → **OAuth client ID** → type **Web application**.
+3. Under **Authorized redirect URIs** add exactly: `https://your-app.vercel.app/api/google-calendar-callback`
+   (use your real Vercel domain — add every domain you'll open the site from).
+4. **OAuth consent screen**: add the scope `.../auth/calendar.events.readonly` and add yourself as
+   a test user if the app is in Testing mode.
+5. Add these in Vercel → **Settings → Environment Variables**, then redeploy:
+
+| Variable | Value |
+|---|---|
+| `GOOGLE_CLIENT_ID` | your OAuth client's Client ID (public — also sent to the browser via `/api/config`) |
+| `GOOGLE_CLIENT_SECRET` | your OAuth client's Client Secret (**secret** — server-side only) |
+
+6. Open the site at that exact domain → Integrations page → **Connect Google Calendar**.
+
+> Only the read-only `calendar.events.readonly` scope is requested — this integration can never
+> create, edit, or delete events. If either env var is missing, Connect fails with a clear inline
+> error instead of redirecting to Google.
+
+---
+
+## 6. Nova (AI mentor / gym coach) — optional
 
 No setup or key in the repo. Each user **pastes their own Anthropic API key** on the
 **Nova** tile; it's stored only in their browser and sent straight to Anthropic. Get a key at
@@ -210,3 +234,5 @@ console.anthropic.com.
    `SUPABASE_LEGACY_SYNC_ENABLED=true` in Vercel env vars.
 3. Weather works immediately (no key needed) — enable it on the Integrations page.
 4. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel. Done.
+5. (Optional) Google Calendar: OAuth client in Google Cloud + `GOOGLE_CLIENT_ID` +
+   `GOOGLE_CLIENT_SECRET` in Vercel → Connect on the Integrations page. Done.

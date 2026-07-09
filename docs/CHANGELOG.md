@@ -1304,6 +1304,52 @@ Add Business HQ pipeline value roll-up
 
 ---
 
+## 2026-07-09 (4)
+
+### Google Calendar — real OAuth (read-only)
+
+Replaced the mock Google Calendar integration with a real, read-only OAuth connection, following
+the same server-side proxy pattern already used for WHOOP.
+
+Added `api/google-calendar-callback.js` (exchanges the OAuth code server-side, redirects back to
+`pages/integrations.html` with tokens in the URL hash — never touches the server),
+`api/google-calendar-refresh.js` (refreshes an expired access token), and
+`api/google-calendar-data.js` (proxies to the Google Calendar API with the user's bearer token).
+`GOOGLE_CLIENT_SECRET` never reaches the browser. Scope is `calendar.events.readonly` only — no
+write access is ever requested.
+
+`api/config.js` now also exposes `GOOGLE_CLIENT_ID` (a public value, not a secret) as
+`window.GOOGLE_CLIENT_ID` so the client can build the consent URL without hardcoding it.
+
+`scripts/google-calendar-service.js` now owns a `gcal_tokens_v1` token pair in localStorage
+(`connect()` / `disconnect()` / `isConnected()`), and `refresh('googleCalendar')` calls the real
+proxy instead of `buildMockCalendarEvents()`, mapping Google's event objects into the existing
+`{ id, title, date, time, location, notes }` shape. Same `{ ok, state, mock, error }` return
+contract as before, so no call site needed to change shape. `pages/integrations.html` gained
+Connect/Disconnect buttons on the Google Calendar card (reusing existing `.int-sync-btn` styling,
+no new CSS); the dashboard preview (`index.html`) and Daily Snapshot keep reading
+`integrations.googleCalendar.upcomingEvents` exactly as before.
+
+If `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` aren't set, Connect fails clearly with an inline
+status message instead of redirecting to Google with an empty client ID. Existing saved
+`integrations.googleCalendar` data (including old demo events) upgrades safely — nothing is wiped
+on load or on disconnect; old events are only ever replaced by a successful real fetch.
+
+Sync is unaffected — no new localStorage sync keys, AutoSync/CloudSync/ForceSave/Backup/Supabase
+files untouched.
+
+Files affected:
+
+api/google-calendar-callback.js, api/google-calendar-refresh.js, api/google-calendar-data.js,
+api/config.js, scripts/google-calendar-service.js, pages/integrations.html, SETUP.md,
+docs/DATA_SCHEMA.md, docs/ROADMAP.md, docs/TODO.md
+
+Commit:
+
+Add real Google Calendar OAuth integration
+
+---
+
 ## Future Entries
 
 Example

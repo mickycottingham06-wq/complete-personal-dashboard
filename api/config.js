@@ -29,6 +29,12 @@
 // it's fine to expose them — this just lets people configure the
 // app with env vars instead of editing files. Never put the
 // service_role key here or in any client-shipped file.
+//
+// 3. Google Calendar (scripts/google-calendar-service.js):
+//   GOOGLE_CLIENT_ID → window.GOOGLE_CLIENT_ID. An OAuth client ID is
+//   not a secret (it's sent in the browser redirect either way) — only
+//   GOOGLE_CLIENT_SECRET is sensitive, and that stays server-side only
+//   inside api/google-calendar-callback.js / api/google-calendar-refresh.js.
 // ============================================================
 export default function handler(req, res) {
   const url = process.env.SUPABASE_URL || '';
@@ -36,6 +42,7 @@ export default function handler(req, res) {
   const syncEnabled = process.env.SUPABASE_LEGACY_SYNC_ENABLED === 'true';
   const nextUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const nextKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).send(
@@ -43,6 +50,7 @@ export default function handler(req, res) {
     'window.DASH_SUPABASE_KEY=' + JSON.stringify(key) + ';' +
     'window.DASH_SYNC_ENABLED=' + JSON.stringify(syncEnabled) + ';' +
     'window.NEXT_PUBLIC_SUPABASE_URL=' + JSON.stringify(nextUrl) + ';' +
-    'window.NEXT_PUBLIC_SUPABASE_ANON_KEY=' + JSON.stringify(nextKey) + ';'
+    'window.NEXT_PUBLIC_SUPABASE_ANON_KEY=' + JSON.stringify(nextKey) + ';' +
+    'window.GOOGLE_CLIENT_ID=' + JSON.stringify(googleClientId) + ';'
   );
 }

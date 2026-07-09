@@ -164,7 +164,7 @@ body::after {
 <div class="page">
 
   <h1 class="dash-title">Integrations</h1>
-  <p class="page-sub">Connection foundation for external services, plus your local data safety net. Weather is live (via a server-side proxy, no key exposed to the browser) with a mock fallback if the fetch fails. Google Calendar, AI API, and Cloud Sync are still foundation only: every "Sync now" writes clearly-labelled demo data so they're ready the moment a real API key or OAuth flow is wired up.</p>
+  <p class="page-sub">Connection foundation for external services, plus your local data safety net. Weather is live (via a server-side proxy, no key exposed to the browser) with a mock fallback if the fetch fails. Google Calendar is live too (real OAuth, read-only, via a server-side proxy — connect below). AI API is still foundation only: every "Test connection" writes clearly-labelled demo data so it's ready the moment a real API key is wired up.</p>
 
   <!-- ===== DATA & BACKUP ===== -->
   <div class="section">
@@ -254,6 +254,10 @@ body::after {
         </div>
         <span class="int-sync-time" id="intCalSyncTime">Last sync: never</span>
       </div>
+      <div class="bk-btn-row">
+        <button class="int-sync-btn" id="intCalConnectBtn" type="button">Connect Google Calendar</button>
+        <button class="int-sync-btn" id="intCalDisconnectBtn" type="button" style="display:none">Disconnect</button>
+      </div>
       <div class="int-err-box" id="intCalErr" style="display:none"></div>
       <div class="field" style="margin-bottom:10px">
         <label class="field-label">Today</label>
@@ -271,7 +275,7 @@ body::after {
         <label class="field-label">Notes / Status</label>
         <textarea class="int-notes" id="intCalNotes" placeholder="Optional notes about this integration…"></textarea>
       </div>
-      <button class="int-sync-btn" id="intCalSyncBtn" type="button">Refresh calendar (demo)</button>
+      <button class="int-sync-btn" id="intCalSyncBtn" type="button">Refresh calendar</button>
     </div>
   </div>
 
@@ -557,14 +561,19 @@ body::after {
     if (document.activeElement !== $('intCalNotes')) $('intCalNotes').value = c.notes || '';
     renderCalEvents($('intCalToday'), window.GoogleCalendarService.getToday(c.upcomingEvents), 'No events today.');
     renderCalEvents($('intCalTomorrow'), window.GoogleCalendarService.getTomorrow(c.upcomingEvents), 'No events tomorrow.');
-    renderCalEvents($('intCalEvents'), c.upcomingEvents, 'No upcoming events yet — connect and refresh to load demo events.');
+    renderCalEvents($('intCalEvents'), c.upcomingEvents, 'No upcoming events yet — connect and refresh to load your events.');
     const errBox = $('intCalErr');
     if (/error/i.test(c.status)) { errBox.style.display = ''; errBox.textContent = c.status; }
     else errBox.style.display = 'none';
-    $('intCalSyncBtn').disabled = !c.enabled;
+    const connected = window.GoogleCalendarService.isConnected();
+    $('intCalConnectBtn').style.display = connected ? 'none' : '';
+    $('intCalDisconnectBtn').style.display = connected ? '' : 'none';
+    $('intCalSyncBtn').disabled = !c.enabled || !connected;
   }
   wireToggle($('intCalToggle'), (on) => { window.Integrations.setEnabled('googleCalendar', on); renderCal(); });
   $('intCalNotes').addEventListener('input', (e) => autoSaveField('googleCalendar', 'notes', e.target.value));
+  $('intCalConnectBtn').addEventListener('click', () => { window.GoogleCalendarService.connect('googleCalendar'); renderCal(); });
+  $('intCalDisconnectBtn').addEventListener('click', () => { window.GoogleCalendarService.disconnect('googleCalendar'); renderCal(); });
   $('intCalSyncBtn').addEventListener('click', async () => {
     const btn = $('intCalSyncBtn');
     btn.disabled = true;
@@ -986,6 +995,9 @@ body::after {
   function renderAll() { renderBackup(); renderWeather(); renderCal(); renderAi(); renderCloud(); renderCloudSyncReal(); renderAutoSave(); }
 
   renderAll();
+  if (window.GoogleCalendarService.consumeJustConnected()) {
+    window.GoogleCalendarService.refresh('googleCalendar').then(renderCal);
+  }
   window.addEventListener('storage', renderAll);
   window.addEventListener('focus', renderAll);
 })();
