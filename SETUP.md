@@ -240,17 +240,24 @@ console.anthropic.com.
 | `TRADING212_API_SECRET` | your Trading 212 API secret (**secret**, required) |
 | `TRADING212_ENV` | optional — `live` (default) or `demo` |
 
-3. Open the site → Money HQ → **Investments tab** → **Import / Refresh Trading 212**.
+3. Open the site → Money HQ → **Investments tab** → **Preview Trading 212 holdings**, check the
+   preview card, then **Confirm & apply import**. Use **Remove Trading 212 imported rows** to
+   clear a bad import — manual investments are never touched either way.
 
-> Read-only: only `/equity/portfolio` (open positions) and `/equity/account/cash` are called —
-> never an order/trading endpoint. Both env vars are required — requests always authenticate
-> with HTTP Basic auth (`API_KEY:API_SECRET`); there is no raw-key fallback. Credentials are
-> read only inside `api/trading212-data.js` and never reach the browser, Local Storage, or any
-> page. Manual refresh only — there is no auto-refresh, to respect Trading 212's rate limits.
-> Imported rows are tagged `account: 'Trading 212'` / `source: 'trading212'` and are matched by
-> ticker on re-import, so refreshing updates existing rows instead of duplicating them; your
-> manually-entered investments are never touched. If either env var is missing or the
-> credentials are rejected, the button shows a clear inline error instead of failing silently.
+> Read-only: only `/equity/positions` (open positions) and `/equity/account/summary` (cash/
+> account totals, display-only) are called — never an order/trading endpoint. Both env vars are
+> required — requests always authenticate with HTTP Basic auth (`API_KEY:API_SECRET`); there is
+> no raw-key fallback. Credentials are read only inside `api/trading212-data.js` and never reach
+> the browser, Local Storage, or any page. Manual refresh only, and nothing is applied until you
+> confirm the preview — there is no auto-refresh or auto-import, to respect Trading 212's rate
+> limits and avoid silently changing your numbers. Imported rows are tagged
+> `account: 'Trading 212'` / `source: 'trading212'` and are matched by ticker on re-import, so
+> confirming again updates existing rows instead of duplicating them. Holding value/cost/P&L
+> are only ever taken from Trading 212's own GBP-converted totals, never guessed from a raw
+> per-share price in the instrument's own currency (e.g. GBX pence for LSE stocks) — a holding
+> Trading 212 can't report in GBP shows as "value unknown" instead of a wrong number. If either
+> env var is missing or the credentials are rejected, the button shows a clear inline error
+> instead of failing silently.
 
 ---
 
@@ -263,4 +270,4 @@ console.anthropic.com.
 5. (Optional) Google Calendar: OAuth client in Google Cloud + `GOOGLE_CLIENT_ID` +
    `GOOGLE_CLIENT_SECRET` in Vercel → Connect on the Integrations page. Done.
 6. (Optional) Trading 212: `TRADING212_API_KEY` + `TRADING212_API_SECRET` in Vercel → Money HQ →
-   Investments tab → Import / Refresh Trading 212. Done.
+   Investments tab → Preview Trading 212 holdings → Confirm & apply import. Done.

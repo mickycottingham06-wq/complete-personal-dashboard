@@ -1460,6 +1460,53 @@ Require Trading 212 API secret and remove raw-key auth fallback
 
 ---
 
+## 2026-07-09 (8)
+
+### Trading 212 import — fix ~£40k bad import, add preview/confirm + remove-imported action
+
+Root cause of the bad import (correct ETF, extra wrong stocks, ~£40k of fake value): the endpoint
+called Trading 212's legacy positions shape (flat `ticker`/`averagePrice`/`currentPrice`/`ppl`
+fields) and multiplied `quantity × currentPrice` directly into GBP — but Trading 212 reports that
+price per share in the *instrument's own currency* (e.g. GBX pence for LSE-listed stocks, or
+USD/EUR for foreign listings), so any non-GBP-priced holding was silently inflated (a £6.50 GBX
+price read as £6.50 instead of the true £0.065 is a 100x error).
+
+`api/trading212-data.js` now calls Trading 212's current documented endpoints —
+`GET /equity/positions` (nested `instrument`/`walletImpact` schema) instead of the undocumented
+`/equity/portfolio`, and `GET /equity/account/summary` (display/debug only, never imported as a
+holding) instead of `/equity/account/cash`. Holding value/cost basis/profit-loss are now taken
+only from `walletImpact.currentValue`/`totalCost`/`unrealizedProfitLoss` — Trading 212's own
+already-GBP-converted totals — and reported as `valueUnknown: true` (fields `null`, never a
+guessed number) when `walletImpact.currency` isn't `GBP`. `scripts/money-data.js`'s
+`importTrading212()` derives per-share `currentPrice`/`averageCost` back out of those trusted GBP
+totals instead of ever touching the raw instrument-currency price, so `investmentValue()`'s
+shares×price fallback can't reintroduce the bug; unknown values are stored as `0` with a visible
+"value unknown — verify manually" note.
+
+Added `window.Money.previewTrading212(m, holdings)` — a pure, non-mutating read building the same
+preview rows (ticker, quantity, instrument currency, GBP value/cost/P&L or "unknown", add-vs-update)
+that `pages/money-hq.html`'s new "Confirm Trading 212 import" card renders. The old one-click
+"Import / Refresh" button is now "Preview Trading 212 holdings" — fetching only builds the preview;
+nothing is written to `m.investments` until the user clicks "Confirm & apply import" (or "Cancel" to
+discard). Added `window.Money.removeTrading212Rows(m)` and a "Remove Trading 212 imported rows"
+button (behind a `confirm()` prompt) to clear a bad import in one action without touching manual
+investments — matching on `source === 'trading212'` only, same as import's own matching.
+
+Manual refresh only, no auto-import on page load, no secrets or auth headers ever sent to the
+browser, no order/trading endpoint called — all unchanged. AutoSync/CloudSync/ForceSave/Backup/
+Supabase auth/sync files untouched.
+
+Files affected:
+
+api/trading212-data.js, scripts/money-data.js, pages/money-hq.html, SETUP.md, docs/DATA_SCHEMA.md,
+docs/CHANGELOG.md
+
+Commit:
+
+Fix Trading 212 import inflating holding values and add preview/confirm + remove-imported-rows
+
+---
+
 ## Future Entries
 
 Example

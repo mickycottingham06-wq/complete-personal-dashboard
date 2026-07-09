@@ -135,38 +135,85 @@
   }
   var TRADING212_ACCOUNT = 'Trading 212';
 
+  // Pure preview of what importTrading212() would do — no mutation,
+  // nothing persisted — so the UI can show the user exactly what
+  // will change before they confirm. currentValue/costBasis/profitLoss
+  // are null when Trading 212 couldn't report them in GBP
+  // (h.valueUnknown) — never a guessed figure.
+  function previewTrading212(m, holdings) {
+    return (holdings || [])
+      .filter(function (h) { return (h.ticker || '').trim(); })
+      .map(function (h) {
+        var ticker = h.ticker.trim();
+        var existing = m.investments.find(function (i) { return i.source === 'trading212' && i.ticker === ticker; });
+        return {
+          ticker: ticker, name: h.name || ticker, quantity: num(h.quantity),
+          instrumentCurrency: h.instrumentCurrency || 'unknown',
+          valueUnknown: !!h.valueUnknown,
+          currentValue: h.valueUnknown ? null : num(h.currentValueGBP),
+          costBasis: h.valueUnknown ? null : num(h.costBasisGBP),
+          profitLoss: h.valueUnknown ? null : num(h.profitLossGBP),
+          action: existing ? 'update' : 'add',
+          raw: h,
+        };
+      });
+  }
+
   // Merges read-only Trading 212 holdings (from api/trading212-data.js)
   // into m.investments. Matches existing rows by source==='trading212'
   // + ticker so a re-import updates in place instead of duplicating.
   // Manual rows (source !== 'trading212') are never touched. Mutates
   // m.investments directly; caller is responsible for persisting.
+  //
+  // Value/cost are taken only from the already-GBP-converted
+  // currentValueGBP/costBasisGBP fields (never quantity × a raw
+  // instrument-currency price — that mismatch is what previously
+  // inflated holdings priced in GBX pence or a foreign currency).
+  // Per-share currentPrice/averageCost are back-derived from those
+  // trusted GBP totals so investmentValue()'s shares×price fallback
+  // stays consistent with them. Unknown values are stored as 0 with
+  // a note, never invented.
   function importTrading212(m, holdings) {
     var added = 0, updated = 0;
     (holdings || []).forEach(function (h) {
       var ticker = (h.ticker || '').trim();
       if (!ticker) return;
       var quantity = num(h.quantity);
-      var avgPrice = num(h.averagePrice);
-      var currentPrice = num(h.currentPrice);
+      var valueUnknown = !!h.valueUnknown;
+      var currentValue = valueUnknown ? 0 : num(h.currentValueGBP);
+      var costBasis = valueUnknown ? 0 : num(h.costBasisGBP);
+      var currentPrice = (!valueUnknown && quantity > 0) ? currentValue / quantity : 0;
+      var averageCost = (!valueUnknown && quantity > 0) ? costBasis / quantity : 0;
+      var notes = valueUnknown ? 'Trading 212: value unknown (not reported in GBP) — verify manually.' : '';
       var existing = m.investments.find(function (i) { return i.source === 'trading212' && i.ticker === ticker; });
       if (existing) {
         existing.shares = quantity;
-        existing.averageCost = avgPrice;
+        existing.averageCost = averageCost;
         existing.currentPrice = currentPrice;
-        existing.contributed = quantity * avgPrice;
+        existing.currentValue = currentValue;
+        existing.contributed = costBasis;
+        existing.notes = notes;
         if (h.name) existing.name = h.name;
         updated++;
       } else {
         m.investments.push({
           id: uid(), name: h.name || ticker, type: 'Stocks/Funds', ticker: ticker,
           account: TRADING212_ACCOUNT, source: 'trading212',
-          shares: quantity, averageCost: avgPrice, currentPrice: currentPrice,
-          currentValue: 0, contributed: quantity * avgPrice, notes: '',
+          shares: quantity, averageCost: averageCost, currentPrice: currentPrice,
+          currentValue: currentValue, contributed: costBasis, notes: notes,
         });
         added++;
       }
     });
     return { added: added, updated: updated };
+  }
+
+  // Clears every Trading 212-imported row (source === 'trading212') so
+  // a bad import can be undone without touching manual investments.
+  function removeTrading212Rows(m) {
+    var before = m.investments.length;
+    m.investments = m.investments.filter(function (i) { return i.source !== 'trading212'; });
+    return { removed: before - m.investments.length };
   }
 
   function netWorth(m) {
@@ -317,6 +364,8 @@
     investmentValue: investmentValue,
     investmentAllocation: investmentAllocation,
     importTrading212: importTrading212,
+    previewTrading212: previewTrading212,
+    removeTrading212Rows: removeTrading212Rows,
     monthlyIncome: monthlyIncome,
     monthlySpending: monthlySpending,
     monthlySavings: monthlySavings,

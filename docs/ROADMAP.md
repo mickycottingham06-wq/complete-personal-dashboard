@@ -88,7 +88,7 @@ Net Worth ✅ (bank, cash, crypto, other assets, liabilities, auto-calculated to
 
 Cash ✅ (tracked as its own Net Worth category)
 
-Investments ✅ (optional shares/currentPrice holdings model with ticker/account, auto-calculated value, gain/loss, allocation by type; Trading 212 read-only portfolio import ✅ — `api/trading212-data.js` + Investments tab "Import / Refresh Trading 212" button, manual refresh only)
+Investments ✅ (optional shares/currentPrice holdings model with ticker/account, auto-calculated value, gain/loss, allocation by type; Trading 212 read-only positions import ✅ — `api/trading212-data.js` + Investments tab "Preview Trading 212 holdings" → confirm-to-apply flow, plus a "Remove Trading 212 imported rows" action, manual refresh only)
 
 Bills ✅ (Bills / Subscriptions tab — due dates, frequency, status, monthly recurring total)
 

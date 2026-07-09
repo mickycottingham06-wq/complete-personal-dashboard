@@ -441,10 +441,22 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <div class="card">
     <div class="label" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <span>Trading 212 import</span>
-      <button class="mh-btn mh-btn-ghost" id="t212ImportBtn" type="button" style="padding:8px 14px;font-size:12px">Import / Refresh Trading 212</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="mh-btn mh-btn-ghost" id="t212ImportBtn" type="button" style="padding:8px 14px;font-size:12px">Preview Trading 212 holdings</button>
+        <button class="mh-btn mh-btn-ghost" id="t212RemoveBtn" type="button" style="padding:8px 14px;font-size:12px">Remove Trading 212 imported rows</button>
+      </div>
     </div>
-    <div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">Pulls open positions from Trading 212 (read-only) and adds/updates rows below tagged "Trading 212" — manual investments are never touched. Manual refresh only.</div>
+    <div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">Pulls open positions from Trading 212 (read-only) and shows a preview below to check before anything is applied — rows are tagged "Trading 212"; manual investments are never touched. Holdings Trading 212 can't report in GBP show as "value unknown" rather than a guessed figure. Manual refresh only.</div>
     <div id="t212Status" style="font-size:12px;margin-top:8px;display:none"></div>
+  </div>
+
+  <div class="card mh-hidden" id="t212PreviewCard">
+    <div class="label">Confirm Trading 212 import</div>
+    <div id="t212PreviewList" style="font-size:12px;margin-top:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="mh-btn" id="t212ConfirmBtn" type="button">Confirm &amp; apply import</button>
+      <button class="mh-btn mh-btn-ghost" id="t212CancelBtn" type="button">Cancel</button>
+    </div>
   </div>
 
   <div class="card">
@@ -991,12 +1003,30 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     el.style.color = kind === 'error' ? 'var(--danger)' : kind === 'success' ? 'var(--success)' : 'var(--text-tertiary)';
   }
 
+  var t212PendingHoldings = null;
+
+  function renderT212Preview(rows) {
+    var list = document.getElementById('t212PreviewList');
+    if (!rows.length) {
+      list.innerHTML = '<div class="item-meta">No open positions returned.</div>';
+      return;
+    }
+    list.innerHTML = rows.map(function (r) {
+      var valueText = r.valueUnknown ? 'Unknown (non-GBP)' : fmt(r.currentValue);
+      var plText = r.valueUnknown ? 'Unknown' : ((r.profitLoss >= 0 ? '+' : '') + fmt(r.profitLoss));
+      var meta = [r.ticker, r.quantity + ' shares', r.instrumentCurrency, r.action === 'add' ? 'will add' : 'will update'].filter(Boolean).join(' · ');
+      return '<div class="custom-item"><span class="item-dot" style="background:' + (r.action === 'add' ? '#6BE3A4' : '#7FB2FF') + '"></span><div class="item-body"><div class="item-title">' + esc(r.name) + '</div><div class="item-meta">' + esc(meta) + '</div><div class="item-meta">Current value: ' + esc(valueText) + ' · P/L: ' + esc(plText) + '</div></div></div>';
+    }).join('');
+  }
+
   document.getElementById('t212ImportBtn').addEventListener('click', async function () {
     var btn = this;
     var prevLabel = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Importing…';
+    btn.textContent = 'Fetching…';
     setT212Status('Fetching Trading 212 holdings…', '');
+    t212PendingHoldings = null;
+    document.getElementById('t212PreviewCard').classList.add('mh-hidden');
     try {
       var r = await fetch('/api/trading212-data');
       var data = null;
@@ -1004,9 +1034,12 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       if (!r.ok || !data || data.error) {
         setT212Status((data && data.error) || 'Trading 212 import failed.', 'error');
       } else {
-        var result = M.importTrading212(money, data.holdings || []);
-        persist();
-        setT212Status('Imported: ' + result.added + ' added, ' + result.updated + ' updated.', 'success');
+        var holdings = data.holdings || [];
+        var preview = M.previewTrading212(money, holdings);
+        t212PendingHoldings = holdings;
+        renderT212Preview(preview);
+        document.getElementById('t212PreviewCard').classList.remove('mh-hidden');
+        setT212Status(preview.length + ' holding(s) fetched — review below, then confirm to apply.', '');
       }
     } catch (e) {
       setT212Status('Trading 212 import failed — check your connection and try again.', 'error');
@@ -1014,6 +1047,28 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       btn.disabled = false;
       btn.textContent = prevLabel;
     }
+  });
+
+  document.getElementById('t212ConfirmBtn').addEventListener('click', function () {
+    if (!t212PendingHoldings) return;
+    var result = M.importTrading212(money, t212PendingHoldings);
+    persist();
+    t212PendingHoldings = null;
+    document.getElementById('t212PreviewCard').classList.add('mh-hidden');
+    setT212Status('Imported: ' + result.added + ' added, ' + result.updated + ' updated.', 'success');
+  });
+
+  document.getElementById('t212CancelBtn').addEventListener('click', function () {
+    t212PendingHoldings = null;
+    document.getElementById('t212PreviewCard').classList.add('mh-hidden');
+    setT212Status('Import cancelled — nothing was applied.', '');
+  });
+
+  document.getElementById('t212RemoveBtn').addEventListener('click', function () {
+    if (!confirm('Remove all Trading 212-imported investment rows? Manual investments are not affected.')) return;
+    var result = M.removeTrading212Rows(money);
+    persist();
+    setT212Status('Removed ' + result.removed + ' Trading 212-imported row(s).', result.removed ? 'success' : '');
   });
 
   // ============================================================
