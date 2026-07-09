@@ -1214,6 +1214,26 @@ Add Hormones + Appearance cross-linking to Daily Guidance and Weekly Review
 
 ---
 
+## 2026-07-09
+
+### Goals Progress Derived From Milestones/Actions
+
+Fixed the audit finding that Goals progress was disconnected from milestone/action completion.
+
+Added a `progressMode` ('auto' | 'manual') field per active goal. When a goal has milestones/actions, `progress` is now recomputed from their completion ratio on every load/save; dragging the manual slider switches that goal to a manual override, shown via a small Auto/Manual badge with a click-to-resume-auto action. Goals with no milestones/actions yet are unaffected. Older saved goals upgrade to `progressMode: 'auto'` automatically.
+
+Life Stats, Weekly Review, Heatmap, index.html, AI CEO and Money HQ all keep reading `goal.progress` as before — no changes needed there, since the correction happens inside `window.Goals.load()`/`.save()`.
+
+Files affected:
+
+scripts/goals-data.js, pages/goals.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Derive Goals progress from milestone/action completion
+
+---
+
 ## Future Entries
 
 Example

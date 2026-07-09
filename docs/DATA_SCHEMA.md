@@ -403,6 +403,7 @@ lifeGoals: {
       priority: string,       // one of PRIORITIES
       status: string,         // one of STATUSES
       progress: number,       // 0-100
+      progressMode: string,   // 'auto' | 'manual' — see below
       deadline: string,       // YYYY-MM-DD
       milestones: [ { id: string, title: string, completed: boolean } ],
       actions: [ { id: string, title: string, completed: boolean } ],
@@ -417,6 +418,8 @@ Default categories (`window.Goals.CATEGORIES`): Business / Money, Boxing, Health
 Priorities (`window.Goals.PRIORITIES`): High, Medium, Low. Statuses (`window.Goals.STATUSES`): Not Started, In Progress, On Track, At Risk, Achieved.
 
 `activeGoals` starts empty — no seeded goals, since these are personal and specific to the user.
+
+**Progress:** each goal's `progress` is derived, not duplicated, whenever it has milestones/actions. `window.Goals.computeAutoProgress(goal)` returns the rounded completion ratio of `milestones + actions` (`null` if the goal has neither, so callers fall back to the manual value). `window.Goals.recomputeGoal(goal)` writes that ratio into `goal.progress` unless `goal.progressMode === 'manual'`, in which case the user's own slider value is left untouched. `load()` and `save()` both call this for every goal, so `progress` is always current for any reader — Life Stats, Weekly Review, Heatmap, index.html, AI CEO and Money HQ all keep reading plain `goal.progress`, no changes needed on their end. `pages/goals.html`'s progress slider sets `progressMode = 'manual'` the moment the user drags it (preserving their override), and shows a small Auto/Manual badge next to the bar — click the Manual badge to hand control back to auto-tracking. Goals with no milestones/actions yet behave exactly as before (plain manual progress, no badge shown). Older saved goals upgrade to `progressMode: 'auto'` on load, same as any other missing field.
 
 `window.Goals.load()` returns stored goals data, filling in any fields missing against the default shape (upgrades older saved data, including per-goal fields and milestone/action arrays). `window.Goals.save(g)` persists changes. `window.Goals.uid()` generates ids for new goal/milestone/action rows. `window.Goals.defaultActiveGoal()` returns a blank active goal (used by "+ Add Active Goal").
 

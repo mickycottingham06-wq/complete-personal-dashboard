@@ -47,11 +47,35 @@
       priority: PRIORITIES[1],
       status: STATUSES[0],
       progress: 0,
+      progressMode: 'auto',   // 'auto' = derived from milestones/actions when any exist, 'manual' = user override wins
       deadline: '',
       milestones: [],
       actions: [],
       notes: '',
     };
+  }
+
+  // Ratio of completed milestones+actions, 0-100. Returns null when a goal
+  // has none (nothing to derive from — caller should fall back to the
+  // manually-set progress in that case).
+  function computeAutoProgress(goal) {
+    var milestones = goal.milestones || [];
+    var actions = goal.actions || [];
+    var total = milestones.length + actions.length;
+    if (total === 0) return null;
+    var done = milestones.filter(function (m) { return m.completed; }).length +
+      actions.filter(function (a) { return a.completed; }).length;
+    return Math.round((done / total) * 100);
+  }
+
+  // Keeps goal.progress in sync with milestone/action completion for goals
+  // still in 'auto' mode. Goals with progressMode 'manual', or with no
+  // milestones/actions yet, are left exactly as the user set them.
+  function recomputeGoal(goal) {
+    if (goal.progressMode !== 'manual') {
+      var auto = computeAutoProgress(goal);
+      if (auto !== null) goal.progress = auto;
+    }
   }
 
   // Reads goals data, filling in any missing fields against the
@@ -63,6 +87,7 @@
     Object.keys(d).forEach(function (k) { if (!(k in g)) g[k] = d[k]; });
     if (!Array.isArray(g.activeGoals)) g.activeGoals = [];
     var blank = defaultActiveGoal();
+    var dirty = false;
     g.activeGoals.forEach(function (goal) {
       Object.keys(blank).forEach(function (k) {
         if (k === 'id') return;
@@ -70,11 +95,18 @@
       });
       if (!Array.isArray(goal.milestones)) goal.milestones = [];
       if (!Array.isArray(goal.actions)) goal.actions = [];
+      var before = goal.progress;
+      recomputeGoal(goal);
+      if (goal.progress !== before) dirty = true;
     });
+    if (dirty) saveJSON(KEY, g);
     return g;
   }
 
-  function save(g) { saveJSON(KEY, g); }
+  function save(g) {
+    (g.activeGoals || []).forEach(recomputeGoal);
+    saveJSON(KEY, g);
+  }
 
   window.Goals = {
     KEY: KEY,
@@ -85,5 +117,7 @@
     load: load,
     save: save,
     defaultActiveGoal: defaultActiveGoal,
+    computeAutoProgress: computeAutoProgress,
+    recomputeGoal: recomputeGoal,
   };
 })();

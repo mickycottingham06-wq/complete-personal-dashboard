@@ -130,6 +130,12 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
 .goal-progress-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #6BE3A4, #A7F3D0); transition: width 0.3s ease; }
 .goal-progress-slider { width: 100%; accent-color: var(--accent); height: 4px; cursor: pointer; }
 .goal-progress-pct { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); width: 42px; text-align: right; flex-shrink: 0; }
+.goal-progress-mode {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; border: 1px solid transparent; flex-shrink: 0;
+}
+.goal-progress-mode[data-mode="auto"] { color: var(--success); background: rgba(107,227,164,0.10); border-color: rgba(107,227,164,0.3); }
+.goal-progress-mode[data-mode="manual"] { color: var(--warning); background: rgba(242,192,99,0.10); border-color: rgba(242,192,99,0.3); cursor: pointer; }
 
 .goal-subtitle { font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin: 16px 0 8px; }
 .goal-subtitle:first-of-type { margin-top: 0; }
@@ -388,33 +394,64 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     card.insertBefore(badges, grid);
 
     // ---- Progress ----
+    // Auto mode derives progress from milestone/action completion
+    // (window.Goals.recomputeGoal); dragging the slider switches the goal
+    // to manual override, which the badge click can hand back to auto.
     var progRow = document.createElement('div');
     progRow.className = 'goal-progress-row';
+    var modeBadge = document.createElement('span');
+    modeBadge.className = 'goal-progress-mode';
     var track = document.createElement('div');
     track.className = 'goal-progress-track';
     var fill = document.createElement('div');
     fill.className = 'goal-progress-fill';
-    fill.style.width = (Number(goal.progress) || 0) + '%';
     track.appendChild(fill);
     var pct = document.createElement('span');
     pct.className = 'goal-progress-pct';
-    pct.textContent = (Number(goal.progress) || 0) + '%';
-    progRow.appendChild(track); progRow.appendChild(pct);
+    progRow.appendChild(modeBadge); progRow.appendChild(track); progRow.appendChild(pct);
     card.appendChild(progRow);
 
     var slider = document.createElement('input');
     slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.step = '5';
     slider.className = 'goal-progress-slider';
-    slider.value = Number(goal.progress) || 0;
     slider.style.marginBottom = '14px';
+    card.appendChild(slider);
+
+    function refreshProgressUI() {
+      window.Goals.recomputeGoal(goal);
+      var p = Number(goal.progress) || 0;
+      fill.style.width = p + '%';
+      pct.textContent = p + '%';
+      slider.value = p;
+      var hasItems = (goal.milestones.length + goal.actions.length) > 0;
+      if (!hasItems) {
+        modeBadge.style.display = 'none';
+      } else if (goal.progressMode === 'manual') {
+        modeBadge.style.display = '';
+        modeBadge.setAttribute('data-mode', 'manual');
+        modeBadge.textContent = 'Manual override ↺';
+        modeBadge.title = 'Progress set by hand — click to resume auto-tracking from milestones/actions';
+      } else {
+        modeBadge.style.display = '';
+        modeBadge.setAttribute('data-mode', 'auto');
+        modeBadge.textContent = 'Auto';
+        modeBadge.title = 'Progress is calculated from completed milestones/actions';
+      }
+    }
+    modeBadge.addEventListener('click', function () {
+      if (goal.progressMode !== 'manual') return;
+      goal.progressMode = 'auto';
+      refreshProgressUI();
+      save();
+    });
     slider.addEventListener('input', function () {
       goal.progress = Number(slider.value) || 0;
-      fill.style.width = goal.progress + '%';
-      pct.textContent = goal.progress + '%';
+      goal.progressMode = 'manual';
+      refreshProgressUI();
       clearTimeout(fieldTimer);
       fieldTimer = setTimeout(save, 200);
     });
-    card.appendChild(slider);
+    refreshProgressUI();
 
     // ---- Milestones ----
     var msTitle = document.createElement('div');
@@ -424,8 +461,8 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     card.appendChild(msWrap);
     function renderMilestones() {
       renderChecklist(msWrap, goal.milestones,
-        function (item, checked) { item.completed = checked; save(); renderMilestones(); },
-        function (item) { goal.milestones = goal.milestones.filter(function (i) { return i.id !== item.id; }); save(); renderMilestones(); });
+        function (item, checked) { item.completed = checked; refreshProgressUI(); save(); renderMilestones(); },
+        function (item) { goal.milestones = goal.milestones.filter(function (i) { return i.id !== item.id; }); refreshProgressUI(); save(); renderMilestones(); });
     }
     renderMilestones();
     var msAdd = document.createElement('div');
@@ -436,7 +473,7 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     msBtn.type = 'button'; msBtn.className = 'add-btn'; msBtn.textContent = '+ Add';
     var doAddMs = wireAdd(msInput, function (v) {
       goal.milestones.push({ id: window.Goals.uid(), title: v, completed: false });
-      save(); renderMilestones();
+      refreshProgressUI(); save(); renderMilestones();
     });
     msBtn.addEventListener('click', doAddMs);
     msAdd.appendChild(msInput); msAdd.appendChild(msBtn);
@@ -450,8 +487,8 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     card.appendChild(acWrap);
     function renderActions() {
       renderChecklist(acWrap, goal.actions,
-        function (item, checked) { item.completed = checked; save(); renderActions(); },
-        function (item) { goal.actions = goal.actions.filter(function (i) { return i.id !== item.id; }); save(); renderActions(); });
+        function (item, checked) { item.completed = checked; refreshProgressUI(); save(); renderActions(); },
+        function (item) { goal.actions = goal.actions.filter(function (i) { return i.id !== item.id; }); refreshProgressUI(); save(); renderActions(); });
     }
     renderActions();
     var acAdd = document.createElement('div');
@@ -462,7 +499,7 @@ select.set-input option { background: #16161a; color: var(--text-primary); }
     acBtn.type = 'button'; acBtn.className = 'add-btn'; acBtn.textContent = '+ Add';
     var doAddAc = wireAdd(acInput, function (v) {
       goal.actions.push({ id: window.Goals.uid(), title: v, completed: false });
-      save(); renderActions();
+      refreshProgressUI(); save(); renderActions();
     });
     acBtn.addEventListener('click', doAddAc);
     acAdd.appendChild(acInput); acAdd.appendChild(acBtn);
