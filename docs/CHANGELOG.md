@@ -1234,6 +1234,37 @@ Derive Goals progress from milestone/action completion
 
 ---
 
+## 2026-07-09 (2)
+
+### Boxing HQ — weekly counter rollover
+
+Fixed the audit finding that Boxing HQ's weekly session counters
+(`completedBoxingSessions`, `completedRuns`, `completedStrengthSessions`) required a manual reset —
+they were permanent totals that only ever went up.
+
+Added a `weekStart` field (YYYY-MM-DD, Monday) to the `boxing` shape. `window.Boxing.load()` now
+rolls the three completion counters back to 0 once `weekStart` no longer matches the current
+Monday-start week — same 6 AM + Monday->Sunday week-boundary convention already used by
+`window.WeeklyReview`, kept as its own small copy in `boxing-data.js` since it loads before
+`weekly-review-data.js`. Weekly targets, focus/weaknesses, next-session plan, sparring/coach notes,
+and `trainingLog` are untouched by the rollover. Existing saved data with no `weekStart` is stamped
+with the current week on first load rather than reset, so no in-progress week is wiped by the
+upgrade, and a same-week reload is a no-op. The reset is persisted immediately (not just held in
+memory), so Weekly Review, Daily Guidance, Heatmap, and the index.html preview card — which all
+read through `window.Boxing.load()` — see the same rolled-over counters with no changes needed on
+their side. Added a small note under Boxing HQ's "Weekly Training" section title ("Resets
+automatically each Monday · targets stay the same"); no new section, no redesign.
+
+Files affected:
+
+scripts/boxing-data.js, pages/boxing-hq.html, docs/DATA_SCHEMA.md
+
+Commit:
+
+Add weekly counter rollover to Boxing HQ
+
+---
+
 ## Future Entries
 
 Example

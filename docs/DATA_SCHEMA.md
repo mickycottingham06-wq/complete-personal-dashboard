@@ -204,6 +204,7 @@ boxing: {
   fightDate: string,               // YYYY-MM-DD
   currentWeight: number,
   targetWeight: number,
+  weekStart: string,                // YYYY-MM-DD (Monday), the week the counters below belong to
   weeklyBoxingTarget: number,
   completedBoxingSessions: number,
   weeklyRunTarget: number,
@@ -226,6 +227,8 @@ Default training phases: Base Building, Strength & Power, Fight Camp, Peak Week,
 Default focuses (`window.Boxing.DEFAULT_FOCUSES`, used for both `currentFocus` and `weaknesses`): Footwork, Defence, Head Movement, Jab, Combinations, Conditioning, Power, Speed, Ring IQ, Mobility.
 
 `window.Boxing.load()` returns stored boxing data, filling in any fields missing against the default shape (upgrades older saved data). `window.Boxing.save(box)` persists changes. `window.Boxing.uid()` generates ids for new training log rows.
+
+`load()` also rolls the three weekly completion counters (`completedBoxingSessions`, `completedRuns`, `completedStrengthSessions`) back to 0 once `weekStart` no longer matches the current Monday-start week (same 6 AM + Monday->Sunday week convention as `window.WeeklyReview`). Weekly targets, focus/weaknesses, plan/notes, and `trainingLog` are never touched by the rollover — only the three completion counts reset. Existing saved data with no `weekStart` is stamped with the current week on first load rather than reset, so nobody's in-progress week is wiped by the upgrade.
 
 The full interactive UI lives at `pages/boxing-hq.html`. index.html shows a compact preview card (training phase, current vs target weight, weekly boxing session progress, current focus) that links to it.
 
