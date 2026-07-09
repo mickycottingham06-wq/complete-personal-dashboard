@@ -370,6 +370,13 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
     </div>
   </div>
 
+  <div class="lk-section">
+    <div class="section-title">Related</div>
+    <div class="stack-card" style="font-size:12px;color:var(--text-tertiary)">
+      <span id="lkRelatedLive">Skincare/grooming —</span> today — relevant to <a href="health.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Health HQ</a> and <a href="hormone-optimisation.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Hormone Optimisation</a>.
+    </div>
+  </div>
+
   <script>
   (function () {
     'use strict';
@@ -428,6 +435,15 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
     }
     renderWeight();
 
+    function renderRelated() {
+      var routines = (a.skincareRoutine || []).concat(a.groomingRoutine || []);
+      var pct = routines.length ? Math.round((routines.filter(function (i) { return i.completed; }).length / routines.length) * 100) : 0;
+      var text = 'Skincare/grooming ' + pct + '% done';
+      if (a.nextImprovementFocus) text += ' · focus: ' + a.nextImprovementFocus;
+      $('lkRelatedLive').textContent = text;
+    }
+    renderRelated();
+
     bindSlider('lkSkinScore', 'lkSkinVal', 'skinScore');
     bindSelect('lkAcneStatus', 'acneStatus');
     bindSlider('lkFaceBloating', 'lkBloatVal', 'faceBloatingRating');
@@ -440,6 +456,7 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
     bindText('lkStyleNotes', 'styleNotes');
     bindText('lkWeeklyNotes', 'weeklyNotes');
     bindText('lkNextImprovementFocus', 'nextImprovementFocus');
+    $('lkNextImprovementFocus').addEventListener('input', renderRelated);
 
     // ---- Generic checklist renderer used by Skincare / Grooming ----
     function renderChecklist(listId, items, onToggle, onDelete) {
@@ -467,13 +484,13 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
 
     function renderSkincare() {
       renderChecklist('lkSkincareList', a.skincareRoutine,
-        function (item, checked) { item.completed = checked; save(); renderSkincare(); },
-        function (item) { a.skincareRoutine = a.skincareRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderSkincare(); });
+        function (item, checked) { item.completed = checked; save(); renderSkincare(); renderRelated(); },
+        function (item) { a.skincareRoutine = a.skincareRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderSkincare(); renderRelated(); });
     }
     function renderGrooming() {
       renderChecklist('lkGroomingList', a.groomingRoutine,
-        function (item, checked) { item.completed = checked; save(); renderGrooming(); },
-        function (item) { a.groomingRoutine = a.groomingRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderGrooming(); });
+        function (item, checked) { item.completed = checked; save(); renderGrooming(); renderRelated(); },
+        function (item) { a.groomingRoutine = a.groomingRoutine.filter(function (i) { return i.id !== item.id; }); save(); renderGrooming(); renderRelated(); });
     }
     renderSkincare(); renderGrooming();
 
@@ -580,7 +597,7 @@ select.lk-input option { background: #16161a; color: var(--text-primary); }
     window.addEventListener('storage', function () {
       a = window.Appearance.load();
       renderScore();
-      renderSkincare(); renderGrooming(); renderPhotos();
+      renderSkincare(); renderGrooming(); renderPhotos(); renderRelated();
     });
   })();
   </script>

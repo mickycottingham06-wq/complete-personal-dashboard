@@ -384,6 +384,13 @@ select.hor-input option { background: #16161a; color: var(--text-primary); }
     </div>
   </div>
 
+  <div class="hor-section">
+    <div class="section-title">Related</div>
+    <div class="stack-card" style="font-size:12px;color:var(--text-tertiary)">
+      <span id="horRelatedLive">Lifestyle foundations — · Supplements —</span> today — relevant to <a href="health.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Health HQ</a> and <a href="appearance.html" style="color:var(--text-secondary);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15)">Appearance / Looks</a>.
+    </div>
+  </div>
+
   <script>
   (function () {
     'use strict';
@@ -451,6 +458,16 @@ select.hor-input option { background: #16161a; color: var(--text-primary); }
       }
     }
     renderWeight();
+
+    function completionPct(items) {
+      items = items || [];
+      return items.length ? Math.round((items.filter(function (i) { return i.completed || i.taken; }).length / items.length) * 100) : 0;
+    }
+    function renderRelated() {
+      $('horRelatedLive').textContent = 'Lifestyle foundations ' + completionPct(h.lifestyleFoundations) + '% · Supplements ' + completionPct(h.supplements) + '% done';
+    }
+    renderRelated();
+
     bindSlider('horHormoneScore', null, 'hormoneScore', renderScore);
     renderScore();
 
@@ -493,13 +510,13 @@ select.hor-input option { background: #16161a; color: var(--text-primary); }
 
     function renderFoundations() {
       renderChecklist('horFoundationsList', h.lifestyleFoundations, 'label', 'completed',
-        function (item, checked) { item.completed = checked; save(); renderFoundations(); },
-        function (item) { h.lifestyleFoundations = h.lifestyleFoundations.filter(function (i) { return i.id !== item.id; }); save(); renderFoundations(); });
+        function (item, checked) { item.completed = checked; save(); renderFoundations(); renderRelated(); },
+        function (item) { h.lifestyleFoundations = h.lifestyleFoundations.filter(function (i) { return i.id !== item.id; }); save(); renderFoundations(); renderRelated(); });
     }
     function renderSupplements() {
       renderChecklist('horSupplementsList', h.supplements, 'name', 'taken',
-        function (item, checked) { item.taken = checked; save(); renderSupplements(); },
-        function (item) { h.supplements = h.supplements.filter(function (i) { return i.id !== item.id; }); save(); renderSupplements(); });
+        function (item, checked) { item.taken = checked; save(); renderSupplements(); renderRelated(); },
+        function (item) { h.supplements = h.supplements.filter(function (i) { return i.id !== item.id; }); save(); renderSupplements(); renderRelated(); });
     }
     renderFoundations(); renderSupplements();
 
@@ -590,7 +607,7 @@ select.hor-input option { background: #16161a; color: var(--text-primary); }
     window.addEventListener('storage', function () {
       h = window.Hormones.load();
       renderScore();
-      renderFoundations(); renderSupplements(); renderBloodwork();
+      renderFoundations(); renderSupplements(); renderBloodwork(); renderRelated();
     });
   })();
   </script>
