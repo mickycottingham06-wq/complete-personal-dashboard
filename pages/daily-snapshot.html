@@ -158,6 +158,9 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
 .snap-hint { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: var(--text-tertiary); }
 .snap-hint a { color: var(--text-secondary); font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); }
 
+.history-entry { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); }
+.history-entry:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
 .guidance-row { display: flex; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .guidance-row:last-of-type { border-bottom: none; }
 .guidance-label { flex: 0 0 78px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
@@ -315,6 +318,17 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
     </div>
   </div>
 
+  <!-- ===== RECENT REFLECTIONS — read-only view of past days archived into
+       dailySnapshot.history[] (see scripts/daily-snapshot-data.js). Same
+       history Weekly Review reads for its draft suggestions. No editing. ===== -->
+  <div class="section" id="dailyHistorySection">
+    <div class="section-title">Recent Reflections</div>
+    <div class="gm-card">
+      <div class="guidance-empty" id="historyEmpty" style="display:none">No past reflections yet — they'll appear here once a day rolls over.</div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ===== Daily Snapshot / Daily Control Panel logic — reads/writes through
@@ -330,6 +344,9 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
 
   let snap = window.DailySnapshot.loadOrInit();
   function save() { window.DailySnapshot.save(snap); }
+
+  const DOWS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const MONS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Daily Guidance Engine — deterministic local suggestions computed from
   // Business, Boxing HQ, Goals and Health data. applyDefaultsToSnapshot()
@@ -366,9 +383,61 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
 
   function renderDate() {
     const d = new Date();
-    const dows = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const mons = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    $('snapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
+    $('snapDate').textContent = DOWS[d.getDay()] + ', ' + MONS[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  // Formats a stored 'YYYY-MM-DD' history date key into the same readable
+  // label style as today's date header above.
+  function formatHistoryDate(dateStr) {
+    const parts = String(dateStr || '').split('-').map(Number);
+    if (parts.length !== 3 || !parts[0]) return dateStr || '';
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return DOWS[d.getDay()] + ', ' + MONS[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  // Read-only render of archived past days (window.DailySnapshot.getHistory())
+  // — the same array Weekly Review reads. Built with createElement/textContent
+  // (never innerHTML) since entry text is free-typed user content.
+  function renderHistory() {
+    const wrap = $('historyList');
+    wrap.innerHTML = '';
+    const history = window.DailySnapshot.getHistory ? window.DailySnapshot.getHistory() : [];
+    const days = history.slice(-14).reverse();
+    $('historyEmpty').style.display = days.length ? 'none' : '';
+
+    days.forEach((d) => {
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'snap-label';
+      dateEl.style.marginTop = '0';
+      dateEl.textContent = formatHistoryDate(d.date);
+      entry.appendChild(dateEl);
+
+      const rows = [];
+      if (d.mainFocus && String(d.mainFocus).trim()) rows.push(['Focus', String(d.mainFocus).trim()]);
+      if (d.dayScore) rows.push(['Score', d.dayScore + '/10']);
+      const priorities = Array.isArray(d.priorities) ? d.priorities.filter((p) => p.text && String(p.text).trim()) : [];
+      if (priorities.length) {
+        const done = priorities.filter((p) => p.completed).length;
+        rows.push(['Priorities', done + '/' + priorities.length + ' done']);
+      }
+      if (d.wentWell && String(d.wentWell).trim()) rows.push(['Went Well', String(d.wentWell).trim()]);
+      if (d.slipped && String(d.slipped).trim()) rows.push(['Slipped', String(d.slipped).trim()]);
+      if (d.lesson && String(d.lesson).trim()) rows.push(['Lesson', String(d.lesson).trim()]);
+
+      rows.forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'guidance-row';
+        const l = document.createElement('span'); l.className = 'guidance-label'; l.textContent = label;
+        const v = document.createElement('span'); v.className = 'guidance-value'; v.textContent = value;
+        row.append(l, v);
+        entry.appendChild(row);
+      });
+
+      wrap.appendChild(entry);
+    });
   }
 
   function renderWeatherChip() {
@@ -581,6 +650,7 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
   bindRating('snapDayScore', 'snapDayScoreVal', 'dayScore', null);
   bindWeight();
   renderStatus();
+  renderHistory();
 
   // Lets Force Local Save (Quick Sync panel / Integrations button) commit
   // pending debounced field and weight edits immediately instead of
@@ -597,7 +667,7 @@ select.set-input { -webkit-appearance: none; appearance: none; cursor: pointer; 
   window.addEventListener('storage', () => {
     snap = window.DailySnapshot.loadOrInit();
     guidance = window.DailyGuidance ? window.DailyGuidance.computeGuidance() : null;
-    renderStatus(); renderPriorities(); renderHabits(); renderExecution(); renderWeatherChip(); renderCalendarChip(); renderGuidance();
+    renderStatus(); renderPriorities(); renderHabits(); renderExecution(); renderWeatherChip(); renderCalendarChip(); renderGuidance(); renderHistory();
   });
 })();
 </script>
