@@ -124,11 +124,11 @@ Integrations Foundation ✅ (pages/integrations.html — reusable card/data foun
 
 Google Calendar ✅ (real OAuth, read-only — scripts/google-calendar-service.js + api/google-calendar-*.js)
 
-Weather API (real connection — not yet live)
+Weather API ✅ (real connection — Open-Meteo by default, no key required; optional OpenWeatherMap via `WEATHER_API_KEY` — api/weather.js)
 
-Finance API
+Finance API (superseded by Trading 212 read-only import in Phase 5 — see Money HQ)
 
-Whoop
+Whoop ✅ (real OAuth, read-only — api/whoop-*.js + pages/health.html; requires `WHOOP_CLIENT_ID`/`WHOOP_CLIENT_SECRET` env vars, see SETUP.md §4)
 
 AI APIs (real connection — not yet live)
 
