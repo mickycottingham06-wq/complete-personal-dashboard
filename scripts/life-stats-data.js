@@ -127,6 +127,13 @@
       out.savingsRate = Number(m.savingsRate) || 0;
     }
 
+    if (window.Training && window.Training.computeLifeStatsSummary) {
+      var tr = window.Training.computeLifeStatsSummary();
+      out.trainingConsistency = Number(tr.trainingConsistency) || 0;
+      out.strengthTrend = tr.strengthTrend;
+      out.mobilityTrend = tr.mobilityTrend;
+    }
+
     return out;
   }
 

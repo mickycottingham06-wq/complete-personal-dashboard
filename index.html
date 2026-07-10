@@ -24,6 +24,7 @@
 <script src="scripts/ai-ceo-data.js"></script>
 <script src="scripts/boxing-data.js"></script>
 <script src="scripts/health-data.js"></script>
+<script src="scripts/training-data.js"></script>
 <script src="scripts/hormone-data.js"></script>
 <script src="scripts/appearance-data.js"></script>
 <script src="scripts/goals-data.js"></script>
@@ -468,6 +469,28 @@ button.quick-action { font-family: inherit; cursor: pointer; }
           <div class="streak-stat"><div class="v" id="previewHealthWater">—</div><div class="l">Water</div></div>
         </div>
         <div class="preview-sub" id="previewHealthDsFlag" style="margin-top:12px"></div>
+      </a>
+    </div>
+
+    <!-- ===== STRENGTH HQ PREVIEW — compact entry point, full view lives at
+         pages/gym.html ===== -->
+    <div class="section" id="strengthPreview">
+      <div class="section-title">Strength HQ</div>
+      <a class="gm-card preview-card" href="pages/gym.html">
+        <div class="preview-top">
+          <div>
+            <div class="gm-eyebrow" style="margin-bottom:4px">Today's Session</div>
+            <div class="preview-focus" id="previewStrengthSession">—</div>
+            <div class="preview-sub" id="previewStrengthWeek">—</div>
+          </div>
+          <span class="preview-arrow">→</span>
+        </div>
+        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
+          <div class="streak-stat"><div class="v" id="previewStrengthReadiness">—</div><div class="l">Readiness</div></div>
+          <div class="streak-stat"><div class="v" id="previewStrengthSessions">—</div><div class="l">This week</div></div>
+          <div class="streak-stat"><div class="v" id="previewStrengthLifts">—</div><div class="l">Lifts up</div></div>
+        </div>
+        <div class="preview-sub" id="previewStrengthWarn" style="margin-top:12px"></div>
       </a>
     </div>
 
@@ -1210,6 +1233,27 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     $('previewHealthDsFlag').textContent = snap.healthRoutineCompleted ? '✓ Health routine completed today' : '';
   }
 
+  function renderStrengthPreview() {
+    if (!window.Training) return;
+    const t = window.Training.load();
+    const session = window.Training.getTodaysSession(t, new Date());
+    const nameEl = $('previewStrengthSession');
+    if (session.templateId) {
+      nameEl.textContent = session.templateName + (session.isOptionalGymC ? ' (optional)' : '');
+    } else {
+      const labels = { 'boxing-mobility': 'Boxing + Mobility', boxing: 'Boxing', rest: 'Recovery / Rest day' };
+      nameEl.textContent = labels[session.type] || 'Rest';
+    }
+    $('previewStrengthWeek').textContent = 'Week ' + session.weekNumber + ' of 12 · ' + session.phaseName;
+
+    const stats = window.Training.computeDashboardStats(t);
+    $('previewStrengthReadiness').textContent = stats.readiness === 'unknown' ? '—' : stats.readiness.charAt(0).toUpperCase() + stats.readiness.slice(1);
+    $('previewStrengthSessions').textContent = stats.workoutsThisWeek;
+    $('previewStrengthLifts').textContent = stats.mainLiftsProgressing;
+
+    $('previewStrengthWarn').textContent = session.skipRecommended ? '⚠ Optional Gym C — skip recommended today' : '';
+  }
+
   function renderHormonePreview() {
     const hor = window.Hormones.load();
     $('previewHormoneScore').textContent = fmtScore(hor.hormoneScore, '/10');
@@ -1371,7 +1415,7 @@ button.quick-action { font-family: inherit; cursor: pointer; }
     }
   }
 
-  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderMoneyPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderWeeklyReviewPreview(); renderIntegrationsPreview(); }
+  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderMoneyPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderStrengthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderWeeklyReviewPreview(); renderIntegrationsPreview(); }
 
   renderPreviews();
   window.addEventListener('storage', renderPreviews);

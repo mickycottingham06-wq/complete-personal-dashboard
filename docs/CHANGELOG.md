@@ -1507,6 +1507,54 @@ Fix Trading 212 import inflating holding values and add preview/confirm + remove
 
 ---
 
+## 2026-07-10
+
+### Strength HQ (Strength & Athletic Development System)
+
+Replaced the orphaned, generic "Progressive Overload Coach" build at `pages/gym.html` with a fixed
+12-week periodized Boxing + Gym programme: Gym A (Squat/Bench), Gym B (Deadlift/Overhead), optional
+Gym C (Athletic Hypertrophy), boxing/mobility/rest days, weeks 1-3/5-7/9-11 progressive strength
+blocks with per-week target RIR, weeks 4/8 automatic deload, week 12 assessment.
+
+Added a new shared data module, `scripts/training-data.js` (`window.Training`, `training` localStorage
+key), following the existing load/save/upgrade-on-load pattern. Rule-based (not AI) progressive
+overload: main-lift accept/repeat/reduce/flag, double progression for rep-range accessories, a
+pull-up/chin-up assistance-to-added-weight ladder, and quality-gated power-exercise tracking. Added
+a fast readiness check (sleep/energy/soreness/joint condition -> green/amber/red), a resumable
+in-progress workout (auto-saved after every set, one atomic complete-workout transition so a session
+can never be double-saved), personal-record detection (best set per session only), a compact daily
+mobility checklist plus periodic (2-4 week) mobility tests, and a Week 12 assessment flow.
+
+The page's existing Weight Tracker and Progress Photos sections (own `po_coach_weights` /
+`po_coach_photos` keys) were kept exactly as they were working, just re-sourced where they used to
+read the deleted generic exercise log (composition estimate now reads Training's main-lift history
+instead of `CONFIG.exercises`). The page's legacy inline Supabase sync block was kept, trimmed to
+just those two keys. Standard `backup-data.js` / `cloud-sync.js` / `force-save.js` / `auto-sync.js`
+includes were added so the new `training` key gets the same generic backup/restore/cloud-sync as
+every other section, with zero allowlist changes needed elsewhere. A plain file-copy backup of the
+old build was kept at `pages/gym-legacy-backup.html` (unlinked) since this project has no git history
+to fall back on.
+
+Un-orphaned the page: added to the sidebar (`scripts/topbar.js`, Performance group) and to
+Command Centre's core preview grid (`index.html`) as a 7th priority card. Added small, one-way,
+read-only cross-links: a Weekly Review Performance badge and prompt-builder line, a Life Stats badge,
+a one-line Boxing HQ gym-fatigue note, and a one-line Health HQ latest-readiness display (Health's
+own sleep/energy fields are read once as a prefill default for the readiness check, never written
+back to).
+
+Files affected:
+
+scripts/training-data.js (new), pages/gym.html (rewritten), pages/gym-legacy-backup.html (new, backup
+of the old build), scripts/topbar.js, index.html, scripts/weekly-review-data.js, pages/weekly-review.html,
+scripts/life-stats-data.js, pages/life-stats.html, pages/boxing-hq.html, pages/health.html,
+docs/DATA_SCHEMA.md, docs/PROJECT.md, docs/ROADMAP.md, docs/TODO.md, docs/CHANGELOG.md
+
+Commit:
+
+Add Strength HQ — 12-week periodized training programme, progression engine, readiness and mobility
+
+---
+
 ## Future Entries
 
 Example

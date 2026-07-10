@@ -18,6 +18,7 @@
 <script src="../scripts/auto-sync.js"></script>
 <script src="../scripts/health-data.js"></script>
 <script src="../scripts/boxing-data.js"></script>
+<script src="../scripts/training-data.js"></script>
 <script src="../scripts/daily-snapshot-data.js"></script>
 <script src="../scripts/core-data.js"></script>
 <style>
@@ -756,6 +757,10 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
   <div class="hhq-section">
     <div class="section-title">Notes</div>
     <div class="stack-card">
+      <div class="hhq-field" id="hhqTrainingReadinessRow" style="margin-bottom:16px;display:none;">
+        <label class="hhq-label">Strength HQ Readiness</label>
+        <div id="hhqTrainingReadiness">—</div>
+      </div>
       <div class="hhq-grid2">
         <div class="hhq-field" style="margin-bottom:0">
           <label class="hhq-label">Recovery Notes</label>
@@ -864,6 +869,14 @@ select.hhq-input option { background: #16161a; color: var(--text-primary); }
     renderSleepProgress();
     renderWaterProgress();
     renderSleepPlan();
+
+    if (window.Training && window.Training.computeHealthReadinessSummary) {
+      var tr = window.Training.computeHealthReadinessSummary();
+      if (tr) {
+        $('hhqTrainingReadinessRow').style.display = '';
+        $('hhqTrainingReadiness').textContent = tr.status.charAt(0).toUpperCase() + tr.status.slice(1) + ' (' + tr.dateKey + ') — sleep ' + tr.sleepQuality + '/5, energy ' + tr.energy + '/5, soreness ' + tr.soreness + '/5, joints ' + tr.jointCondition + '/5';
+      }
+    }
 
     function bindSlider(id, valId, key) {
       var el = $(id);

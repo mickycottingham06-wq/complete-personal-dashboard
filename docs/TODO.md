@@ -26,6 +26,8 @@ Evening Review
 
 API Integrations (foundation done — pages/integrations.html, scripts/integrations-data.js; Weather, Whoop, and Finance (via Trading 212) are now real and live — see below; further integrations remain future work)
 
+Strength HQ ✅ (12-week periodized Boxing + Gym programme, pages/gym.html + scripts/training-data.js — rule-based progressive overload, readiness, mobility, PRs, Week 12 assessment; see ROADMAP.md and DATA_SCHEMA.md)
+
 Whoop ✅ (real/available — OAuth flow; requires WHOOP_CLIENT_ID / WHOOP_CLIENT_SECRET env vars, see SETUP.md §4)
 
 Weather ✅ (real/live via Open-Meteo by default, no key required, with fallback behaviour; optional OpenWeatherMap via WEATHER_API_KEY — api/weather.js)

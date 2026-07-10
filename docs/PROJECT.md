@@ -152,6 +152,8 @@ AI CEO (pages/ai-ceo.html)
 
 Boxing HQ (pages/boxing-hq.html)
 
+Strength HQ (pages/gym.html — 12-week periodized Boxing + Gym programme, workout logging, progressive overload, readiness, mobility; own `training` localStorage key via scripts/training-data.js; see DATA_SCHEMA.md)
+
 Health HQ (pages/health.html)
 
 Hormone Optimisation (pages/hormone-optimisation.html)
@@ -168,7 +170,7 @@ Integrations (pages/integrations.html — foundation only: Weather, Google Calen
 
 Settings (modal on Command Centre)
 
-De-prioritised / merged, not in the primary sidebar (still reachable directly, not deleted): pages/finance.html (old Finance build, superseded by Money HQ above); Fitness (pages/gym.html) → folds into Boxing HQ / Health HQ; Water (pages/po-water.html) → folds into Health HQ; Caffeine (pages/caffeine.html) → folds into Health HQ; Nova (pages/nova-lite.html) → folds into AI CEO; pages/main.html (old daily goal ticker) → no longer linked from the sidebar now that Command Centre owns that role.
+De-prioritised / merged, not in the primary sidebar (still reachable directly, not deleted): pages/finance.html (old Finance build, superseded by Money HQ above); Water (pages/po-water.html) → folds into Health HQ; Caffeine (pages/caffeine.html) → folds into Health HQ; Nova (pages/nova-lite.html) → folds into AI CEO; pages/main.html (old daily goal ticker) → no longer linked from the sidebar now that Command Centre owns that role. `pages/gym.html` was previously de-prioritised as "Fitness → folds into Boxing HQ / Health HQ" — it has since been rebuilt as Strength HQ (see above) and is back in the primary sidebar. A plain backup copy of the old generic Progressive Overload Coach build is kept at `pages/gym-legacy-backup.html` (not linked anywhere).
 
 Calendar and Weather are read through Integrations rather than as standalone pages.
 

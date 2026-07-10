@@ -21,6 +21,7 @@
 <script src="../scripts/business-data.js"></script>
 <script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/health-data.js"></script>
+<script src="../scripts/training-data.js"></script>
 <script src="../scripts/hormone-data.js"></script>
 <script src="../scripts/appearance-data.js"></script>
 <script src="../scripts/goals-data.js"></script>
@@ -320,6 +321,7 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
       <div class="wr-badge-row" style="margin-top:16px">
         <span class="wr-badge" id="wrHormones">Hormones —</span>
         <span class="wr-badge" id="wrAppearance">Appearance —</span>
+        <span class="wr-badge" id="wrTraining">Strength HQ —</span>
       </div>
     </div>
   </div>
@@ -537,6 +539,9 @@ textarea.wr-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
 
     $('wrHormones').textContent = 'Hormones ' + p.hormoneScore + '/10 · ' + p.hormoneFoundationsPct + '% foundations today';
     $('wrAppearance').textContent = 'Appearance ' + p.appearanceScore + '/10 · ' + p.appearanceRoutinePct + '% routines today';
+    if (p.trainingSessionsCompleted != null) {
+      $('wrTraining').textContent = 'Strength HQ ' + p.trainingSessionsCompleted + ' sessions · ' + p.trainingLiftsProgressed + ' lifts up · ' + p.trainingPRs + ' PRs';
+    }
   }
   renderPerformance();
 

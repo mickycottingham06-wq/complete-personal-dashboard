@@ -220,6 +220,16 @@
       out.appearanceFocus = (app.nextImprovementFocus || '').trim();
     }
 
+    if (window.Training && window.Training.computeWeeklyReviewSummary) {
+      var tr = window.Training.computeWeeklyReviewSummary();
+      out.trainingSessionsCompleted = tr.sessionsCompleted;
+      out.trainingLiftsProgressed = tr.liftsProgressed;
+      out.trainingWorkingSets = tr.workingSets;
+      out.trainingPRs = tr.prsThisWeek;
+      out.trainingMobilityPct = tr.mobilityPct;
+      out.trainingAvgReadiness = tr.avgReadinessLabel;
+    }
+
     return out;
   }
 
@@ -318,6 +328,9 @@
     lines.push('- Heatmap weekly consistency average: ' + p.heatmapWeekAvg + '/100');
     lines.push('- Hormones: score ' + p.hormoneScore + '/10, ' + p.hormoneFoundationsPct + '% lifestyle foundations done today');
     lines.push('- Appearance: score ' + p.appearanceScore + '/10, ' + p.appearanceRoutinePct + '% skincare/grooming done today' + (p.appearanceFocus ? ', focus: ' + p.appearanceFocus : ''));
+    if (p.trainingSessionsCompleted != null) {
+      lines.push('- Strength HQ: ' + p.trainingSessionsCompleted + ' gym sessions, ' + p.trainingLiftsProgressed + ' main lifts progressing, ' + p.trainingWorkingSets + ' working sets, ' + p.trainingPRs + ' PRs, ' + p.trainingMobilityPct + '% mobility done, avg readiness ' + p.trainingAvgReadiness);
+    }
     lines.push('');
     lines.push('Next week:');
     lines.push('- Main focus: ' + (wr.nextWeekFocus || 'Not set'));

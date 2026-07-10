@@ -22,6 +22,7 @@
 <script src="../scripts/business-data.js"></script>
 <script src="../scripts/boxing-data.js"></script>
 <script src="../scripts/health-data.js"></script>
+<script src="../scripts/training-data.js"></script>
 <script src="../scripts/appearance-data.js"></script>
 <script src="../scripts/money-data.js"></script>
 <script src="../scripts/life-stats-data.js"></script>
@@ -284,6 +285,7 @@ textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
         <span class="ls-badge" id="lsLooksBadge">Looks —</span>
         <span class="ls-badge" id="lsSkinBadge">Skin —</span>
         <span class="ls-badge" id="lsMoneyBadge">Money —</span>
+        <span class="ls-badge" id="lsTrainingBadge">Strength HQ —</span>
       </div>
     </div>
   </div>
@@ -431,6 +433,9 @@ textarea.ls-input { resize: vertical; min-height: 72px; line-height: 1.5; font-f
       $('lsLooksBadge').textContent = 'Looks ' + (c.looksScore || '—') + '/10';
       $('lsSkinBadge').textContent = 'Skin ' + (c.skinScore || '—') + '/10';
       $('lsMoneyBadge').textContent = 'Money £' + Math.round(c.netWorth).toLocaleString('en-GB') + ' net worth · ' + c.savingsRate + '% savings rate';
+      if (c.trainingConsistency != null) {
+        $('lsTrainingBadge').textContent = 'Strength HQ ' + c.trainingConsistency + '% consistency · strength ' + c.strengthTrend + ' · mobility ' + c.mobilityTrend;
+      }
     }
     renderComputed();
 

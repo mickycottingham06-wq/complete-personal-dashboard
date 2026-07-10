@@ -1092,6 +1092,58 @@ Owns **no localStorage key of its own** — a pure read/compute layer, `scripts/
 
 ---
 
+# Training Data (Strength HQ)
+
+Implemented. Lives in `localStorage` under the key `training`. The load/save/progression/readiness/mobility logic lives in `scripts/training-data.js` (shared business logic), used by the full page at `pages/gym.html` (title "Strength HQ") and the preview card on index.html.
+
+`pages/gym.html` used to be a self-contained, orphaned "Progressive Overload Coach" (its own `po_coach_v1`/`po_coach_workout_done` keys, a generic user-defined Push/Pull/Legs split, its own legacy inline Supabase sync). That generic exercise engine has been replaced entirely by a fixed 12-week periodized Boxing + Gym programme. The page's Weight Tracker (`po_coach_weights`) and Progress Photos (`po_coach_photos`) sections are kept exactly as they were — untouched keys, untouched UI — since Assessment Week (below) references them rather than duplicating weight/photo tracking. `po_coach_workout_done` is left orphaned (nothing reads or writes it any more; it only ever held a boolean-per-day with no exercise detail worth migrating).
+
+Shape (abbreviated — see `scripts/training-data.js` `defaultTraining()` for the full shape):
+
+```
+training: {
+  schemaVersion: number,
+  programmeStartDate: string,       // '' = onboarding not completed yet
+  currentWeek: number,              // 1-12
+  units: 'kg' | 'lb',
+  startingValues: { benchPress1RM, backSquat1RM, deadlift1RM, ohp1RM, pullUpMaxReps },
+  weeklySchedule: { mon, tue, wed, thu, fri, sat, sun },  // fixed day -> session type/template map
+  exercises: [ { id, name, category, progressionType, unilateral, bodyweight, allowsAssistance, defaultSets, repRangeLow, repRangeHigh, order, paused, notes } ],
+  workoutTemplates: [ { id: 'gymA'|'gymB'|'gymC', name, optional, exerciseSlots: [exerciseId] } ],
+  phases: [ { weekNumbers, name, mainSets, mainRepsLow/High, deadliftSets, deadliftReps, targetRIRByWeek, deload, deloadPct, isAssessment } ],
+  weekOverrides: {},                // { '<week>': { deload: true } } — manual deload flag, independent of the phase table
+  substitutions: {},                // exerciseId -> [substituteExerciseId]
+  activeWorkout: null | { id, templateId, weekNumber, phaseName, dateKey, startedAt, readinessCheckId, exercises: [...], sessionNote },
+  completedWorkouts: [ { id, templateId, weekNumber, phaseName, dateKey, startedAt, completedAt, durationMinutes, totalWorkingSets, averageRIR, prsHit, progressionOutcome, exercises } ],
+  exerciseState: {},                // per-exercise progression state: currentWorkingWeight, consecutiveMisses, flaggedForReview, rep-range targets, pull-up ladder stage/assistance/added weight, power PB fields
+  readinessChecks: [ { id, dateKey, sleepQuality, energy, soreness, jointCondition, computedStatus } ],
+  personalRecords: [ { id, type, exerciseId, value, unit, dateKey, workoutId } ],
+  mobilityRoutine: [ { id, label, completed } ],
+  mobilityRoutineDate: string,
+  mobilityTests: [ { id, dateKey, kneeToWallCm, deepSquatComfort, hip90_90Rating, thoracicRotationRating, wallSlideQualityRating, generalStiffnessRating, notes } ],
+  assessmentResults: { dateKey, benchRepMax, squatRepMax, deadlift3RM, strictPullUpMax, standingBroadJumpCm, bodyMeasurements, notes },
+  onboardingCompletedAt: string,
+}
+```
+
+**Programme:** a fixed weekly schedule (Mon/Wed boxing+mobility, Tue Gym A — Squat/Bench, Thu Gym B — Deadlift/Overhead, Fri optional Gym C — Athletic Hypertrophy, Sat boxing, Sun rest) over a 12-week periodization (weeks 1-3/5-7/9-11 progressive strength blocks with per-week target RIR, weeks 4/8 automatic deload, week 12 assessment). `window.Training.getTodaysSession(t, date)` is the single read every UI surface uses to answer "what do I do today" — it also flags when Gym C should be skipped (`shouldSkipGymC()`, a deterministic readiness/recent-RIR-load rule, never a hidden weighted score).
+
+**Progressive overload is rule-based, not AI**: `progressMainLift()` (accept/repeat/reduce/flag-after-3-misses, upper lifts +1-2.5kg / lower lifts +2.5-5kg), `progressDoubleProgression()` (hold weight until every set hits the top of the rep range, then a small bump), `progressPullUpLadder()` (reduce assistance → more reps → add weight, one ladder), `progressPower()` (quality-gated, never chases rep fatigue). All four read/write only `exerciseState`, never rescan full history, so `suggestNextPrescription()` stays cheap.
+
+**Resume / no-duplicate-saves:** `activeWorkout` holds the in-progress session (auto-saved to `localStorage` after every logged set); `completeWorkout()` is the only place that moves it into `completedWorkouts` and clears it, in one atomic `save()` — so a workout can never be double-committed, and refreshing mid-session resumes exactly where it left off.
+
+**PRs** (`detectPRs()`) only ever compare each exercise's single best set per session against prior sessions' best sets — never every set logged — so extra volume/junk sets can't manufacture a false PR.
+
+**Estimated 1RM** uses the Epley formula (`weight × (1 + reps/30)`) consistently, always labelled as an estimate — same formula the old Progressive Overload Coach used, so nothing about the underlying maths changed, only its data source.
+
+**Cross-feeds (one-way, never overwritten):** `window.Training.getReadinessDefaultInputs()` reads `window.Health.load()`'s `lastNightSleep`/`energyLevel` as a *prefill only* for the readiness check (mapped onto the 1-5 scale) — the user still confirms/edits before it's recorded, and Health's own fields are never written back to. `window.Training.computeHealthReadinessSummary()` / `computeBoxingFatigueNote()` are pure readers surfaced as a single line each on `pages/health.html` and `pages/boxing-hq.html` respectively — neither page owns or duplicates training data. `window.Training.computeWeeklyReviewSummary()` and `computeLifeStatsSummary()` follow the same read-only pattern for Weekly Review's Performance card and Life Stats' badge row.
+
+**Sync:** unlike the old page, `pages/gym.html` now includes the standard `backup-data.js`/`cloud-sync.js`/`force-save.js`/`auto-sync.js` set, so the `training` key participates in backup/restore/cloud-sync exactly like every other section (no allowlist edit was needed anywhere — `Backup.buildExport()` already captures every raw localStorage key). The old page's legacy inline Supabase sync block is kept, trimmed to only the two keys it still owns (`po_coach_weights`, `po_coach_photos`).
+
+The full interactive UI lives at `pages/gym.html`. index.html shows a compact preview card (today's session, programme week/phase, readiness, sessions this week, lifts progressing, an optional-Gym-C-skip warning) that links to it. Future features (richer programme editing, real drag-and-drop reordering, Nova AI coach awareness of training data) should extend this shape rather than creating a second training-tracking system.
+
+---
+
 # Rules
 
 Never duplicate data.

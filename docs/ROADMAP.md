@@ -175,6 +175,14 @@ Daily Guidance Engine v2 ✅ (scripts/daily-guidance-data.js — now also reads 
 
 ---
 
+## Strength HQ v1 ✅ (2026-07-10)
+
+Built as an explicit user-requested exception to the "use v1 daily for 7-14 days first" rule above (v1 was marked complete 2026-07-09, one day prior) — noted here for the record, not as a precedent for skipping that window on future v2-scale features.
+
+12-week periodized Boxing + Gym programme (`pages/gym.html`, retitled "Strength HQ"; `training` localStorage key via `scripts/training-data.js`) — fixed weekly schedule (boxing/mobility, Gym A Squat-Bench, Gym B Deadlift-Overhead, optional Gym C Athletic Hypertrophy), rule-based progressive overload (main-lift accept/repeat/reduce/flag, double progression, pull-up ladder, power/quality-gated), readiness-driven autoregulation, resumable in-progress workouts, personal records, mobility checklist + periodic tests, Week 12 assessment. Replaces the old orphaned, generic "Progressive Overload Coach" build (kept as a plain backup at `pages/gym-legacy-backup.html`) — its Weight Tracker and Progress Photos sections were carried over unchanged. Cross-linked into Command Centre, Weekly Review, Life Stats, Boxing HQ and Health HQ; see DATA_SCHEMA.md.
+
+---
+
 ## Phase 9 (future — not started)
 
 Supabase Cloud Stage
@@ -250,6 +258,18 @@ Feature ideas:
 - Recovery trend charts (beyond the current single WHOOP recovery score)
 - Sleep analytics (beyond the current Sleep Planner's single-night recommendation)
 - Coach feedback log tied to specific sessions
+
+### Strength HQ v2
+
+Bugs / known issues:
+- Nova (the in-page AI chat coach) is not yet given awareness of the new `training` data — it still only reads bodyweight/photos context.
+- Programme Editor supports pause/notes/reorder-by-number but not full drag-and-drop reordering.
+
+Feature ideas:
+- Nova awareness of programme week/phase/PRs for richer coaching answers
+- Full drag-and-drop exercise reordering in the Programme Editor
+- Deeper mobility trend analysis (currently a simple last-2-tests comparison)
+- Alternate/custom programmes beyond the single fixed default 12-week block
 
 ### AI Coach layer v2
 

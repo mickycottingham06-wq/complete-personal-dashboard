@@ -327,6 +327,7 @@ body.topbar-modal-open {
       key: 'performance', label: 'Performance',
       links: [
         { key: 'boxing',      icon: '🥊', label: 'Boxing HQ',            href: '/pages/boxing-hq.html' },
+        { key: 'strength',    icon: '🏋️', label: 'Strength HQ',          href: '/pages/gym.html' },
         { key: 'health',      icon: '💊', label: 'Health HQ',            href: '/pages/health.html' },
         { key: 'hormone',     icon: '🧬', label: 'Hormone Optimisation', href: '/pages/hormone-optimisation.html' },
         { key: 'appearance',  icon: '✨', label: 'Appearance / Looks',   href: '/pages/appearance.html' },
@@ -428,6 +429,7 @@ body.topbar-modal-open {
     if (p.endsWith('money-hq.html')) return 'money-hq';
     if (p.endsWith('ai-ceo.html')) return 'ai-ceo';
     if (p.endsWith('boxing-hq.html')) return 'boxing';
+    if (p.endsWith('gym.html')) return 'strength';
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('hormone-optimisation.html')) return 'hormone';
     if (p.endsWith('appearance.html')) return 'appearance';
