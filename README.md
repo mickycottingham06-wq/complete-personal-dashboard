@@ -1,28 +1,28 @@
-# Micky's Personal Dashboard
+# LOCK-IN HQ
 
-A set of small, self-contained HTML apps that share a top bar.
+A calm personal app: today's focus, notes, briefings, MB Automotive content and specialist help — built
+from plain HTML/JS with a few Vercel serverless routes.
 
 ## Deploy your own copy
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmickycottingham06-wq%2Fcomplete-personal-dashboard)
 
-One click → Vercel signs you in, copies the repo to your GitHub, and deploys it. ~30 seconds to a live URL.
+Setup (Supabase sign-in/sync, Google Calendar, optional AI): [SETUP.md](SETUP.md). How the app works and the
+deployment checklist: [docs/LOCK_IN_HQ.md](docs/LOCK_IN_HQ.md).
 
-## How to use
+## Pages
 
-Open any `.html` file directly in your browser — no build step, no install.
+Every page has the same **Menu** button.
 
-| File | What it is |
+| Page | File |
 |---|---|
-| [index.html](index.html) | Goals tracker (Day Ring, Goal Ticker, To Do list) — the home page |
-| [pages/health.html](pages/health.html) | Supplement / daily stack tracker |
-| [pages/po-water.html](pages/po-water.html) | Water intake tracker |
-| [pages/finance.html](pages/finance.html) | Finances |
-| [pages/gym.html](pages/gym.html) | Progressive overload gym tracker |
-| [scripts/topbar.js](scripts/topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
+| Today | [index.html](index.html) |
+| Second Brain | [pages/second-brain.html](pages/second-brain.html) |
+| Morning / Evening / Weekly reset | [pages/assistant.html](pages/assistant.html) (`?mode=morning`, `evening`, `weekly`) |
+| Content | [pages/content.html](pages/content.html) |
+| Workforce | [pages/workforce.html](pages/workforce.html) |
+| Settings · Integrations · Account · Backup | [pages/settings.html](pages/settings.html) |
 
-Each app stores its own state in browser `localStorage`. No accounts, no server.
-
-## Building from scratch
-
-[BUILD_DASHBOARD.md](BUILD_DASHBOARD.md) is the prompt I gave Claude to generate `index.html` — paste it into Claude if you want to rebuild that page yourself.
+Data is saved in the browser (`localStorage`; Content photos in IndexedDB on the device). Signing in adds a
+private cloud copy via Supabase. **Menu → Backup** exports everything, including records from older pages
+that have since been removed.

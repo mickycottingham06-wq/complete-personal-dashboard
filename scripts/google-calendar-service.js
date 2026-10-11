@@ -4,8 +4,8 @@
 // localStorage (gcal_tokens_v1) and talks to Google only through
 // server-side proxy routes (api/google-calendar-callback.js,
 // api/google-calendar-refresh.js, api/google-calendar-data.js) —
-// the client secret never reaches the browser. Same pattern as
-// WHOOP (pages/health.html + api/whoop-*.js).
+// the client secret never reaches the browser. Connect/refresh UI lives
+// in pages/settings.html#integrations; the OAuth callback returns there.
 // =============================================================
 (function () {
   'use strict';

@@ -1,12 +1,11 @@
 // =============================================================
 // LOCK-IN HQ — task data layer for the default homepage.
 //
-// Reuses the existing To Do store (pages/main.html): one localStorage
-// key per day, `goals:YYYY-MM-DD`, holding [{ text, done, ... }]. Items
-// gain optional fields here (id, role 'main'|'support', firstStep,
-// minutes, createdAt, updatedAt) — every other reader (main.html,
-// topbar.js, heatmap-data.js) only looks at text/done, so they keep
-// working unchanged. Same 6 AM day rollover as the rest of the app.
+// Uses the app's original task store: one localStorage key per day,
+// `goals:YYYY-MM-DD`, holding [{ text, done, ... }] (the old To Do page
+// that created it has been removed; its saved tasks carry on here).
+// Items carry optional fields (id, role 'main'|'support', firstStep,
+// minutes, createdAt, updatedAt). 6 AM day rollover.
 //
 // Cloud sync is NOT handled here: scripts/auto-sync.js already wraps
 // localStorage.setItem and pushes the whole dataset to Supabase when
@@ -74,9 +73,9 @@
     return out;
   }
 
-  // Same behaviour as main.html's rollover() — undone items from past days
-  // move into today (deduped by text) and the old key is removed — except
-  // the extra fields are kept instead of being reduced to { text, done }.
+  // Undone items from past days move into today (deduped by text, all
+  // fields kept) and the old day key is removed after its completed items
+  // are copied into the log.
   function rollover() {
     var today = activeDate();
     var todayKey = PREFIX + today;
@@ -201,7 +200,7 @@
   }
 
   // ---------- Log: completion history + weekly outcomes ----------
-  // Day keys are deleted on rollover (here and in pages/main.html), so
+  // Day keys are deleted on rollover, so
   // completed items are copied into `lockInLog` first — the only record of
   // past completions. History starts when this was added; nothing older exists.
   var LOG_KEY = 'lockInLog';

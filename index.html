@@ -17,30 +17,17 @@
 <script src="scripts/google-calendar-service.js"></script>
 <script src="scripts/sync-status-line.js"></script>
 <script src="scripts/lockin-data.js"></script>
+<script src="scripts/menu.js" defer></script>
 <link rel="stylesheet" href="styles/lock-in.css">
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1>LOCK-IN HQ</h1>
+      <h1>TODAY</h1>
       <p class="date" id="todayLabel"></p>
     </div>
-    <button type="button" class="more-btn" id="moreBtn" aria-expanded="false" aria-controls="moreMenu">More</button>
   </header>
-
-  <div class="card menu" id="moreMenu" hidden>
-    <a href="pages/second-brain.html">Second Brain <span class="tag">Notes</span></a>
-    <a href="pages/assistant.html">Assistant <span class="tag">Morning · Evening · Weekly</span></a>
-    <a href="pages/content.html">Content <span class="tag">Captions · Stories</span></a>
-    <a href="pages/workforce.html">Workforce <span class="tag">Specialist help</span></a>
-    <div class="group">Existing pages</div>
-    <a href="pages/main.html">Full To Do list</a>
-    <a href="command-centre.html">Command Centre (old home)</a>
-    <a href="pages/daily-snapshot.html">Daily Control Panel</a>
-    <a href="pages/ai-ceo.html">AI CEO (prompt builder)</a>
-    <a href="pages/integrations.html">Integrations &amp; Cloud Sync</a>
-  </div>
 
   <section aria-labelledby="commitH">
     <h2 id="commitH">Today's commitments</h2>
@@ -169,7 +156,7 @@
     if (cal.state === 'not-connected') {
       ul.appendChild(el('li', {}, [
         el('span', { text: 'Calendar ' }), el('span', { class: 'tag', text: 'Not connected' }),
-        el('span', { class: 'src' }, ['Connect Google Calendar in ', el('a', { href: 'pages/integrations.html', text: 'Integrations' }), ' to see real events here.']),
+        el('span', { class: 'src' }, ['Connect Google Calendar in ', el('a', { href: 'pages/settings.html#integrations', text: 'Settings → Integrations' }), ' to see real events here.']),
       ]));
     } else {
       if (cal.state === 'loading') head = 'Refreshing calendar…';
@@ -293,7 +280,7 @@
     else mainSlot.appendChild(el('div', { class: 'card' }, [el('p', { class: 'empty', text:
       f.inbox.length ? 'No main action chosen. Open "Captured" below and tap Make main on one item.'
                      : 'Nothing chosen yet. Capture what matters below, then make one item your main action.' }),
-      el('p', { class: 'meta', style: 'margin-top:8px' }, ['Or let the ', el('a', { href: 'pages/assistant.html', text: 'Assistant suggest a plan' }), '.'])]));
+      el('p', { class: 'meta', style: 'margin-top:8px' }, ['Or let the ', el('a', { href: 'pages/assistant.html?mode=morning', text: 'Morning briefing suggest a plan' }), '.'])]));
 
     var supportSlot = $('supportSlot');
     supportSlot.textContent = '';
@@ -340,18 +327,6 @@
   // ---------- Sync line (honest about where data lives) ----------
   function renderSync() { $('syncLine').textContent = window.SyncStatusLine.text(lastActionAt); }
 
-  // ---------- More menu ----------
-  $('moreBtn').addEventListener('click', function () {
-    var m = $('moreMenu');
-    m.hidden = !m.hidden;
-    this.setAttribute('aria-expanded', String(!m.hidden));
-  });
-  Array.prototype.forEach.call(document.querySelectorAll('.soon-link'), function (a) {
-    a.addEventListener('click', function (e) {
-      e.preventDefault();
-      setStatus($('actionStatus'), '', a.firstChild.textContent.trim() + ' is planned for a later stage — see docs/LOCK_IN_HQ.md.');
-    });
-  });
 
   // ---------- Boot ----------
   $('todayLabel').textContent = new Date(L.activeDate() + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });

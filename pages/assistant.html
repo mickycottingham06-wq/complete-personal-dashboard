@@ -21,20 +21,16 @@
 <script src="../scripts/second-brain-data.js"></script>
 <script src="../scripts/ai-client.js"></script>
 <script src="../scripts/assistant-engine.js"></script>
+<script src="../scripts/menu.js" defer></script>
 <link rel="stylesheet" href="../styles/lock-in.css">
 <style>
-  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
-  .back:hover { color: var(--blue); }
   .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .modes button { min-height: 56px; font-weight: 600; padding: 8px 6px; }
   .modes button[aria-pressed="true"] { background: var(--blue-strong); border-color: var(--blue-strong); color: #fff; }
-  .badge { display: inline-block; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
-  .badge.ai { background: var(--blue-soft); color: var(--text); }
   .badge.warn { color: var(--warn); }
   .label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 6px; }
   .out h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
   .out .card { margin-top: 12px; }
-  .flag { color: var(--warn); margin: 6px 0 0; }
   .plan-item { border-top: 1px solid var(--line); padding: 14px 0; }
   .plan-item:first-of-type { border-top: 0; padding-top: 0; }
   .role { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); font-weight: 700; }
@@ -51,8 +47,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="../index.html">← LOCK-IN HQ</a>
-  <header style="padding-top:0">
+  <header>
     <h1>ASSISTANT</h1>
     <span class="badge" id="aiBadge">AI: checking…</span>
   </header>
@@ -71,7 +66,7 @@
     <summary>About the AI and what it sees</summary>
     <div class="card">
       <p class="meta" id="aiReason"></p>
-      <p class="meta"><strong>To turn AI on:</strong> in Vercel → Project → Settings → Environment Variables add <code>ANTHROPIC_API_KEY</code>, <code>ASSISTANT_ALLOWED_EMAILS</code> (your sign-in email) and run <code>supabase/assistant_usage.sql</code>, then redeploy and sign in. AI stays off until all are in place. Each button press with AI on is one paid request (about £0.001 on the default model; see SETUP.md §8).</p>
+      <p class="meta"><strong>To turn AI on:</strong> in Vercel → Project → Settings → Environment Variables add <code>ANTHROPIC_API_KEY</code>, <code>ASSISTANT_ALLOWED_EMAILS</code> (your sign-in email) and run <code>supabase/assistant_usage.sql</code>, then redeploy and sign in. AI stays off until all are in place. Each button press with AI on is one paid request (about £0.001 on the default model; see SETUP.md §4).</p>
       <p class="meta"><strong>Sent per request:</strong> today's open tasks, today's commitments, at most 3 matching Second Brain excerpts and your question. Not your whole notes collection, finances or anything else.</p>
       <p class="meta">Without AI you get a basic briefing built only from your stored tasks and commitments.</p>
     </div>
@@ -316,6 +311,7 @@
       el('label', { for: 'eveNote', text: 'Short note' }), note,
       el('label', { for: 'evePrio', text: 'Tomorrow\'s priority' }), prio,
       snapNow && snapNow.tomorrowPriority ? el('p', { class: 'hint', style: 'color:var(--muted);font-size:0.85rem', text: 'Currently set: ' + snapNow.tomorrowPriority }) : null,
+      snapNow && snapNow.notes ? el('p', { class: 'hint', style: 'white-space:pre-wrap', text: 'Saved today:\n' + snapNow.notes }) : null,
       el('div', { class: 'row' }, [el('button', { type: 'button', class: 'primary', text: 'Save', onclick: function () {
         st.textContent = '';
         var n = note.value.trim(), p = prio.value.trim();
@@ -334,7 +330,7 @@
         }
         wrote();
         note.value = ''; prio.value = '';
-        st.appendChild(status('ok', 'Saved' + (n ? ' — note added to today\'s Daily Control Panel' : '') + (p ? (n ? ';' : ' —') + ' "' + p + '" is on tomorrow\'s list' : '') + '.'));
+        st.appendChild(status('ok', 'Saved' + (n ? ' — note added to today\'s record' : '') + (p ? (n ? ';' : ' —') + ' "' + p + '" is on tomorrow\'s list' : '') + '.'));
       } })]),
       st,
     ]);
@@ -436,6 +432,8 @@
       if (busy) return;
       busy = true;
       Array.prototype.forEach.call(document.querySelectorAll('.modes button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      // keep the address in step so the Menu marks the right view and links/bookmarks reopen it
+      try { history.replaceState(null, '', '?mode=' + b.getAttribute('data-mode')); } catch (e) {}
       var out = $('out');
       out.textContent = '';
       await refreshAi(); // sign-in may have changed since the page loaded
@@ -459,6 +457,12 @@
   }
   if (window.SupabaseAuth) window.SupabaseAuth.init();
   refreshAi();
+  // Direct links from the Menu: ?mode=morning|evening|weekly opens that view straight away.
+  (function openFromUrl() {
+    var m = new URLSearchParams(location.search).get('mode');
+    var b = m && document.querySelector('.modes button[data-mode="' + m + '"]');
+    if (b) b.click();
+  })();
 })();
 </script>
 </body>

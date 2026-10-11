@@ -14,17 +14,13 @@ Read documentation.
 
 Always begin by reading:
 
-dashboard-bible.md
+LOCK_IN_HQ.md (the current app: pages, menu, storage, AI, deployment checklist)
 
-PROJECT.md
+DO_NOT_CHANGE.md
 
-DESIGN.md
+SETUP.md (environment and services)
 
-STYLE_GUIDE.md
-
-CODING_RULES.md
-
-TODO.md
+Other files in docs/ marked "Historical" describe the removed dashboard; use them only for old data keys.
 
 Then read any documentation directly related to the requested feature.
 

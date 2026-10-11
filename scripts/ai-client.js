@@ -19,7 +19,7 @@
       if (!r.ok) return { available: false, reason: 'The AI route isn\'t available on this server (local preview or not deployed).' };
       var j = await r.json();
       if (!j.enabled) return { available: false, reason: 'Not fully set up on the server — missing ' + (j.missing || []).join(', ') + '.' };
-      if (!accessToken()) return { available: false, reason: 'Sign in under Integrations → Cloud Sync to use AI.' };
+      if (!accessToken()) return { available: false, reason: 'Sign in under Menu → Account to use AI.' };
       return { available: true, model: j.model };
     } catch (e) {
       return { available: false, reason: 'The AI route couldn\'t be reached.' };

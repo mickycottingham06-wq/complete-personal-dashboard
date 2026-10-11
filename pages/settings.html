@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<script src="/api/config"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16191f">
+<title>Settings · LOCK-IN HQ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/auto-sync.js"></script>
+<script src="../scripts/google-calendar-service.js"></script>
+<script src="../scripts/ai-client.js"></script>
+<script src="../scripts/sync-status-line.js"></script>
+<script src="../scripts/menu.js" defer></script>
+<link rel="stylesheet" href="../styles/lock-in.css">
+<style>
+  section { scroll-margin-top: 80px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 10px 0 0; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>SETTINGS</h1></header>
+
+  <!-- Account -->
+  <section id="account" aria-labelledby="accountH">
+    <h2 id="accountH">Account</h2>
+    <div class="card">
+      <p class="meta" id="authState">Checking…</p>
+      <p class="hint" id="authNotConfigured" hidden>Sign-in isn't set up on this server (Supabase environment variables missing). Your data stays on this device.</p>
+      <form id="authForm" autocomplete="on" hidden>
+        <label for="authEmail" style="margin-top:0">Email</label>
+        <input id="authEmail" type="email" autocomplete="email" required>
+        <label for="authPassword">Password</label>
+        <input id="authPassword" type="password" autocomplete="current-password" required minlength="6">
+        <div class="row">
+          <button type="submit" class="primary" id="signInBtn">Sign in</button>
+          <button type="button" id="signUpBtn">Create account</button>
+        </div>
+      </form>
+      <div class="row" id="signedInRow" hidden><button type="button" id="signOutBtn">Sign out</button></div>
+      <p class="status" id="authStatus" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- Cloud sync settings -->
+  <section id="sync" aria-labelledby="syncH">
+    <h2 id="syncH">Settings · Cloud sync</h2>
+    <div class="card">
+      <p class="meta"><strong id="syncLabel">—</strong></p>
+      <p class="hint" id="syncReason"></p>
+      <dl class="kv">
+        <dt>Last cloud save from this device</dt><dd id="syncLastPush">—</dd>
+        <dt>Last local change</dt><dd id="syncLocal">—</dd>
+      </dl>
+      <label>Auto cloud save</label>
+      <div class="seg" role="group" aria-label="Auto cloud save">
+        <button type="button" id="autoOn" aria-pressed="false">On</button>
+        <button type="button" id="autoOff" aria-pressed="false">Off</button>
+      </div>
+      <p class="hint">When on and signed in, changes on this device are pushed to your private cloud copy automatically.</p>
+      <h3>Manual</h3>
+      <div class="row">
+        <button type="button" id="pushBtn">Save this device to cloud</button>
+        <button type="button" id="pullBtn">Load cloud to this device</button>
+      </div>
+      <div id="syncConfirm"></div>
+      <p class="status" id="syncStatus" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- Backup -->
+  <section id="backup" aria-labelledby="backupH">
+    <h2 id="backupH">Backup</h2>
+    <div class="card">
+      <p class="meta">Export saves <strong>everything</strong> stored on this device — tasks, notes, drafts, money, training and health records from older pages, integrations — as one file.</p>
+      <p class="hint">Records from removed pages (Money HQ, Strength HQ, Boxing HQ, Health HQ and older dashboard pages) are still stored and included. Content photos are kept separately on this device and are not in the file.</p>
+      <dl class="kv"><dt>Last export</dt><dd id="lastBackup">Never</dd><dt>Items stored</dt><dd id="keyCount">—</dd></dl>
+      <div class="row">
+        <button type="button" class="primary" id="exportBtn">Export backup</button>
+        <label class="file-label">Restore from backup<input type="file" id="importInput" class="visually-hidden" accept=".json,application/json"></label>
+      </div>
+      <div id="importConfirm"></div>
+      <p class="status" id="backupStatus" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- Integrations -->
+  <section id="integrations" aria-labelledby="intH">
+    <h2 id="intH">Integrations</h2>
+    <div class="card">
+      <p class="meta"><strong>Google Calendar</strong> · <span id="calStatus">—</span></p>
+      <p class="hint" id="calDetail"></p>
+      <div class="row">
+        <button type="button" class="primary" id="calConnect">Connect Google Calendar</button>
+        <button type="button" id="calRefresh">Refresh now</button>
+        <button type="button" id="calDisconnect">Disconnect</button>
+      </div>
+      <p class="status" id="calMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="card">
+      <p class="meta"><strong>AI</strong> · <span id="aiState">Checking…</span></p>
+      <p class="hint">Used by Assistant, Content and Workforce when switched on in Vercel (see SETUP.md §4). Without it those pages use labelled Basic / Template modes.</p>
+    </div>
+    <div class="card">
+      <p class="meta"><strong>Email</strong> · Not connected</p>
+      <p class="hint">There is no email integration — no page reads or sends email.</p>
+    </div>
+  </section>
+
+  <p class="sync-line" id="syncLine"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function setStatus(node, kind, msg) { node.className = 'status' + (kind ? ' ' + kind : ''); node.textContent = msg || ''; }
+  function when(iso) { var d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : 'Never'; }
+  window.SyncStatusLine.bind($('syncLine'), function () { return ''; });
+
+  // In-page confirmation (no browser pop-ups). onYes runs only after Confirm.
+  function confirmIn(holder, text, yesLabel, onYes) {
+    holder.textContent = '';
+    holder.appendChild(el('div', { class: 'card', style: 'margin-top:12px;background:var(--bg)' }, [
+      el('p', { class: 'flag', style: 'margin-top:0', text: text }),
+      el('div', { class: 'row' }, [
+        el('button', { type: 'button', class: 'primary', text: yesLabel, onclick: function () { holder.textContent = ''; onYes(); } }),
+        el('button', { type: 'button', text: 'Cancel', onclick: function () { holder.textContent = ''; } }),
+      ]),
+    ]));
+  }
+
+  // ---------- Account ----------
+  function renderAuth() {
+    var configured = !!(window.SupabaseFoundation && window.SupabaseFoundation.isConfigured());
+    var st = window.SupabaseAuth ? window.SupabaseAuth.getState() : {};
+    $('authNotConfigured').hidden = configured;
+    $('authForm').hidden = !configured || !!st.user;
+    $('signedInRow').hidden = !st.user;
+    $('authState').textContent = !configured ? 'Not available' : st.loading ? 'Checking…' : st.user ? 'Signed in as ' + (st.user.email || st.user.id) : 'Not signed in';
+    if (st.error) setStatus($('authStatus'), 'err', st.error);
+    ['signInBtn', 'signUpBtn', 'signOutBtn'].forEach(function (id) { $(id).disabled = !!st.loading; });
+  }
+  $('authForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    setStatus($('authStatus'), '', 'Signing in…');
+    var r = await window.SupabaseAuth.signIn($('authEmail').value.trim(), $('authPassword').value);
+    setStatus($('authStatus'), r.error ? 'err' : 'ok', r.error || 'Signed in.');
+    if (!r.error) $('authPassword').value = '';
+  });
+  $('signUpBtn').addEventListener('click', async function () {
+    if (!$('authForm').reportValidity()) return;
+    setStatus($('authStatus'), '', 'Creating account…');
+    var r = await window.SupabaseAuth.signUp($('authEmail').value.trim(), $('authPassword').value);
+    setStatus($('authStatus'), r.error ? 'err' : 'ok', r.error || (r.data && r.data.session ? 'Account created and signed in.' : 'Account created — check your email to confirm, then sign in.'));
+  });
+  $('signOutBtn').addEventListener('click', async function () {
+    var r = await window.SupabaseAuth.signOut();
+    setStatus($('authStatus'), r.error ? 'err' : 'ok', r.error || 'Signed out.');
+  });
+
+  // ---------- Cloud sync ----------
+  function renderSync() {
+    var s = window.AutoSync ? window.AutoSync.getState() : null;
+    var on = window.Integrations.load().cloudSync.enabled;
+    $('autoOn').setAttribute('aria-pressed', String(on));
+    $('autoOff').setAttribute('aria-pressed', String(!on));
+    $('syncLabel').textContent = s ? 'Cloud sync: ' + s.label : 'Cloud sync unavailable';
+    $('syncReason').textContent = s ? (s.reason || s.lastReason || '') : '';
+    $('syncLastPush').textContent = window.CloudSync ? when(window.CloudSync.lastDeviceSyncAt()) : '—';
+    $('syncLocal').textContent = window.CloudSync ? when(window.CloudSync.latestLocalTimestamp()) : '—';
+    var can = !!(window.CloudSync && window.CloudSync.isAvailable());
+    $('pushBtn').disabled = !can; $('pullBtn').disabled = !can;
+  }
+  function setAuto(on) { window.Integrations.setEnabled('cloudSync', on); if (window.AutoSync) window.AutoSync.refresh(); renderSync(); }
+  $('autoOn').addEventListener('click', function () { setAuto(true); });
+  $('autoOff').addEventListener('click', function () { setAuto(false); });
+  $('pushBtn').addEventListener('click', async function () {
+    var st = await window.CloudSync.getCloudStatus();
+    confirmIn($('syncConfirm'), 'Replace your cloud copy (' + (st.exists ? 'saved ' + when(st.updatedAt) : 'none yet') + ') with this device\'s data?', 'Save to cloud', async function () {
+      var saved = window.ForceSave ? window.ForceSave.run() : { ok: true };
+      if (!saved.ok) { setStatus($('syncStatus'), 'err', saved.error); return; }
+      var r = await window.CloudSync.pushToCloud();
+      setStatus($('syncStatus'), r.ok ? 'ok' : 'err', r.ok ? 'Saved to cloud (' + r.keyCount + ' items) at ' + when(r.updatedAt) + '.' : r.error);
+      renderSync();
+    });
+  });
+  $('pullBtn').addEventListener('click', async function () {
+    var st = await window.CloudSync.getCloudStatus();
+    if (!st.ok || !st.exists) { setStatus($('syncStatus'), 'err', st.error || 'No cloud copy yet — save from a device first.'); return; }
+    confirmIn($('syncConfirm'), 'Replace this device\'s data with the cloud copy saved ' + when(st.updatedAt) + '? Export a backup first if unsure.', 'Load from cloud', async function () {
+      var r = await window.CloudSync.pullToLocal();
+      if (!r.ok) { setStatus($('syncStatus'), 'err', r.error); return; }
+      setStatus($('syncStatus'), 'ok', 'Loaded ' + r.keyCount + ' items from the cloud. Reloading…');
+      setTimeout(function () { location.reload(); }, 900);
+    });
+  });
+
+  // ---------- Backup ----------
+  function renderBackup() {
+    $('lastBackup').textContent = when(window.Backup.load().lastBackupDate);
+    $('keyCount').textContent = String(localStorage.length);
+  }
+  $('exportBtn').addEventListener('click', function () {
+    var r = window.Backup.downloadExport();
+    setStatus($('backupStatus'), r.ok ? 'ok' : 'err', r.ok ? 'Backup exported — check your downloads.' : r.error);
+    renderBackup();
+  });
+  $('importInput').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var payload;
+      try { payload = JSON.parse(String(reader.result)); } catch (e) { setStatus($('backupStatus'), 'err', 'That file isn\'t a valid backup — nothing changed.'); return; }
+      var check = window.Backup.validate(payload);
+      if (!check.ok) { setStatus($('backupStatus'), 'err', check.error + ' Nothing changed.'); return; }
+      confirmIn($('importConfirm'), 'Restore ' + check.keyCount + ' items from this backup? Items in the file overwrite the same items on this device; anything not in the file is left alone.', 'Restore backup', function () {
+        var r = window.Backup.apply(payload);
+        if (!r.ok) { setStatus($('backupStatus'), 'err', r.error); return; }
+        setStatus($('backupStatus'), 'ok', 'Restored ' + r.keyCount + ' items. Reloading…');
+        setTimeout(function () { location.reload(); }, 900);
+      });
+    };
+    reader.onerror = function () { setStatus($('backupStatus'), 'err', 'Could not read that file.'); };
+    reader.readAsText(file);
+  });
+
+  // ---------- Google Calendar ----------
+  function renderCal() {
+    var c = window.Integrations.load().googleCalendar;
+    var svc = window.GoogleCalendarService;
+    var connected = svc.isConnected();
+    $('calStatus').textContent = connected ? (c.enabled ? 'Connected' : 'Connected but switched off') : 'Not connected';
+    var real = c.lastSync && (c.status === 'Connected' || String(c.status).indexOf('Error') === 0);
+    $('calDetail').textContent = /error/i.test(c.status) ? c.status : real ? 'Last retrieved ' + when(c.lastSync) + ' · ' + svc.getToday(c.upcomingEvents).length + ' event(s) today.' : 'Read-only access to your events, used on Today and in Assistant.';
+    $('calConnect').hidden = connected;
+    $('calRefresh').hidden = !connected;
+    $('calDisconnect').hidden = !connected;
+  }
+  $('calConnect').addEventListener('click', function () {
+    window.Integrations.setEnabled('googleCalendar', true);
+    if (!window.GoogleCalendarService.connect('googleCalendar')) setStatus($('calMsg'), 'err', 'Google Calendar isn\'t set up on this server (GOOGLE_CLIENT_ID missing).');
+    renderCal();
+  });
+  $('calRefresh').addEventListener('click', async function () {
+    setStatus($('calMsg'), '', 'Refreshing…');
+    var r = await window.GoogleCalendarService.refresh('googleCalendar');
+    setStatus($('calMsg'), r.ok ? 'ok' : 'err', r.ok ? 'Calendar refreshed.' : 'Refresh failed: ' + (r.error || 'unknown error'));
+    renderCal();
+  });
+  $('calDisconnect').addEventListener('click', function () {
+    window.GoogleCalendarService.disconnect('googleCalendar');
+    setStatus($('calMsg'), 'ok', 'Disconnected. Previously retrieved events stay until the next successful refresh.');
+    renderCal();
+  });
+
+  // ---------- AI status ----------
+  async function renderAi() {
+    var s = await window.AiClient.status();
+    $('aiState').textContent = s.available ? 'On (' + s.model + ')' : 'Off — ' + s.reason;
+  }
+
+  // ---------- boot ----------
+  if (window.SupabaseAuth) { window.SupabaseAuth.init(); window.SupabaseAuth.subscribe(function () { renderAuth(); renderSync(); renderAi(); }); }
+  else renderAuth();
+  if (window.AutoSync) window.AutoSync.subscribe(renderSync);
+  renderSync(); renderBackup(); renderCal(); renderAi();
+  if (window.GoogleCalendarService.consumeJustConnected()) {
+    window.GoogleCalendarService.refresh('googleCalendar').then(function (r) {
+      setStatus($('calMsg'), r.ok ? 'ok' : 'err', r.ok ? 'Google Calendar connected and refreshed.' : 'Connected, but the first refresh failed: ' + (r.error || ''));
+      renderCal();
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 // ============================================================
 // GET /api/google-calendar-callback?code=...&state=...
 // Receives the OAuth code from Google, exchanges it for tokens,
-// and bounces back to /pages/integrations.html with the tokens in
+// and bounces back to /pages/settings.html with the tokens in
 // the URL hash. The hash never reaches the server — only the
 // browser reads it, then stores the tokens in localStorage.
 // Same pattern as api/whoop-callback.js.
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       gcal_refresh: refresh,
       gcal_expires: String(Date.now() + expiresIn * 1000),
     }).toString();
-    res.writeHead(302, { Location: '/pages/integrations.html#' + hash });
+    res.writeHead(302, { Location: '/pages/settings.html#' + hash });
     res.end();
   } catch (e) {
     res.status(500).send('Unexpected error: ' + (e && e.message ? e.message : String(e)));

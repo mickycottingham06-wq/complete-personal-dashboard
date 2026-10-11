@@ -7,7 +7,7 @@
 // local-first foundation a future real cloud sync (see `integrations`
 // → cloudSync) can build on without changing this shape.
 //
-// Any page (the full page at pages/integrations.html) reads/writes
+// Any page (Backup lives at pages/settings.html#backup) reads/writes
 // through this file instead of touching localStorage directly.
 // =============================================================
 (function () {

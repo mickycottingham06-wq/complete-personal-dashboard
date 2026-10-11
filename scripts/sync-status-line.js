@@ -17,7 +17,7 @@
   function text(lastLocalWriteAt) {
     var s = window.AutoSync ? window.AutoSync.getState() : null;
     if (!s || s.status === 'not-configured') return 'Saved on this device only — cloud sync is not set up.';
-    if (s.status === 'signed-out') return 'Saved on this device only — sign in under Integrations to sync.';
+    if (s.status === 'signed-out') return 'Saved on this device only — sign in under Menu → Account to sync.';
     if (s.status === 'disabled') return 'Saved on this device only — auto cloud save is off.';
     if (s.status === 'offline') return 'Offline — saved on this device; will sync when back online.';
     if (s.status === 'syncing') return 'Syncing to cloud…';

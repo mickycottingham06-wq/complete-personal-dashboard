@@ -1,0 +1,8 @@
+{
+  "redirects": [
+    { "source": "/pages/integrations.html", "destination": "/pages/settings.html", "permanent": false },
+    { "source": "/command-centre.html", "destination": "/", "permanent": false },
+    { "source": "/pages/:page(ai-ceo|appearance|avatar-lab|boxing-hq|business-hq|caffeine|daily-snapshot|finance|goals|gym|gym-legacy-backup|health|heatmap|hormone-optimisation|life-stats|main|money-hq|nova-lite|po-water|streaks|weekly-review).html", "destination": "/", "permanent": false },
+    { "source": "/template/template.html", "destination": "/", "permanent": false }
+  ]
+}

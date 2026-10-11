@@ -7,9 +7,9 @@
 // foundation can be swapped for a real fetch later without any
 // page or component needing to change shape.
 //
-// Any page (the full page at pages/integrations.html, the preview
-// card on index.html) reads/writes through this file instead of
-// touching localStorage directly, so they always agree.
+// Pages read/write through this file (Settings, Today, Assistant).
+// The weather and aiApi sections are kept only so older saved data
+// still loads; no current page uses them.
 // =============================================================
 (function () {
   'use strict';

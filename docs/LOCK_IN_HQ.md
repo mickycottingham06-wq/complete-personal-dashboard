@@ -1,7 +1,32 @@
 # LOCK-IN HQ
 
-The default homepage (`index.html`). Built to show one day's focus, not everything at once.
-The previous home (Command Centre) is unchanged at `command-centre.html` and linked from **More** and the sidebar.
+A calm personal app built around one day's focus. This file describes the current app; older docs in
+`docs/` describe the previous dashboard and are kept for history.
+
+## Pages and navigation (final)
+
+| Page | File | Menu |
+|---|---|---|
+| Today | `index.html` | Today |
+| Second Brain | `pages/second-brain.html` | Second Brain |
+| Assistant | `pages/assistant.html?mode=morning\|evening\|weekly` | Morning · Evening · Weekly reset (open that view directly) |
+| Content | `pages/content.html` | Content |
+| Workforce | `pages/workforce.html` | Workforce |
+| Settings | `pages/settings.html#sync` / `#integrations` / `#account` / `#backup` | Settings & data: Settings · Integrations · Account · Backup |
+
+- One shared **Menu** (`scripts/menu.js`) on every page: a sticky bar with the brand (→ Today) and a Menu button that
+  opens a modal panel (keyboard: Tab stays inside, Escape closes, focus returns to the button; click outside or a link
+  closes it). The current page/view/section is marked `aria-current="page"`.
+- One stylesheet, `styles/lock-in.css`, for every page (tokens, buttons, forms, status messages, badges, menu).
+- Removed in the cleanup: the old Command Centre, AI CEO, To Do list, Daily Control Panel, Weekly Review, Streaks,
+  Heatmap, Goals, Life Stats, Appearance, Hormone, Business HQ, Finance, Money HQ, Strength HQ (+ legacy backup copy),
+  Boxing HQ, Health HQ, Caffeine, Water tracker, Avatar Lab, Nova, the page template, the old Integrations page (now
+  Settings), their scripts, and the WHOOP / Trading 212 / Weather API routes. `vercel.json` redirects old addresses
+  to Today (and `/pages/integrations.html` to Settings).
+- **Saved data was not touched.** Everything those pages stored (money, training, boxing, health, habits, reviews,
+  WHOOP tokens, progress-photo links…) remains in browser storage, syncs with Cloud Sync, and is included in
+  **Menu → Backup → Export**. Workforce still reads saved Money HQ bills/balances and Boxing/Strength HQ targets
+  (read-only) — there is no longer a screen to edit them.
 
 ## Stage 1 — done
 
@@ -13,13 +38,12 @@ The previous home (Command Centre) is unchanged at `command-centre.html` and lin
   labelled "supplied by you, not from a calendar". Edit it in `SUPPLIED_ROUTINE` in `scripts/lockin-data.js`.
 - **One main action + up to two supporting**, each with first step and realistic time; Done / Defer (to tomorrow) / Edit; Undo after Done/Defer.
 - **Brain dump**: one field. Captures go to today's list and wait under "Captured today" until promoted.
-- **More** menu: Second Brain, Assistant (opens AI CEO), Content, Workforce, plus existing pages.
 - No scores, streaks, habit lists, sliders or long forms on the home screen.
 
 ### Where data lives
 
-- Tasks use the existing To Do store: localStorage keys `goals:YYYY-MM-DD` (6 AM day rollover), shared with
-  `pages/main.html`, the top bar and Heatmap. New optional fields: `id`, `role`, `firstStep`, `minutes`, timestamps.
+- Tasks use the original To Do store: localStorage keys `goals:YYYY-MM-DD` (6 AM day rollover).
+  Optional fields: `id`, `role`, `firstStep`, `minutes`, timestamps.
 - "Saved" appears only after the write is read back from storage. On failure the input is kept and an error is shown.
 - Cloud: the existing Auto Cloud Save (`scripts/auto-sync.js`) pushes all localStorage to Supabase
   (`life_os_state`) when configured and signed in. The footer says honestly whether data is device-only or synced.
@@ -32,7 +56,7 @@ The previous home (Command Centre) is unchanged at `command-centre.html` and lin
 
 ## Stage 2 — Second Brain (done)
 
-`pages/second-brain.html` + `scripts/second-brain-data.js`. Linked from **More** and the sidebar.
+`pages/second-brain.html` + `scripts/second-brain-data.js`.
 
 - One search box, **Add note**, a short list (15 at a time, newest first; title matches rank first).
   Category filters (Business, Money, Property, Health, Family) stay hidden behind **Filter**.
@@ -70,8 +94,8 @@ Never put them in this project folder — everything here is served publicly by 
 
 ## Stage 3 — Assistant (done)
 
-`pages/assistant.html` + `scripts/assistant-engine.js` + `api/assistant.js`. Linked from **More** (AI CEO kept
-separately as "AI CEO (prompt builder)") and from the home page's empty main-action state.
+`pages/assistant.html` + `scripts/assistant-engine.js` + `api/assistant.js`. Opened from the Menu's
+Morning / Evening / Weekly reset (`?mode=`), and from Today's empty main-action state.
 
 - **Morning** — today's commitments with source + freshness (Google Calendar fresh / cached / may be out of date /
   refresh failed; supplied routine separate; email "not connected — not checked"). Estimated focus time with its
@@ -80,8 +104,8 @@ separately as "AI CEO (prompt builder)") and from the home page's empty main-act
   outcomes). A business/money task swaps in only if it fits. Missing first steps are flagged, not invented.
   Edit / untick, then **Save to today's list** (one verified write to `goals:`). Nothing changes before saving.
 - **Evening** — today's main/supporting actions; you tap **Done** or **Move to tomorrow** (existing defer).
-  Nothing is inferred. Optional short note (→ Daily Snapshot `notes`) and tomorrow's priority
-  (→ Daily Snapshot `tomorrowPriority` + tomorrow's `goals:` list, as main if none set).
+  Nothing is inferred. Optional short note (→ Daily Snapshot `notes`, shown back in the Evening view) and tomorrow's
+  priority (→ Daily Snapshot `tomorrowPriority` + tomorrow's `goals:` list, as main if none set).
 - **Weekly reset** — completed (last 7 days) and unfinished work from stored records, deduped; next 7 days'
   calendar events (only from a real fetch) and supplied dated events. Up to three outcomes for the week
   (Sat/Sun → next week), with **Review changes** → **Confirm and save**.
@@ -90,12 +114,12 @@ separately as "AI CEO (prompt builder)") and from the home page's empty main-act
 
 ### New storage
 - `lockInLog` (synced by Auto Cloud Save like every key): `done` — completed tasks copied out of `goals:` day
-  keys before rollover deletes them (both LOCK-IN HQ and `pages/main.html` rollovers); `weeks` — weekly outcomes.
+  keys before rollover deletes them; `weeks` — weekly outcomes.
   Completion history starts with this update; older completions were never kept by the app.
 
 ### AI (optional)
 - `GET/POST /api/assistant` (Vercel function, `@anthropic-ai/sdk` 0.128.0, shared by Assistant and Content via
-  `scripts/ai-client.js`). Setup and costs: SETUP.md §8.
+  `scripts/ai-client.js`). Setup and costs: SETUP.md §4.
 - **Access protection (all required, otherwise the endpoint is off):** the server verifies the caller's Supabase
   session (`auth.getUser` with the bearer token), checks `ASSISTANT_ALLOWED_EMAILS`, then records/counts usage in
   `assistant_usage` (RLS, per-user rolling 24 h limit, fails closed) — all **before** Anthropic is contacted.
@@ -123,7 +147,7 @@ Briefings are manual only. A scheduled morning/evening message would need:
 
 ## Stage 4 — Content (done)
 
-`pages/content.html` + `scripts/content-data.js` + `scripts/story-render.js`. Linked from **More** and the sidebar.
+`pages/content.html` + `scripts/content-data.js` + `scripts/story-render.js`.
 
 - One job-details box, optional vehicle/year and photos, optional call-out price (under More options — only shown
   if typed), Post caption / Instagram Story, **Create draft**. Result: editable caption, **Copy caption**,
@@ -148,7 +172,7 @@ Briefings are manual only. A scheduled morning/evening message would need:
 
 ## Stage 5 — Workforce (done)
 
-`pages/workforce.html` + `scripts/workforce-engine.js` + `scripts/workforce-calc.js`. Linked from **More** and the sidebar.
+`pages/workforce.html` + `scripts/workforce-engine.js` + `scripts/workforce-calc.js`.
 
 - One box ("What do you need help with?") and **Help me**. A keyword router picks **one** specialist and shows it with
   a small **Change**. If the request fits none (or two equally), it asks one question: "Which area is this about?".
@@ -160,10 +184,10 @@ Briefings are manual only. A scheduled morning/evening message would need:
 | Specialist | Basic mode (always available) | AI (if protected endpoint on) |
 |---|---|---|
 | MB Automotive Business | Quote from your parts / labour hours × rate / travel, asks VAT status, draft reply with the figures; reply template from your facts; job checklist; one customer-generation action → Content | Wording on top; figures must match the app's |
-| Personal Budget | Balance (Money HQ value offered as "entered by you, not live"), payday, Money HQ bills due before payday (business bills excluded, paid ones ignored, monthly dates rolled forward), other payments, money set aside (property / family / other) → available until payday and per day, or shortfall. Missing input = no figure | Commentary only; any £/% not calculated is rejected |
+| Personal Budget | Balance (saved Money HQ value, if any, offered as "entered by you, not live"), payday, saved Money HQ bills due before payday (business bills excluded, paid ones ignored, monthly dates rolled forward), other payments, money set aside (property / family / other) → available until payday and per day, or shortfall. Missing input = no figure | Commentary only; any £/% not calculated is rejected |
 | Property Analyst | Flip / rent-to-rent / serviced accommodation from your figures: profit, return, break-even sale price / rooms / occupancy, missing costs (counted £0, add & recalculate), "verify with a current source" list. Never assumes occupancy, rents, comparables or rules | Commentary only, same figure check |
 | Content Marketing | Hands off to the Content page with details / vehicle / format prefilled (nothing created until Create draft) | Not used here — Content has its own checks |
-| Training and Recovery | Confirms dated goals (16/17 Oct, Boxing HQ fight date) and injuries first; plans around work hours and family time using Boxing HQ targets / Strength HQ week; no diagnosis; refuses extreme cuts | Wording on top |
+| Training and Recovery | Confirms dated goals (16/17 Oct, Boxing HQ fight date) and injuries first; plans around work hours and family time using saved Boxing HQ targets / Strength HQ week (if any); no diagnosis; refuses extreme cuts | Wording on top |
 
 **Runtime:** AI goes through the same `/api/assistant` (mode `workforce`), so it shares the session check, allowlist,
 the one daily limit (`assistant_usage` counts Assistant + Content + Workforce together), timeout and bounded retries.
@@ -192,24 +216,27 @@ clarifying question. AI off or failing → labelled **Basic mode**.
 ## Deployment readiness checklist (in order)
 
 1. **Review and merge** the `lock-in-hq-stage-1` branch (not pushed). Keep your own README edit separate.
-2. **Supabase `progress-photos` bucket — confirm before deploying.** SETUP.md §2 creates it `public = true` with an
+2. **Supabase `progress-photos` bucket — confirm before deploying.** The old setup created it `public = true` with an
    `anon` policy for **all** operations (read, upload, overwrite, delete) — anyone with the anon key (which ships to
-   browsers) could list/replace/delete files. In Supabase → Storage → Policies, check what is actually applied. If it
-   matches SETUP.md, plan a change (private bucket + `authenticated` per-user RLS, then signed URLs in Strength HQ) — this
-   affects gym progress photos, so change it deliberately, keep existing photos, and test Strength HQ. No customer photos
-   use this bucket.
-3. Confirm Supabase **Auth** settings: decide whether public sign-up should be on (AI is allowlist-only regardless).
-4. Run `supabase/life_os_state.sql` (if not already) and `supabase/assistant_usage.sql`.
-5. Vercel env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`,
-   `ASSISTANT_ALLOWED_EMAILS`; optional `ASSISTANT_DAILY_LIMIT`, `ASSISTANT_MODEL`; existing Google/WHOOP/Trading 212 vars.
-6. Set a monthly **spend limit** in the Anthropic Console (backstop to the per-user limit).
-7. Deploy to a **preview** URL first (Vercel installs `@anthropic-ai/sdk` 0.128.0 from package.json).
-8. On the preview: `GET /api/assistant` shows `enabled: true`; signed out → AI off; signed in with an allowlisted email →
+   browsers) could list/replace/delete files. The app no longer uses it (Strength HQ was removed), but your old gym
+   progress photos may still be in it. In Supabase → Storage → Policies, check what is actually applied. If it matches,
+   first download the photos you want, then make the bucket private and drop the anon policy. Don't delete photos.
+3. **Supabase `app_state` table — same check.** The old legacy-sync SQL gave `anon` full read/write. The app no longer
+   uses it; export anything you need, then drop the anon policy (or the table).
+4. Confirm Supabase **Auth** settings: decide whether public sign-up should be on (AI is allowlist-only regardless).
+5. Run `supabase/life_os_state.sql` (if not already) and `supabase/assistant_usage.sql`.
+6. Vercel env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`,
+   `ASSISTANT_ALLOWED_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; optional `ASSISTANT_DAILY_LIMIT`,
+   `ASSISTANT_MODEL`. Remove the unused WHOOP / Trading 212 / Weather / legacy-sync vars (SETUP.md §5).
+7. Set a monthly **spend limit** in the Anthropic Console (backstop to the per-user limit).
+8. Deploy to a **preview** URL first (Vercel installs `@anthropic-ai/sdk` 0.128.0 from package.json; `vercel.json`
+   redirects old page addresses).
+9. On the preview: `GET /api/assistant` shows `enabled: true`; signed out → AI off; signed in with an allowlisted email →
    one Morning, one caption and one Workforce request succeed; a non-allowlisted account gets 403; usage rows appear.
-9. Sign in on two devices; confirm Cloud Sync carries `goals:*`, `secondBrain`, `lockInLog`, `contentDrafts`, and
-   that Content photos stay on the device that added them.
-10. Connect Google Calendar on the deployed domain (OAuth redirect URI) and check the commitments labels.
-11. Only then promote to production. Email remains unconnected; scheduled briefings are not built.
+10. Sign in on two devices; confirm Cloud Sync carries `goals:*`, `secondBrain`, `lockInLog`, `contentDrafts`, and
+   that Content photos stay on the device that added them. Export a backup from each device you've used.
+11. Connect Google Calendar from Menu → Integrations on the deployed domain; it should return you to Settings.
+12. Only then promote to production. Email remains unconnected; scheduled briefings are not built.
 
 ## Remaining work
 

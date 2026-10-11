@@ -21,14 +21,9 @@
 <script src="../scripts/assistant-engine.js"></script>
 <script src="../scripts/workforce-calc.js"></script>
 <script src="../scripts/workforce-engine.js"></script>
+<script src="../scripts/menu.js" defer></script>
 <link rel="stylesheet" href="../styles/lock-in.css">
 <style>
-  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
-  .back:hover { color: var(--blue); }
-  .badge { display: inline-block; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
-  .badge.ai { background: var(--blue-soft); color: var(--text); }
-  .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
-  .flag { color: var(--warn); margin: 8px 0 0; }
   .spec { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; }
   .spec strong { font-size: 1.05rem; }
   .spec button { min-height: 44px; padding: 6px 14px; font-size: 0.92rem; }
@@ -44,13 +39,11 @@
   .draft { min-height: 160px; }
   .result-text { margin: 10px 0 0; overflow-wrap: anywhere; }
   .ai-text { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--blue-soft); overflow-wrap: anywhere; }
-  h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 18px 0 6px; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="../index.html">← LOCK-IN HQ</a>
-  <header style="padding-top:0">
+  <header>
     <h1>WORKFORCE</h1>
     <span class="badge" id="aiBadge">AI: checking…</span>
   </header>

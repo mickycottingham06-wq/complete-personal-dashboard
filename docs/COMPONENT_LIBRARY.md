@@ -1,3 +1,5 @@
+> **Historical document.** This describes the previous dashboard, most of whose pages were removed in the LOCK-IN HQ cleanup (Oct 2026). For the current app see [LOCK_IN_HQ.md](LOCK_IN_HQ.md); data keys described here may still exist in storage and Backup.
+
 # COMPONENT_LIBRARY.md
 
 ## Purpose

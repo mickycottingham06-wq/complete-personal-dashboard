@@ -16,10 +16,9 @@
 <script src="../scripts/auto-sync.js"></script>
 <script src="../scripts/sync-status-line.js"></script>
 <script src="../scripts/second-brain-data.js"></script>
+<script src="../scripts/menu.js" defer></script>
 <link rel="stylesheet" href="../styles/lock-in.css">
 <style>
-  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
-  .back:hover { color: var(--blue); }
   .search-row { display: flex; gap: 10px; }
   .search-row input { flex: 1 1 auto; min-width: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -32,22 +31,15 @@
   .note-title { display: block; font-weight: 600; overflow-wrap: anywhere; }
   .note-snip { display: block; color: var(--muted); font-size: 0.95rem; margin-top: 2px; overflow-wrap: anywhere; }
   .note-meta { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
-  .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
   .editor textarea { min-height: 220px; }
   .dates { color: var(--muted); font-size: 0.85rem; margin: 12px 0 0; }
-  .danger { color: var(--err); }
-  .file-label { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); cursor: pointer; margin: 0; font-size: 1rem; }
-  .file-label:hover { border-color: var(--blue); }
-  .file-label:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
-  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .report { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.92rem; }
   .report li { margin: 4px 0; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="../index.html">← LOCK-IN HQ</a>
-  <header style="padding-top:0">
+  <header>
     <h1>SECOND BRAIN</h1>
     <button type="button" class="primary" id="addBtn">Add note</button>
   </header>
@@ -61,7 +53,7 @@
     <div class="chips" id="chips" hidden></div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
     <div class="card"><ul class="plain notes" id="list"></ul></div>
-    <div class="row" id="moreRow" hidden><button type="button" id="moreBtn">Show more</button></div>
+    <div class="row" id="moreRow" hidden><button type="button" id="showMoreBtn">Show more</button></div>
 
     <details>
       <summary>Import, export &amp; restore</summary>
@@ -174,7 +166,7 @@
   }
 
   $('q').addEventListener('input', function () { shown = PAGE; renderList(); });
-  $('moreBtn').addEventListener('click', function () { shown += PAGE; renderList(); });
+  $('showMoreBtn').addEventListener('click', function () { shown += PAGE; renderList(); });
   $('filterBtn').addEventListener('click', function () {
     var c = $('chips');
     c.hidden = !c.hidden;
