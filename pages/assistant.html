@@ -70,7 +70,7 @@
     <summary>About the AI and what it sees</summary>
     <div class="card">
       <p class="meta" id="aiReason"></p>
-      <p class="meta"><strong>To turn AI on:</strong> in Vercel → Project → Settings → Environment Variables add <code>ANTHROPIC_API_KEY</code> (from console.anthropic.com), optionally <code>ASSISTANT_MODEL</code>, then redeploy. Each button press with AI on is one paid API request.</p>
+      <p class="meta"><strong>To turn AI on:</strong> in Vercel → Project → Settings → Environment Variables add <code>ANTHROPIC_API_KEY</code>, <code>ASSISTANT_ALLOWED_EMAILS</code> (your sign-in email) and run <code>supabase/assistant_usage.sql</code>, then redeploy and sign in. AI stays off until all are in place. Each button press with AI on is one paid request (about £0.001 on the default model; see SETUP.md §8).</p>
       <p class="meta"><strong>Sent per request:</strong> today's open tasks, today's commitments, at most 3 matching Second Brain excerpts and your question. Not your whole notes collection, finances or anything else.</p>
       <p class="meta">Without AI you get a basic briefing built only from your stored tasks and commitments.</p>
     </div>
@@ -159,11 +159,16 @@
     return card('Your question', [el('p', { class: 'empty', text: 'Not answered — AI isn\'t available. ' + (notesCount ? 'Matching notes are listed above.' : 'No notes matched it.') })]);
   }
 
-  async function tryAi(mode, ctx, notes) {
+  async function tryAi(mode, ctx) {
     if (!ai.available) return { ai: false };
     var res = await E.askAi(mode, question(), ctx);
     if (!res.ok) return { ai: false, aiError: res.error };
-    return { ai: true, model: res.model, v: E.validateAi(res.data, ctx, notes) };
+    return { ai: true, model: res.model, v: E.validateAi(res.data, ctx) };
+  }
+
+  function rejectedCard(mode) {
+    if (!mode.ai || !mode.v.rejected.length) return null;
+    return card('AI suggestions not used', mode.v.rejected.map(function (r) { return el('p', { class: 'flag', text: r }); }));
   }
 
   // ---------- Morning ----------
@@ -176,7 +181,7 @@
     var notes = E.relevantNotes(question(), E.candidates(outcomes).slice(0, 5).map(function (c) { return c.task.text; }), 3);
     var commitments = E.eventsOn(cal, today).concat(E.suppliedFor(today));
     var ctx = E.buildAiContext(today, avail, commitments, notes, outcomes);
-    var mode = await tryAi('morning', ctx, notes);
+    var mode = await tryAi('morning', ctx);
     var actions = mode.ai && mode.v.actions.length ? mode.v.actions : basic.actions;
     if (mode.ai && !mode.v.actions.length) { mode = { ai: false, aiError: 'The AI suggested no valid actions.' }; }
 
@@ -188,6 +193,8 @@
     ].concat(avail.flags.map(function (f) { return el('p', { class: 'flag', text: f }); }))
      .concat(outcomes.length ? [el('p', { class: 'meta', text: 'This week\'s outcomes: ' + outcomes.join(' · ') })] : [])));
     out.appendChild(planCard(actions, mode.ai ? '' : basic.note));
+    var rc = rejectedCard(mode);
+    if (rc) out.appendChild(rc);
     var nc = notesCard(notes, mode.ai ? mode.v.notesUsed : [], mode.ai);
     if (nc) out.appendChild(nc);
     var qc = questionCard(mode.ai ? mode.v.answer : '', notes.length);
@@ -199,7 +206,7 @@
     if (note) c.appendChild(el('p', { class: 'meta', text: note }));
     if (!actions.length) return c;
     var rows = actions.map(function (a) {
-      var inc = el('input', { type: 'checkbox', checked: true });
+      var inc = el('input', { type: 'checkbox', checked: !a.isNew }); // new actions need an explicit tick
       var text = el('input', { value: a.text, maxlength: '200', 'aria-label': 'Action' });
       var step = el('input', { value: a.firstStep, maxlength: '200', 'aria-label': 'First step', placeholder: 'Concrete first step' });
       var mins = el('input', { type: 'number', min: '5', max: '240', step: '5', value: String(a.minutes), 'aria-label': 'Minutes', inputmode: 'numeric' });
@@ -207,7 +214,8 @@
         el('p', { class: 'title', text: a.text }),
         a.firstStep ? el('p', { class: 'meta' }, [el('strong', { text: 'First step: ' }), a.firstStep]) : el('p', { class: 'meta missing', text: 'First step needed — tap Edit and add one.' }),
         el('p', { class: 'meta', text: 'About ' + E.fmtMin(a.minutes) + (a.minutesEstimated ? ' (estimate)' : '') }),
-        el('p', { class: 'meta', text: (a.isNew ? 'New — not on your list yet. ' : '') + (a.isBiz ? 'Business/money. ' : '') + (a.reason || '') }),
+        a.isNew ? el('p', { class: 'flag', text: 'New — not on your list. Review it, then tick Include to add it.' }) : null,
+        el('p', { class: 'meta', text: (a.isBiz ? 'Business/money. ' : '') + (a.reason || '') }),
       ]);
       var form = el('div', { hidden: '' }, [
         el('label', { text: 'Action' }), text, el('label', { text: 'First concrete step' }), step, el('label', { text: 'Minutes' }), mins,
@@ -248,7 +256,7 @@
       var cal = await E.loadCalendar(false);
       var avail = E.availability(today, cal);
       var ctx = E.buildAiContext(today, avail, E.eventsOn(cal, today).concat(E.suppliedFor(today)), notes, weekOutcomes(today));
-      mode = await tryAi('evening', ctx, notes);
+      mode = await tryAi('evening', ctx);
     }
     out.appendChild(sourceBadge(mode));
     var holder = el('div');
@@ -343,7 +351,7 @@
       var ctx = E.buildAiContext(today, avail, data.upcoming, notes, data.outcomes);
       ctx.completedThisWeek = data.completed.slice(0, 15).map(function (d) { return d.text; });
       ctx.unfinished = data.unfinished.slice(0, 15).map(function (u) { return u.text; });
-      mode = await tryAi('weekly', ctx, notes);
+      mode = await tryAi('weekly', ctx);
     }
     out.appendChild(sourceBadge(mode));
 
@@ -429,6 +437,7 @@
       Array.prototype.forEach.call(document.querySelectorAll('.modes button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
       var out = $('out');
       out.textContent = '';
+      await refreshAi(); // sign-in may have changed since the page loaded
       out.appendChild(el('p', { class: 'meta', style: 'margin-top:16px', text: ai.available ? 'Asking the AI…' : 'Building your briefing…' }));
       var frag = el('div', { style: 'margin-top:16px' });
       try { await MODES[b.getAttribute('data-mode')](frag); }
@@ -439,13 +448,16 @@
     });
   });
 
-  E.aiStatus().then(function (s) {
+  async function refreshAi() {
+    var s = await E.aiStatus();
     ai = s;
     var b = $('aiBadge');
     b.textContent = s.available ? 'AI on' : 'AI off · basic';
     b.className = 'badge' + (s.available ? ' ai' : '');
     $('aiReason').textContent = s.available ? 'AI is set up (' + s.model + '). It only runs when you press a button.' : 'AI is off: ' + s.reason;
-  });
+  }
+  if (window.SupabaseAuth) window.SupabaseAuth.init();
+  refreshAi();
 })();
 </script>
 </body>

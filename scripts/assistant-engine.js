@@ -245,23 +245,35 @@
   }
 
   // ---------- AI ----------
+  function accessToken() {
+    var st = window.SupabaseAuth ? window.SupabaseAuth.getState() : null;
+    return (st && st.session && st.session.access_token) || '';
+  }
+
+  // AI is usable only when the server reports every protection configured
+  // AND this browser has a Supabase session to send. The server still
+  // verifies the session and allowlist itself on every request.
   async function aiStatus() {
     try {
       var r = await fetch('/api/assistant', { headers: { Accept: 'application/json' } });
       if (!r.ok) return { available: false, reason: 'The AI route isn\'t available on this server (local preview or not deployed).' };
       var j = await r.json();
-      return j.configured ? { available: true, model: j.model } : { available: false, reason: 'ANTHROPIC_API_KEY is not set in Vercel.' };
+      if (!j.enabled) return { available: false, reason: 'Not fully set up on the server — missing ' + (j.missing || []).join(', ') + '.' };
+      if (!accessToken()) return { available: false, reason: 'Sign in under Integrations → Cloud Sync to use AI.' };
+      return { available: true, model: j.model };
     } catch (e) {
       return { available: false, reason: 'The AI route couldn\'t be reached.' };
     }
   }
 
   async function askAi(mode, question, context) {
+    var token = accessToken();
+    if (!token) return { ok: false, error: 'Sign in to use AI.' };
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 45000) : null;
     try {
       var r = await fetch('/api/assistant', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ mode: mode, question: question || '', context: context }),
         signal: ctrl ? ctrl.signal : undefined,
       });
@@ -292,42 +304,56 @@
     };
   }
 
-  // Checks the AI reply against what was sent: task ids must exist, no
-  // duplicates, support capped, minutes clamped, note ids filtered.
-  function validateAi(data, context, notes) {
+  // Checks the AI reply strictly against what was sent:
+  //  - a taskId must be one of the open task ids sent, otherwise the item is
+  //    rejected (never re-mapped to another task);
+  //  - a new action (taskId "") whose text matches an existing open task is
+  //    ambiguous and rejected;
+  //  - genuinely new actions are kept but flagged isNew (unticked until reviewed);
+  //  - duplicates dropped, supporting capped, minutes clamped;
+  //  - notesUsed limited to the note ids actually sent in this request.
+  function validateAi(data, context) {
     var open = {};
     context.openTasks.forEach(function (t) { open[t.id] = t; });
-    var noteIds = notes.map(function (n) { return n.id; });
-    var seen = {};
+    var sentNoteIds = (context.notes || []).map(function (n) { return n.id; });
+    var seen = {}, rejected = [];
+    function str(v) { return typeof v === 'string' ? v : ''; }
     function clean(a, role) {
-      if (!a || !String(a.text || '').trim()) return null;
-      var t = a.taskId && open[a.taskId] ? open[a.taskId] : null;
-      if (!t) t = context.openTasks.find(function (x) { return norm(x.text) === norm(a.text); }) || null;
-      var text = t ? t.text : String(a.text).trim().slice(0, 200);
+      if (!a || typeof a !== 'object' || !str(a.text).trim()) return null;
+      var taskId = str(a.taskId).trim(), t = null;
+      if (taskId) {
+        t = open[taskId] || null;
+        if (!t) { rejected.push('"' + str(a.text).slice(0, 60) + '" — refers to a task that isn\'t on your open list'); return null; }
+      } else if (context.openTasks.some(function (x) { return norm(x.text) === norm(a.text); })) {
+        rejected.push('"' + str(a.text).slice(0, 60) + '" — ambiguous: matches an existing task without naming it');
+        return null;
+      }
+      var text = t ? t.text : str(a.text).trim().slice(0, 200);
       var key = t ? 'id:' + t.id : 'tx:' + norm(text);
-      if (seen[key] || seen['tx:' + norm(text)]) return null;
-      seen[key] = seen['tx:' + norm(text)] = true;
+      if (seen[key]) return null;
+      seen[key] = true;
       var m = Math.round(Number(a.minutes));
       return {
         id: t ? t.id : '', text: text, role: role, isNew: !t, isBiz: BIZ_RE.test(text),
-        firstStep: String(a.firstStep || '').trim().slice(0, 200), firstStepNeeded: !String(a.firstStep || '').trim(),
+        firstStep: str(a.firstStep).trim().slice(0, 200), firstStepNeeded: !str(a.firstStep).trim(),
         minutes: isNaN(m) ? DEFAULT_MINUTES : Math.min(180, Math.max(5, m)), minutesEstimated: true,
-        reason: String(a.why || '').slice(0, 200),
+        reason: str(a.why).slice(0, 200),
       };
     }
     var actions = [];
     var main = clean(data && data.main, 'main');
     if (main) actions.push(main);
-    ((data && data.support) || []).forEach(function (s) {
+    (Array.isArray(data && data.support) ? data.support : []).forEach(function (s) {
       if (actions.length && actions.length - 1 >= context.maxSupportingActions) return;
       var a = clean(s, main ? 'support' : 'main');
       if (a) { actions.push(a); if (!main) main = a; }
     });
     return {
       actions: actions,
-      summary: String((data && data.summary) || '').slice(0, 400),
-      answer: String((data && data.answer) || '').slice(0, 1200),
-      notesUsed: ((data && data.notesUsed) || []).filter(function (id) { return noteIds.indexOf(id) !== -1; }),
+      rejected: rejected,
+      summary: str(data && data.summary).slice(0, 400),
+      answer: str(data && data.answer).slice(0, 1200),
+      notesUsed: (Array.isArray(data && data.notesUsed) ? data.notesUsed : []).filter(function (id) { return sentNoteIds.indexOf(id) !== -1; }),
     };
   }
 
@@ -345,6 +371,7 @@
     weekStartFor: weekStartFor,
     aiStatus: aiStatus,
     askAi: askAi,
+    accessToken: accessToken,
     buildAiContext: buildAiContext,
     validateAi: validateAi,
     dayLabel: dayLabel,

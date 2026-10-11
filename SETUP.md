@@ -263,16 +263,28 @@ console.anthropic.com.
 
 ## 8. Assistant AI (optional, server-side)
 
-`pages/assistant.html` works without AI (labelled basic briefings). To enable AI suggestions,
-add in Vercel → Settings → Environment Variables, then redeploy:
+The Assistant and Content pages work without AI (labelled basic briefings / Template mode).
+`/api/assistant` is a **paid** endpoint, so it stays **off** until every protection below is in place:
 
-| Variable | Value |
+| Requirement | Value |
 |---|---|
 | `ANTHROPIC_API_KEY` | key from console.anthropic.com — server-side only, never sent to the browser |
-| `ASSISTANT_MODEL` | optional; defaults to `claude-opus-5-5` (e.g. `claude-haiku-5-5` is far cheaper) |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | already set for Cloud Sync — used to verify your session on the server |
+| `ASSISTANT_ALLOWED_EMAILS` | comma-separated emails allowed to use AI (e.g. your sign-in email). Signing up alone is not enough |
+| `supabase/assistant_usage.sql` | run once in Supabase SQL Editor — per-user daily request limit; requests are refused if it's missing |
+| `ASSISTANT_DAILY_LIMIT` | optional, default 40 requests per user per rolling 24 h |
+| `ASSISTANT_MODEL` | optional, default `claude-haiku-5-5` |
 
-Each Morning/Evening/Weekly press with AI on is one paid API request. Uses the
-`@anthropic-ai/sdk` package (in `package.json`). See `docs/LOCK_IN_HQ.md` for what is sent.
+Then redeploy and sign in (Integrations → Cloud Sync). Every request is checked on the server
+(valid Supabase session → allowlisted email → under the limit) **before** Anthropic is contacted.
+
+**Cost (Anthropic list prices, Oct 2026):** Haiku 5.5 is $0.10 per million input tokens and $0.50 per
+million output tokens. A briefing or caption sends roughly 1,500–3,000 tokens and is capped at 2,000
+output tokens (including the model's thinking), so about **$0.0005–$0.0013 per press** (≈ £0.001).
+At the default limit of 40 presses a day the maximum is about $0.05/day. Larger models cost far more
+(Sonnet 5.5 is 20×, Opus 5.5 40× the per-token price). Requests time out after 20 s and temporary errors
+are retried at most twice on the same model; a refusal is never retried on another model. Set a
+monthly spend limit in the Anthropic Console as a backstop.
 
 ---
 
