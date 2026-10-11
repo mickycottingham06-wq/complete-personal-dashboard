@@ -94,13 +94,21 @@ separately as "AI CEO (prompt builder)") and from the home page's empty main-act
   Completion history starts with this update; older completions were never kept by the app.
 
 ### AI (optional)
-- `GET/POST /api/assistant` (Vercel function, `@anthropic-ai/sdk` 0.128.0). Key in `ANTHROPIC_API_KEY` only.
-  Model `claude-opus-5-5` by default (`ASSISTANT_MODEL` to change), low effort, structured JSON output,
-  server-side refusal fallback enabled. Only runs on a button press.
-- Sent: open tasks (≤12), today's commitments, availability, week outcomes, ≤3 Second Brain excerpts that share
-  2+ keywords with the question/tasks, your question. Notes are wrapped as `<reference_note>` data and the model
-  is told not to follow instructions in them. The page re-checks every task/note id in the reply; unknown tasks
-  are labelled "New — not on your list", support is capped, only notes actually sent can be shown as used.
+- `GET/POST /api/assistant` (Vercel function, `@anthropic-ai/sdk` 0.128.0, shared by Assistant and Content via
+  `scripts/ai-client.js`). Setup and costs: SETUP.md §8.
+- **Access protection (all required, otherwise the endpoint is off):** the server verifies the caller's Supabase
+  session (`auth.getUser` with the bearer token), checks `ASSISTANT_ALLOWED_EMAILS`, then records/counts usage in
+  `assistant_usage` (RLS, per-user rolling 24 h limit, fails closed) — all **before** Anthropic is contacted.
+  A 3-second per-user burst guard runs per serverless instance on top.
+- **Bounds:** model `claude-haiku-5-5` (override `ASSISTANT_MODEL`), effort low, `max_tokens` 2000, 20 s timeout,
+  ≤2 SDK retries of temporary errors on the same model, request body ≤12 KB, ≤3 notes × 600 chars.
+  No model switching: a refusal is returned as an error and the page shows its basic briefing / template.
+- **Untrusted notes:** keyword matching only filters relevance — it is not a safety measure. Retrieved notes are
+  sent as separate `document` content blocks titled `note:<id>` with a context saying they are untrusted reference
+  data; they never appear in the instruction text. The output is a JSON schema validated on the server and again in
+  the page: an unknown task id is rejected (never re-mapped), a "new" action matching an existing task is rejected
+  as ambiguous, genuine new actions are shown as **New** and left unticked until you tick them, and only note ids
+  sent in that request can be shown as used. Nothing changes until you press Save.
 - If AI is off or fails, the page says so and shows the basic briefing.
 
 ### Scheduled delivery (not built)
@@ -113,8 +121,32 @@ Briefings are manual only. A scheduled morning/evening message would need:
    plus opt-in settings and quiet hours.
 4. **Vercel Cron** schedule in `vercel.json` (e.g. 06:30 Europe/London — Cron runs in UTC, so handle BST).
 
+## Stage 4 — Content (done)
+
+`pages/content.html` + `scripts/content-data.js` + `scripts/story-render.js`. Linked from **More** and the sidebar.
+
+- One job-details box, optional vehicle/year and photos, optional call-out price (under More options — only shown
+  if typed), Post caption / Instagram Story, **Create draft**. Result: editable caption, **Copy caption**,
+  **Save draft**; for Stories an editable headline/lines, live preview, **Download Story (PNG)**.
+  Saved drafts sit behind the secondary **Saved drafts** button (open, delete with Undo, export, restore).
+- **Text:** AI (if the protected endpoint is on and you're signed in) receives only the typed facts, vehicle,
+  price and photo count — never photos. Its draft is rejected in favour of **Template mode** if it adds a price you
+  didn't supply or a claim not in your notes (guarantee, warranty, qualified, reviews, years, fixed/repaired,
+  diagnosed, replaced, unknown numbers…), and the contact line is appended if missing. Template mode uses only your
+  words plus the business name, area, phone and email. Nothing is published or sent.
+- **Stories:** real 1080 × 1920 PNG drawn from your photo (or a plain branded background — never a fake photo).
+  Text stays within x 90–990, y 270–1650 (clear of Instagram's bars), shrinks to fit and reports anything shortened.
+  Drag to reposition, ± zoom, and **Hide an area** pixelates plates/identifying details; hidden areas follow the photo.
+  Exported PNGs carry no photo metadata (EXIF/GPS is not copied by the canvas). Video files are refused.
+  There are no brand image assets in the repo, so the mark is text ("MB AUTOMOTIVE"); drop a logo into
+  `story-render.js` later if one exists.
+- **Storage:** draft text/metadata in `contentDrafts` (localStorage → synced by Auto Cloud Save, no image data).
+  Photos in IndexedDB `lockin-content-photos` on this device only — not synced, not in backups, not in the project.
+  If IndexedDB isn't available the page says photos are session-only and keeps the text draft.
+  The existing Supabase `progress-photos` bucket is public with anon write access, so it is **not** used for
+  customer photos. Cross-device photo sync would need a private bucket with per-user RLS (not built).
+
 ## Later stages (not built)
 
-4. **Content** — capture and schedule posts for MB Automotive Works (ideas → draft → posted), kept out of the home screen.
 5. **Workforce** — track jobs/people/suppliers for MB Automotive Works (who's doing what, follow-ups).
    Also the place to add a verified email integration (Gmail OAuth via `/api` routes) so the home screen can show real email commitments.

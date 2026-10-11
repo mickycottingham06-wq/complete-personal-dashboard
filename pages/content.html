@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<script src="/api/config"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16191f">
+<title>Content · LOCK-IN HQ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/auto-sync.js"></script>
+<script src="../scripts/sync-status-line.js"></script>
+<script src="../scripts/ai-client.js"></script>
+<script src="../scripts/content-data.js"></script>
+<script src="../scripts/story-render.js"></script>
+<link rel="stylesheet" href="../styles/lock-in.css">
+<style>
+  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--blue); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .seg button { min-height: 52px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--blue-soft); border-color: var(--blue); }
+  .badge { display: inline-block; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .badge.ai { background: var(--blue-soft); color: var(--text); }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
+  .flag { color: var(--warn); margin: 8px 0 0; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .thumb { position: relative; width: 84px; }
+  .thumb img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; display: block; border: 1px solid var(--line); }
+  .thumb button { width: 100%; min-height: 44px; margin-top: 4px; padding: 4px; font-size: 0.85rem; }
+  .file-label { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); cursor: pointer; margin: 0; font-size: 1rem; }
+  .file-label:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #caption { min-height: 260px; }
+  .preview-wrap { display: flex; justify-content: center; margin-top: 12px; }
+  #preview { width: 100%; max-width: 340px; aspect-ratio: 9 / 16; border-radius: 14px; border: 1px solid var(--line); touch-action: none; background: #101318; cursor: grab; }
+  #preview.hide-mode { cursor: crosshair; }
+  .tools button { flex: 1 1 30%; }
+  .tools button[aria-pressed="true"] { background: var(--blue-soft); border-color: var(--blue); }
+  .draft-row { border-top: 1px solid var(--line); padding: 12px 0; }
+  .draft-row:first-child { border-top: 0; }
+  .covers li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; color: var(--muted); }
+  .covers li button { min-height: 44px; padding: 4px 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← LOCK-IN HQ</a>
+  <header style="padding-top:0">
+    <h1>CONTENT</h1>
+    <button type="button" id="draftsBtn" aria-expanded="false" aria-controls="draftsPanel">Saved drafts</button>
+  </header>
+
+  <!-- Saved drafts (secondary) -->
+  <div class="card" id="draftsPanel" hidden>
+    <ul class="plain" id="draftList"></ul>
+    <div class="row">
+      <button type="button" id="exportBtn">Export drafts</button>
+      <label class="file-label">Restore drafts<input type="file" id="restoreInput" class="visually-hidden" accept=".json,application/json"></label>
+    </div>
+    <p class="hint">Export/restore covers draft text only — photos stay on the device they were added on.</p>
+    <p class="status" id="draftsStatus" role="status" aria-live="polite"></p>
+  </div>
+
+  <!-- Input -->
+  <form class="card" id="inputForm" autocomplete="off" style="margin-top:12px">
+    <label for="jobDetails" style="margin-top:0">Job details</label>
+    <textarea id="jobDetails" maxlength="1500" placeholder="What you actually did, in your own words — e.g. Front pads and discs replaced, brake fluid changed."></textarea>
+    <label for="vehicle">Vehicle / year (optional)</label>
+    <input id="vehicle" maxlength="80" placeholder="e.g. 2016 Vauxhall Corsa">
+    <label>Photos (optional)</label>
+    <div class="row" style="margin-top:0">
+      <label class="file-label">Choose photos<input type="file" id="photoInput" class="visually-hidden" accept="image/*" multiple></label>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <p class="hint" id="photoNote">Photos stay on this device and are never sent to AI. They aren't analysed — the text uses only what you type.</p>
+    <details>
+      <summary>More options</summary>
+      <label for="price">Call-out price — only if you want it shown</label>
+      <input id="price" maxlength="20" placeholder="e.g. £45 (leave blank for no price)">
+    </details>
+    <div class="seg" role="group" aria-label="Format">
+      <button type="button" data-kind="post" aria-pressed="true">Post caption</button>
+      <button type="button" data-kind="story" aria-pressed="false">Instagram Story</button>
+    </div>
+    <div class="row"><button type="submit" class="primary" id="createBtn">Create draft</button></div>
+    <p class="status" id="createStatus" role="status" aria-live="polite"></p>
+  </form>
+
+  <!-- Result -->
+  <section id="result" hidden>
+    <div class="card">
+      <div id="sourceBadge"></div>
+      <div id="sourceNotes"></div>
+      <label for="caption">Caption</label>
+      <textarea id="caption" maxlength="2200"></textarea>
+      <div class="row">
+        <button type="button" id="copyBtn">Copy caption</button>
+        <button type="button" class="primary" id="saveBtn">Save draft</button>
+      </div>
+      <p class="status" id="resultStatus" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="card" id="storyCard" hidden>
+      <h2 style="margin-bottom:6px">Story · 1080 × 1920</h2>
+      <label for="headline" style="margin-top:0">Headline</label>
+      <input id="headline" maxlength="80">
+      <label for="storyLines">Extra lines (one per line, up to 3)</label>
+      <textarea id="storyLines" style="min-height:84px"></textarea>
+      <div id="photoPickWrap" hidden>
+        <label for="photoPick">Photo</label>
+        <select id="photoPick"></select>
+      </div>
+      <div class="preview-wrap"><canvas id="preview" width="1080" height="1920" aria-label="Story preview"></canvas></div>
+      <p class="hint">Yellow areas are covered by Instagram's own buttons; text stays inside the dashed box. Guides aren't exported.</p>
+      <div class="row tools" id="photoTools">
+        <button type="button" id="moveMode" aria-pressed="true">Move photo</button>
+        <button type="button" id="hideMode" aria-pressed="false">Hide an area</button>
+        <button type="button" id="zoomOut" aria-label="Zoom out">− Zoom</button>
+        <button type="button" id="zoomIn" aria-label="Zoom in">+ Zoom</button>
+        <button type="button" id="resetPos">Reset</button>
+      </div>
+      <p class="hint" id="toolHint">Drag the preview to reposition the photo.</p>
+      <ul class="plain covers" id="coverList"></ul>
+      <div id="fitIssues"></div>
+      <div class="row"><button type="button" class="primary" id="downloadBtn">Download Story (PNG)</button></div>
+      <p class="status" id="storyStatus" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <p class="hint" style="margin-top:18px">Nothing is posted, published or sent from this page. Captions use only the facts you type.</p>
+  <p class="sync-line" id="syncLine"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var C = window.ContentData, R = window.StoryRender, B = C.BUSINESS;
+  var MAX_PHOTOS = 6, MAX_PHOTO_BYTES = 20 * 1024 * 1024;
+  var kind = 'post';
+  var photos = [];          // { id, name, type, blob, bitmap, url }
+  var current = null;       // the draft being edited
+  var lastWriteAt = '';
+  var photoStoreOk = false;
+  var mode = 'move';
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function setStatus(node, kind, msg, undo) {
+    node.className = 'status' + (kind ? ' ' + kind : '');
+    node.textContent = msg || '';
+    if (undo) node.appendChild(el('button', { type: 'button', text: 'Undo', onclick: undo }));
+  }
+  function when(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }); }
+  var renderSync = window.SyncStatusLine.bind($('syncLine'), function () { return lastWriteAt; });
+
+  // ---------- format toggle ----------
+  Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) {
+    b.addEventListener('click', function () {
+      kind = b.getAttribute('data-kind');
+      Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      if (current) { current.kind = kind; $('storyCard').hidden = kind !== 'story'; drawPreview(); }
+    });
+  });
+
+  // ---------- photos ----------
+  function photoNote() {
+    if (!photos.length) { $('photoNote').textContent = 'Photos stay on this device and are never sent to AI. They aren\'t analysed — the text uses only what you type.'; return; }
+    $('photoNote').textContent = photoStoreOk
+      ? 'Photos are kept on this device only (not synced, never sent to AI) once you save the draft.'
+      : 'Photos are session-only on this device — they will be lost when you leave. Download your Story before closing.';
+  }
+
+  function renderThumbs() {
+    var t = $('thumbs');
+    t.textContent = '';
+    photos.forEach(function (p) {
+      t.appendChild(el('div', { class: 'thumb' }, [
+        el('img', { src: p.url, alt: p.name }),
+        el('button', { type: 'button', text: 'Remove', onclick: function () {
+          photos = photos.filter(function (x) { return x !== p; });
+          URL.revokeObjectURL(p.url);
+          if (current && current.story.photoId === p.id) { current.story.photoId = photos[0] ? photos[0].id : ''; current.story.covers = []; current.story.transform = { x: 0, y: 0, zoom: 1 }; }
+          renderThumbs(); refreshPhotoPick(); drawPreview();
+        } }),
+      ]));
+    });
+    photoNote();
+  }
+
+  async function addPhotoBlob(id, name, type, blob) {
+    var bitmap = await createImageBitmap(blob);
+    photos.push({ id: id, name: name, type: type, blob: blob, bitmap: bitmap, url: URL.createObjectURL(blob) });
+  }
+
+  $('photoInput').addEventListener('change', async function () {
+    var files = Array.prototype.slice.call(this.files || []);
+    this.value = '';
+    var skipped = [];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      if (photos.length >= MAX_PHOTOS) { skipped.push(f.name + ' (max ' + MAX_PHOTOS + ' photos)'); continue; }
+      if (/^video\//.test(f.type)) { skipped.push(f.name + ' — video isn\'t supported, choose a photo'); continue; }
+      if (!/^image\//.test(f.type)) { skipped.push(f.name + ' — not an image'); continue; }
+      if (f.size > MAX_PHOTO_BYTES) { skipped.push(f.name + ' — larger than 20 MB'); continue; }
+      try { await addPhotoBlob(C.uid(), f.name, f.type, f); }
+      catch (e) { skipped.push(f.name + ' — this browser can\'t read that format (try JPEG or PNG)'); }
+    }
+    renderThumbs(); refreshPhotoPick();
+    if (current && !current.story.photoId && photos[0]) { current.story.photoId = photos[0].id; drawPreview(); }
+    setStatus($('createStatus'), skipped.length ? 'err' : '', skipped.length ? 'Not added: ' + skipped.join('; ') : '');
+  });
+
+  // ---------- create draft ----------
+  function readInput() { return { jobDetails: $('jobDetails').value.trim(), vehicle: $('vehicle').value.trim(), price: $('price').value.trim() }; }
+
+  $('inputForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var input = readInput();
+    if (!input.jobDetails) { setStatus($('createStatus'), 'err', 'Add the job details first — captions only use what you write.'); return; }
+    var btn = $('createBtn');
+    btn.disabled = true;
+    setStatus($('createStatus'), '', 'Creating draft…');
+    var tpl = C.template(input);
+    var out = { source: 'template', model: '', caption: tpl.caption, headline: tpl.headline, lines: tpl.lines, notes: [] };
+    var ai = await window.AiClient.status();
+    if (ai.available) {
+      var res = await window.AiClient.ask('caption', '', { kind: kind, jobDetails: input.jobDetails, vehicle: input.vehicle, calloutPrice: input.price, photoCount: photos.length });
+      if (!res.ok) out.notes.push('AI failed: ' + res.error + ' Using Template mode.');
+      else {
+        var d = res.data;
+        var check = C.checkClaims([d.caption, d.storyHeadline].concat(d.storyLines || []).join('\n'), input);
+        if (!check.ok) out.notes.push('AI draft not used — it added ' + check.problems.join(', ') + ', which isn\'t in your job details. Using Template mode.');
+        else out = { source: 'ai', model: res.model, caption: C.ensureContact(d.caption.trim()), headline: d.storyHeadline.trim(), lines: (d.storyLines || []).slice(0, 3), notes: [] };
+      }
+    } else {
+      out.notes.push('AI is off (' + ai.reason + ')');
+    }
+    current = {
+      id: C.uid(), // every Create is a new draft; saved drafts are never overwritten by a new one
+      kind: kind, source: out.source, model: out.model,
+      story: { headline: out.headline, lines: out.lines, photoId: photos[0] ? photos[0].id : '', transform: { x: 0, y: 0, zoom: 1 }, covers: [] },
+    };
+    current.jobDetails = input.jobDetails;
+    showResult(out.caption, out.notes);
+    btn.disabled = false;
+    setStatus($('createStatus'), 'ok', 'Draft ready below — nothing has been posted or saved yet.');
+  });
+
+  function showResult(caption, notes) {
+    $('result').hidden = false;
+    $('sourceBadge').textContent = '';
+    $('sourceBadge').appendChild(current.source === 'ai'
+      ? el('span', { class: 'badge ai', text: 'AI draft · ' + current.model + ' — check every fact before posting' })
+      : el('span', { class: 'badge', text: 'Template mode — built only from your text' }));
+    $('sourceNotes').textContent = '';
+    (notes || []).forEach(function (n) { $('sourceNotes').appendChild(el('p', { class: 'flag', text: n })); });
+    $('caption').value = caption;
+    $('headline').value = current.story.headline;
+    $('storyLines').value = current.story.lines.join('\n');
+    $('storyCard').hidden = current.kind !== 'story';
+    setStatus($('resultStatus'), '', '');
+    setStatus($('storyStatus'), '', '');
+    refreshPhotoPick(); renderCovers(); drawPreview();
+  }
+
+  // ---------- story editor ----------
+  function currentPhoto() { return current ? photos.find(function (p) { return p.id === current.story.photoId; }) || null : null; }
+
+  function refreshPhotoPick() {
+    var sel = $('photoPick');
+    sel.textContent = '';
+    photos.forEach(function (p, i) { var o = el('option', { value: p.id, text: (i + 1) + '. ' + p.name }); if (current && current.story.photoId === p.id) o.selected = true; sel.appendChild(o); });
+    $('photoPickWrap').hidden = photos.length < 2;
+    var has = !!currentPhoto();
+    ['moveMode', 'hideMode', 'zoomOut', 'zoomIn', 'resetPos'].forEach(function (id) { $(id).disabled = !has; });
+    $('toolHint').textContent = has ? (mode === 'hide' ? 'Drag over a number plate or anything identifying to pixelate it.' : 'Drag the preview to reposition the photo.') : 'No photo chosen — the Story uses a plain branded background.';
+  }
+  $('photoPick').addEventListener('change', function () { current.story.photoId = this.value; current.story.covers = []; current.story.transform = { x: 0, y: 0, zoom: 1 }; renderCovers(); drawPreview(); });
+
+  function storyOpts(guides) {
+    var p = currentPhoto();
+    current.story.headline = $('headline').value.trim();
+    current.story.lines = $('storyLines').value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).slice(0, 3);
+    if (p) current.story.transform = R.clampTransform(p.bitmap, current.story.transform);
+    return { img: p ? p.bitmap : null, transform: current.story.transform, covers: current.story.covers, headline: current.story.headline, lines: current.story.lines, business: B, guides: guides };
+  }
+
+  var dragRect = null;
+  function drawPreview() {
+    if (!current || current.kind !== 'story') return;
+    var cv = $('preview');
+    var res = R.render(cv, storyOpts(true));
+    if (dragRect) {
+      var ctx = cv.getContext('2d');
+      ctx.save(); ctx.strokeStyle = '#ff8a80'; ctx.lineWidth = 6; ctx.setLineDash([12, 8]);
+      ctx.strokeRect(dragRect.x, dragRect.y, dragRect.w, dragRect.h); ctx.restore();
+    }
+    var fi = $('fitIssues');
+    fi.textContent = '';
+    res.issues.forEach(function (i) { fi.appendChild(el('p', { class: 'flag', text: i })); });
+  }
+  ['headline', 'storyLines'].forEach(function (id) { $(id).addEventListener('input', drawPreview); });
+
+  function renderCovers() {
+    var ul = $('coverList');
+    ul.textContent = '';
+    if (!current) return;
+    current.story.covers.forEach(function (c, i) {
+      ul.appendChild(el('li', {}, ['Hidden area ' + (i + 1), el('button', { type: 'button', text: 'Remove', onclick: function () { current.story.covers.splice(i, 1); renderCovers(); drawPreview(); } })]));
+    });
+  }
+
+  function setMode(m) {
+    mode = m;
+    $('moveMode').setAttribute('aria-pressed', String(m === 'move'));
+    $('hideMode').setAttribute('aria-pressed', String(m === 'hide'));
+    $('preview').classList.toggle('hide-mode', m === 'hide');
+    refreshPhotoPick();
+  }
+  $('moveMode').addEventListener('click', function () { setMode('move'); });
+  $('hideMode').addEventListener('click', function () { setMode('hide'); });
+  function zoomBy(f) { current.story.transform.zoom = Math.min(4, Math.max(1, current.story.transform.zoom * f)); drawPreview(); }
+  $('zoomIn').addEventListener('click', function () { zoomBy(1.15); });
+  $('zoomOut').addEventListener('click', function () { zoomBy(1 / 1.15); });
+  $('resetPos').addEventListener('click', function () { current.story.transform = { x: 0, y: 0, zoom: 1 }; drawPreview(); });
+
+  (function wirePointer() {
+    var cv = $('preview'), start = null, startT = null;
+    function pt(e) { var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (R.W / r.width), y: (e.clientY - r.top) * (R.H / r.height) }; }
+    cv.addEventListener('pointerdown', function (e) {
+      if (!currentPhoto()) return;
+      cv.setPointerCapture(e.pointerId);
+      start = pt(e); startT = Object.assign({}, current.story.transform);
+    });
+    cv.addEventListener('pointermove', function (e) {
+      if (!start) return;
+      var p = pt(e);
+      if (mode === 'move') { current.story.transform = Object.assign({}, startT, { x: startT.x + p.x - start.x, y: startT.y + p.y - start.y }); }
+      else dragRect = { x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y) };
+      drawPreview();
+    });
+    function end() {
+      if (start && mode === 'hide' && dragRect && dragRect.w > 20 && dragRect.h > 12) {
+        var img = currentPhoto().bitmap, t = current.story.transform;
+        var a = R.toPhoto(img, t, dragRect.x, dragRect.y), b = R.toPhoto(img, t, dragRect.x + dragRect.w, dragRect.y + dragRect.h);
+        current.story.covers.push({ x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y });
+        renderCovers();
+      }
+      start = null; dragRect = null; drawPreview();
+    }
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', end);
+  })();
+
+  $('downloadBtn').addEventListener('click', function () {
+    var cv = document.createElement('canvas');
+    var res = R.render(cv, storyOpts(false));
+    cv.toBlob(function (blob) {
+      if (!blob) { setStatus($('storyStatus'), 'err', 'Could not create the image.'); return; }
+      var a = el('a', { href: URL.createObjectURL(blob), download: 'mb-automotive-story-' + new Date().toISOString().slice(0, 10) + '.png' });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      setStatus($('storyStatus'), 'ok', 'Story PNG (' + cv.width + ' × ' + cv.height + ') downloaded to this device' + (res.issues.length ? ' — note: ' + res.issues.join(' ') : '.') + ' Nothing was posted.');
+    }, 'image/png');
+  });
+
+  // ---------- copy / save ----------
+  $('copyBtn').addEventListener('click', async function () {
+    var text = $('caption').value;
+    try { await navigator.clipboard.writeText(text); setStatus($('resultStatus'), 'ok', 'Caption copied.'); }
+    catch (e) { $('caption').focus(); $('caption').select(); setStatus($('resultStatus'), 'err', 'Copy was blocked by the browser — the caption is selected, press Ctrl+C / long-press to copy.'); }
+  });
+
+  $('saveBtn').addEventListener('click', async function () {
+    if (!current) return;
+    var input = readInput();
+    if (current.kind === 'story') storyOpts(false); // sync headline/lines from the fields
+    var draft = Object.assign({}, current, {
+      kind: current.kind, jobDetails: input.jobDetails, vehicle: input.vehicle, price: input.price, caption: $('caption').value,
+      photos: photos.map(function (p) { return { id: p.id, name: p.name, type: p.type }; }),
+    });
+    var res = C.saveDraft(draft);
+    if (!res.ok) { setStatus($('resultStatus'), 'err', res.error + ' Your text is still here.'); return; }
+    current.id = res.draft.id;
+    lastWriteAt = new Date().toISOString(); renderSync();
+    var msg = 'Draft saved on this device.';
+    if (photos.length) {
+      var stored = await Promise.all(photos.map(function (p) { return C.putPhoto(p.id, res.draft.id, p.blob, p.name); }));
+      var failed = stored.filter(function (s) { return !s.ok; });
+      if (failed.length) { photoStoreOk = false; msg += ' Photos could NOT be saved (' + failed[0].error + ') — they are session-only, so download your Story now.'; }
+      else msg += ' ' + photos.length + ' photo' + (photos.length === 1 ? '' : 's') + ' kept on this device only (not synced).';
+    }
+    // drop stored photos the user removed from this draft
+    C.prunePhotos(res.draft.id, res.draft.photos.map(function (p) { return p.id; }));
+    setStatus($('resultStatus'), photoStoreOk || !photos.length ? 'ok' : 'err', msg);
+    renderDrafts(); photoNote();
+  });
+
+  // ---------- saved drafts ----------
+  $('draftsBtn').addEventListener('click', function () {
+    var p = $('draftsPanel');
+    p.hidden = !p.hidden;
+    this.setAttribute('aria-expanded', String(!p.hidden));
+    if (!p.hidden) renderDrafts();
+  });
+
+  function renderDrafts() {
+    var list = C.load().drafts;
+    $('draftsBtn').textContent = 'Saved drafts' + (list.length ? ' (' + list.length + ')' : '');
+    var ul = $('draftList');
+    ul.textContent = '';
+    if (!list.length) ul.appendChild(el('li', { class: 'empty', text: 'No saved drafts yet.' }));
+    list.forEach(function (d) {
+      var title = (d.vehicle ? d.vehicle + ' — ' : '') + d.jobDetails.replace(/\s+/g, ' ').slice(0, 60);
+      ul.appendChild(el('li', { class: 'draft-row' }, [
+        el('p', { class: 'title', style: 'font-size:1rem', text: title || '(untitled)' }),
+        el('p', { class: 'meta', text: (d.kind === 'story' ? 'Story' : 'Post') + ' · ' + (d.source === 'ai' ? 'AI draft' : 'Template') + ' · updated ' + when(d.updatedAt) + (d.photos.length ? ' · ' + d.photos.length + ' photo(s) on the device that saved it' : '') }),
+        el('div', { class: 'row' }, [
+          el('button', { type: 'button', text: 'Open', onclick: function () { openDraft(d.id); } }),
+          el('button', { type: 'button', text: 'Delete', onclick: function () {
+            var r = C.removeDraft(d.id);
+            if (!r.ok) { setStatus($('draftsStatus'), 'err', r.error); return; }
+            lastWriteAt = new Date().toISOString(); renderSync();
+            renderDrafts();
+            setStatus($('draftsStatus'), 'ok', 'Draft deleted.', function () {
+              var u = C.restoreDraft(r.draft, r.index);
+              if (u.ok) { lastWriteAt = new Date().toISOString(); renderSync(); setStatus($('draftsStatus'), 'ok', 'Draft restored.'); }
+              else setStatus($('draftsStatus'), 'err', u.error);
+              renderDrafts();
+            });
+          } }),
+        ]),
+      ]));
+    });
+  }
+
+  async function openDraft(id) {
+    var d = C.getDraft(id);
+    if (!d) return;
+    photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
+    photos = [];
+    var missing = 0;
+    for (var i = 0; i < d.photos.length; i++) {
+      var rec = await C.getPhoto(d.photos[i].id);
+      if (rec && rec.blob) { try { await addPhotoBlob(d.photos[i].id, d.photos[i].name, d.photos[i].type, rec.blob); } catch (e) { missing++; } }
+      else missing++;
+    }
+    $('jobDetails').value = d.jobDetails; $('vehicle').value = d.vehicle; $('price').value = d.price;
+    kind = d.kind;
+    Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-kind') === kind)); });
+    current = { id: d.id, kind: d.kind, source: d.source, model: d.model, jobDetails: d.jobDetails, story: JSON.parse(JSON.stringify(d.story)) };
+    if (!photos.some(function (p) { return p.id === current.story.photoId; })) current.story.photoId = photos[0] ? photos[0].id : '';
+    renderThumbs();
+    showResult(d.caption, missing ? [missing + ' photo' + (missing === 1 ? ' isn\'t' : 's aren\'t') + ' on this device (photos never sync) — add them again if needed.'] : []);
+    setStatus($('resultStatus'), '', 'Opened draft saved ' + when(d.updatedAt) + '.');
+    $('draftsPanel').hidden = true;
+    $('draftsBtn').setAttribute('aria-expanded', 'false');
+    $('result').scrollIntoView({ block: 'start' });
+  }
+
+  $('exportBtn').addEventListener('click', function () {
+    var payload = C.buildExport();
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var a = el('a', { href: URL.createObjectURL(blob), download: 'content-drafts-' + payload.exportedAt.slice(0, 10) + '.json' });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    setStatus($('draftsStatus'), 'ok', 'Exported ' + payload.drafts.length + ' draft' + (payload.drafts.length === 1 ? '' : 's') + ' (text only).');
+  });
+
+  $('restoreInput').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var payload = null;
+      try { payload = JSON.parse(String(r.result)); } catch (e) {}
+      var res = C.restore(payload);
+      if (!res.ok) { setStatus($('draftsStatus'), 'err', res.error); return; }
+      lastWriteAt = new Date().toISOString(); renderSync();
+      setStatus($('draftsStatus'), 'ok', 'Restore saved: ' + res.added + ' added, ' + res.updated + ' updated.');
+      renderDrafts();
+    };
+    r.readAsText(file);
+  });
+
+  // ---------- boot ----------
+  if (window.SupabaseAuth) window.SupabaseAuth.init();
+  C.photoStorageAvailable().then(function (ok) { photoStoreOk = ok; photoNote(); if (ok) C.cleanupOrphanPhotos([]); });
+  renderDrafts();
+  refreshPhotoPick();
+})();
+</script>
+</body>
+</html>
