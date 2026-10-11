@@ -86,7 +86,9 @@
     var changed = false;
     listKeys().forEach(function (k) {
       if (k.slice(PREFIX.length) >= today) return;
-      read(k).forEach(function (g) {
+      var old = read(k);
+      archiveDone(old, k.slice(PREFIX.length));
+      old.forEach(function (g) {
         if (!g.done && g.text && !texts[g.text]) {
           list.push(Object.assign({}, g, { done: false }));
           texts[g.text] = true;
@@ -198,6 +200,123 @@
     return r2.ok ? { ok: true, list: rest } : r2;
   }
 
+  // ---------- Log: completion history + weekly outcomes ----------
+  // Day keys are deleted on rollover (here and in pages/main.html), so
+  // completed items are copied into `lockInLog` first — the only record of
+  // past completions. History starts when this was added; nothing older exists.
+  var LOG_KEY = 'lockInLog';
+  var LOG_DONE_LIMIT = 300;
+
+  function loadLog() {
+    var log = null;
+    try { log = JSON.parse(localStorage.getItem(LOG_KEY)); } catch (e) {}
+    if (!log || typeof log !== 'object') log = {};
+    if (!Array.isArray(log.done)) log.done = [];
+    if (!log.weeks || typeof log.weeks !== 'object') log.weeks = {};
+    if (!log.startedAt) log.startedAt = '';
+    return log;
+  }
+  function writeLog(log) {
+    var raw = JSON.stringify(log);
+    try { localStorage.setItem(LOG_KEY, raw); } catch (e) { return { ok: false, error: 'Could not save on this device.' }; }
+    var back = null;
+    try { back = localStorage.getItem(LOG_KEY); } catch (e) {}
+    return back === raw ? { ok: true } : { ok: false, error: 'Save could not be confirmed on this device.' };
+  }
+
+  // Copies done items from one day's list into the log (deduped by date+text).
+  function archiveDone(list, date) {
+    var done = (list || []).filter(function (g) { return g && g.done && g.text; });
+    if (!done.length) return { ok: true };
+    var log = loadLog();
+    if (!log.startedAt) log.startedAt = nowIso();
+    var seen = {};
+    log.done.forEach(function (d) { seen[d.date + '|' + d.text] = true; });
+    done.forEach(function (g) {
+      if (seen[date + '|' + g.text]) return;
+      log.done.push({ text: g.text, date: date, completedAt: g.completedAt || '' });
+    });
+    if (log.done.length > LOG_DONE_LIMIT) log.done = log.done.slice(-LOG_DONE_LIMIT);
+    return writeLog(log);
+  }
+
+  // Completed items between two YYYY-MM-DD dates (inclusive), including
+  // today's live list (not archived until tomorrow's rollover).
+  function completedBetween(from, to) {
+    var out = loadLog().done.filter(function (d) { return d.date >= from && d.date <= to; });
+    var today = activeDate();
+    if (today >= from && today <= to) {
+      read(PREFIX + today).forEach(function (g) {
+        if (g && g.done && g.text) out.push({ text: g.text, date: today, completedAt: g.completedAt || '' });
+      });
+    }
+    return out;
+  }
+
+  function historyStartedAt() { return loadLog().startedAt; }
+
+  // Up to three outcomes for the week starting `weekStart` (a Monday, YYYY-MM-DD).
+  function getWeekOutcomes(weekStart) {
+    var w = loadLog().weeks[weekStart];
+    return w && Array.isArray(w.outcomes) ? w.outcomes : [];
+  }
+  function setWeekOutcomes(weekStart, outcomes) {
+    var clean = (outcomes || []).map(function (o) { return String(o || '').trim(); }).filter(Boolean).slice(0, 3);
+    var log = loadLog();
+    log.weeks[weekStart] = { outcomes: clean, savedAt: nowIso() };
+    // keep the last 12 weeks only
+    var keys = Object.keys(log.weeks).sort();
+    keys.slice(0, Math.max(0, keys.length - 12)).forEach(function (k) { delete log.weeks[k]; });
+    return writeLog(log);
+  }
+
+  // Applies an accepted plan to today's list in one verified write.
+  // plan: [{ id?, text, firstStep, minutes, role: 'main'|'support' }]
+  // Items with an id update that task; items without become new tasks.
+  // Every other open task loses its main/support role (stays on the list).
+  function applyPlan(plan) {
+    var mains = plan.filter(function (p) { return p.role === 'main'; }).length;
+    var supports = plan.filter(function (p) { return p.role === 'support'; }).length;
+    if (mains > 1) return { ok: false, error: 'Only one main action.' };
+    if (supports > MAX_SUPPORT) return { ok: false, error: 'At most two supporting actions.' };
+    return mutateToday(function (list) {
+      var t = nowIso();
+      var chosen = {};
+      for (var i = 0; i < plan.length; i++) {
+        var p = plan[i];
+        var text = String(p.text || '').trim();
+        if (!text) return 'Every action needs a name.';
+        var g = p.id ? findIn(list, p.id) : null;
+        if (p.id && !g) return 'A task in this plan is no longer on today\'s list — run Morning again.';
+        if (!g) {
+          g = list.find(function (x) { return !x.done && x.text === text; });
+          if (!g) { g = { id: uid(), text: text, done: false, createdAt: t }; list.push(g); }
+        }
+        g.text = text;
+        g.firstStep = String(p.firstStep || '').trim();
+        g.minutes = Number(p.minutes) > 0 ? Number(p.minutes) : 0;
+        g.role = p.role;
+        g.updatedAt = t;
+        chosen[g.id] = true;
+      }
+      list.forEach(function (x) { if (!x.done && !chosen[x.id] && x.role) { x.role = ''; x.updatedAt = t; } });
+    });
+  }
+
+  // Adds a task to tomorrow's list (deduped by text). Becomes tomorrow's
+  // main action only if tomorrow has none yet.
+  function addToTomorrow(text) {
+    text = String(text || '').trim();
+    if (!text) return { ok: false, error: 'Type tomorrow\'s priority first.' };
+    var key = PREFIX + tomorrowDate();
+    var tom = read(key);
+    if (tom.some(function (x) { return x.text === text; })) return { ok: true, existed: true };
+    var hasMain = tom.some(function (x) { return !x.done && x.role === 'main'; });
+    tom.push({ id: uid(), text: text, done: false, role: hasMain ? '' : 'main', createdAt: nowIso(), updatedAt: nowIso() });
+    return write(key, tom);
+  }
+  function readTomorrow() { return read(PREFIX + tomorrowDate()); }
+
   // Restores a previous copy of today's list (used by Undo).
   function restoreToday(list) { return write(PREFIX + activeDate(), list); }
   function removeFromTomorrow(id) {
@@ -219,5 +338,14 @@
     defer: defer,
     restoreToday: restoreToday,
     removeFromTomorrow: removeFromTomorrow,
+    LOG_KEY: LOG_KEY,
+    archiveDone: archiveDone,
+    completedBetween: completedBetween,
+    historyStartedAt: historyStartedAt,
+    getWeekOutcomes: getWeekOutcomes,
+    setWeekOutcomes: setWeekOutcomes,
+    applyPlan: applyPlan,
+    addToTomorrow: addToTomorrow,
+    readTomorrow: readTomorrow,
   };
 })();

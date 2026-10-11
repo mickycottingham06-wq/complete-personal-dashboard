@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../scripts/sync.js" defer></script>
 <script src="../scripts/topbar.js" defer></script>
+<script src="../scripts/lockin-data.js"></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -776,6 +777,7 @@ body::after {
           texts.add(g.text);
         }
       });
+      if (window.LockIn) window.LockIn.archiveDone(old, dateStr); // keep completion history before the day key is removed
       storeDelete(k);
     });
     setGoals(todayK, today);

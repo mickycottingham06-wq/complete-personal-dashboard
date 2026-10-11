@@ -261,6 +261,21 @@ console.anthropic.com.
 
 ---
 
+## 8. Assistant AI (optional, server-side)
+
+`pages/assistant.html` works without AI (labelled basic briefings). To enable AI suggestions,
+add in Vercel → Settings → Environment Variables, then redeploy:
+
+| Variable | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` | key from console.anthropic.com — server-side only, never sent to the browser |
+| `ASSISTANT_MODEL` | optional; defaults to `claude-opus-5-5` (e.g. `claude-haiku-5-5` is far cheaper) |
+
+Each Morning/Evening/Weekly press with AI on is one paid API request. Uses the
+`@anthropic-ai/sdk` package (in `package.json`). See `docs/LOCK_IN_HQ.md` for what is sent.
+
+---
+
 ## TL;DR
 1. Fork → import to Vercel → deploy.
 2. New Supabase → run the **SQL** above → set `SUPABASE_URL` + `SUPABASE_ANON_KEY` +

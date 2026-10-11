@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<script src="/api/config"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16191f">
+<title>Assistant · LOCK-IN HQ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/auto-sync.js"></script>
+<script src="../scripts/google-calendar-service.js"></script>
+<script src="../scripts/daily-snapshot-data.js"></script>
+<script src="../scripts/sync-status-line.js"></script>
+<script src="../scripts/lockin-data.js"></script>
+<script src="../scripts/second-brain-data.js"></script>
+<script src="../scripts/assistant-engine.js"></script>
+<link rel="stylesheet" href="../styles/lock-in.css">
+<style>
+  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--blue); }
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .modes button { min-height: 56px; font-weight: 600; padding: 8px 6px; }
+  .modes button[aria-pressed="true"] { background: var(--blue-strong); border-color: var(--blue-strong); color: #fff; }
+  .badge { display: inline-block; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .badge.ai { background: var(--blue-soft); color: var(--text); }
+  .badge.warn { color: var(--warn); }
+  .label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 6px; }
+  .out h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .out .card { margin-top: 12px; }
+  .flag { color: var(--warn); margin: 6px 0 0; }
+  .plan-item { border-top: 1px solid var(--line); padding: 14px 0; }
+  .plan-item:first-of-type { border-top: 0; padding-top: 0; }
+  .role { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); font-weight: 700; }
+  .include { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; color: var(--text); font-size: 0.95rem; }
+  .include input { width: 24px; min-height: 24px; height: 24px; }
+  .note-ref { font-size: 0.92rem; color: var(--muted); margin: 6px 0; overflow-wrap: anywhere; }
+  .note-ref a { font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chips button { min-height: 44px; padding: 6px 12px; font-size: 0.92rem; text-align: left; }
+  .answer { white-space: pre-wrap; margin: 0; }
+  ol.review { margin: 8px 0 0; padding-left: 22px; }
+  li.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← LOCK-IN HQ</a>
+  <header style="padding-top:0">
+    <h1>ASSISTANT</h1>
+    <span class="badge" id="aiBadge">AI: checking…</span>
+  </header>
+
+  <div class="modes" role="group" aria-label="Briefing">
+    <button type="button" data-mode="morning" aria-pressed="false">Morning</button>
+    <button type="button" data-mode="evening" aria-pressed="false">Evening</button>
+    <button type="button" data-mode="weekly" aria-pressed="false">Weekly reset</button>
+  </div>
+  <label for="question" style="margin-top:16px">Question or update (optional)</label>
+  <textarea id="question" maxlength="800" placeholder="e.g. Only got an hour tonight · What did I note about the parts supplier?"></textarea>
+
+  <div class="out" id="out" aria-live="polite"></div>
+
+  <details id="aiHelp">
+    <summary>About the AI and what it sees</summary>
+    <div class="card">
+      <p class="meta" id="aiReason"></p>
+      <p class="meta"><strong>To turn AI on:</strong> in Vercel → Project → Settings → Environment Variables add <code>ANTHROPIC_API_KEY</code> (from console.anthropic.com), optionally <code>ASSISTANT_MODEL</code>, then redeploy. Each button press with AI on is one paid API request.</p>
+      <p class="meta"><strong>Sent per request:</strong> today's open tasks, today's commitments, at most 3 matching Second Brain excerpts and your question. Not your whole notes collection, finances or anything else.</p>
+      <p class="meta">Without AI you get a basic briefing built only from your stored tasks and commitments.</p>
+    </div>
+  </details>
+
+  <p class="hint" style="color:var(--muted);font-size:0.85rem;margin-top:18px">Briefings run only when you press a button — nothing is scheduled. No email is connected. Nothing is sent, booked or changed outside this app.</p>
+  <p class="sync-line" id="syncLine"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var L = window.LockIn, E = window.AssistantEngine;
+  var ai = { available: false, reason: '' };
+  var lastWriteAt = '';
+  var busy = false;
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+      else if (k === 'checked') n.checked = !!attrs[k];
+      else if (k === 'value') n.value = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function card(title, children) { return el('div', { class: 'card' }, [title ? el('h3', { text: title }) : null].concat(children)); }
+  function status(kind, msg, undo) {
+    var p = el('p', { class: 'status ' + (kind || ''), role: 'status', text: msg });
+    if (undo) p.appendChild(el('button', { type: 'button', text: 'Undo', onclick: undo }));
+    return p;
+  }
+  var renderSync = window.SyncStatusLine.bind($('syncLine'), function () { return lastWriteAt; });
+  function wrote() { lastWriteAt = new Date().toISOString(); renderSync(); }
+  function question() { return $('question').value.trim(); }
+  function currentMonday(today) { var d = new Date(today + 'T12:00:00').getDay(); return E.addDays(today, -((d + 6) % 7)); }
+  function weekOutcomes(today) {
+    var a = L.getWeekOutcomes(currentMonday(today)), b = L.getWeekOutcomes(E.weekStartFor(today));
+    return a.concat(b.filter(function (x) { return a.indexOf(x) === -1; }));
+  }
+
+  // ---------- Shared blocks ----------
+  function sourceBadge(mode) {
+    if (mode.ai) return el('span', { class: 'badge ai', text: 'AI suggestion · ' + mode.model + ' — check before saving' });
+    return el('div', {}, [
+      el('span', { class: 'badge', text: 'Basic briefing (no AI) — from your stored tasks and commitments' }),
+      mode.aiError ? el('p', { class: 'flag', text: 'AI failed: ' + mode.aiError + ' Showing the basic briefing instead.' }) : null,
+    ]);
+  }
+
+  function commitmentsCard(cal, today) {
+    var ul = el('ul', { class: 'plain commit' });
+    ul.appendChild(el('li', {}, [el('span', { class: 'src' + (cal.state === 'failed' || cal.state === 'stale' ? ' tag err' : ''), text: E.calendarLabel(cal) })]));
+    var evts = E.eventsOn(cal, today);
+    evts.forEach(function (e) { ul.appendChild(el('li', {}, [el('span', { class: 'time', text: e.time || 'All day' }), e.text])); });
+    if (!evts.length && cal.retrievedAt) ul.appendChild(el('li', { class: 'muted', text: 'No calendar events today in the retrieved data.' }));
+    var sup = E.suppliedFor(today);
+    if (sup.length) {
+      ul.appendChild(el('li', {}, [el('span', { class: 'src', text: 'Supplied by you — not from a calendar' })]));
+      sup.forEach(function (s) { ul.appendChild(el('li', {}, [el('span', { class: 'time', text: s.time || 'Today' }), s.text])); });
+    }
+    ul.appendChild(el('li', {}, [el('span', { text: 'Email ' }), el('span', { class: 'tag', text: 'Not connected — not checked' })]));
+    return card('Today\'s commitments', [ul]);
+  }
+
+  function notesCard(notes, usedIds, isAi) {
+    if (!notes.length) return null;
+    var shown = isAi ? notes.filter(function (n) { return usedIds.indexOf(n.id) !== -1; }) : notes;
+    var title = isAi ? 'Notes the AI used' : 'Possibly relevant notes (keyword match)';
+    if (!shown.length) return card(title, [el('p', { class: 'empty', text: notes.length + ' matching note' + (notes.length === 1 ? ' was' : 's were') + ' sent; the AI said it didn\'t use them.' })]);
+    return card(title, shown.map(function (n) {
+      return el('p', { class: 'note-ref' }, [el('a', { href: 'second-brain.html', text: n.title }), ' — ', n.excerpt.slice(0, 160)]);
+    }));
+  }
+
+  function questionCard(answer, notesCount) {
+    var q = question();
+    if (!q) return null;
+    if (answer) return card('Your question', [el('p', { class: 'answer', text: answer })]);
+    return card('Your question', [el('p', { class: 'empty', text: 'Not answered — AI isn\'t available. ' + (notesCount ? 'Matching notes are listed above.' : 'No notes matched it.') })]);
+  }
+
+  async function tryAi(mode, ctx, notes) {
+    if (!ai.available) return { ai: false };
+    var res = await E.askAi(mode, question(), ctx);
+    if (!res.ok) return { ai: false, aiError: res.error };
+    return { ai: true, model: res.model, v: E.validateAi(res.data, ctx, notes) };
+  }
+
+  // ---------- Morning ----------
+  async function morning(out) {
+    var today = L.activeDate();
+    var cal = await E.loadCalendar(true);
+    var avail = E.availability(today, cal);
+    var outcomes = weekOutcomes(today);
+    var basic = E.morningPlan(avail, outcomes);
+    var notes = E.relevantNotes(question(), E.candidates(outcomes).slice(0, 5).map(function (c) { return c.task.text; }), 3);
+    var commitments = E.eventsOn(cal, today).concat(E.suppliedFor(today));
+    var ctx = E.buildAiContext(today, avail, commitments, notes, outcomes);
+    var mode = await tryAi('morning', ctx, notes);
+    var actions = mode.ai && mode.v.actions.length ? mode.v.actions : basic.actions;
+    if (mode.ai && !mode.v.actions.length) { mode = { ai: false, aiError: 'The AI suggested no valid actions.' }; }
+
+    out.appendChild(sourceBadge(mode));
+    if (mode.ai && mode.v.summary) out.appendChild(el('p', { class: 'meta', style: 'margin-top:10px', text: mode.v.summary }));
+    out.appendChild(commitmentsCard(cal, today));
+    out.appendChild(card('Time for focused work', [
+      el('p', { class: 'meta' }, [el('strong', { text: 'About ' + E.fmtMin(avail.focusMinutes) }), ' — estimate: ' + avail.basis]),
+    ].concat(avail.flags.map(function (f) { return el('p', { class: 'flag', text: f }); }))
+     .concat(outcomes.length ? [el('p', { class: 'meta', text: 'This week\'s outcomes: ' + outcomes.join(' · ') })] : [])));
+    out.appendChild(planCard(actions, mode.ai ? '' : basic.note));
+    var nc = notesCard(notes, mode.ai ? mode.v.notesUsed : [], mode.ai);
+    if (nc) out.appendChild(nc);
+    var qc = questionCard(mode.ai ? mode.v.answer : '', notes.length);
+    if (qc) out.appendChild(qc);
+  }
+
+  function planCard(actions, note) {
+    var c = card('Suggested plan', []);
+    if (note) c.appendChild(el('p', { class: 'meta', text: note }));
+    if (!actions.length) return c;
+    var rows = actions.map(function (a) {
+      var inc = el('input', { type: 'checkbox', checked: true });
+      var text = el('input', { value: a.text, maxlength: '200', 'aria-label': 'Action' });
+      var step = el('input', { value: a.firstStep, maxlength: '200', 'aria-label': 'First step', placeholder: 'Concrete first step' });
+      var mins = el('input', { type: 'number', min: '5', max: '240', step: '5', value: String(a.minutes), 'aria-label': 'Minutes', inputmode: 'numeric' });
+      var view = el('div', {}, [
+        el('p', { class: 'title', text: a.text }),
+        a.firstStep ? el('p', { class: 'meta' }, [el('strong', { text: 'First step: ' }), a.firstStep]) : el('p', { class: 'meta missing', text: 'First step needed — tap Edit and add one.' }),
+        el('p', { class: 'meta', text: 'About ' + E.fmtMin(a.minutes) + (a.minutesEstimated ? ' (estimate)' : '') }),
+        el('p', { class: 'meta', text: (a.isNew ? 'New — not on your list yet. ' : '') + (a.isBiz ? 'Business/money. ' : '') + (a.reason || '') }),
+      ]);
+      var form = el('div', { hidden: '' }, [
+        el('label', { text: 'Action' }), text, el('label', { text: 'First concrete step' }), step, el('label', { text: 'Minutes' }), mins,
+      ]);
+      var editBtn = el('button', { type: 'button', text: 'Edit', onclick: function () { form.hidden = !form.hidden; view.hidden = !form.hidden; editBtn.textContent = form.hidden ? 'Edit' : 'Done editing'; } });
+      var row = el('div', { class: 'plan-item' }, [
+        el('span', { class: 'role', text: a.role === 'main' ? 'Main action' : 'Supporting' }),
+        view, form,
+        el('div', { class: 'row' }, [el('label', { class: 'include' }, [inc, 'Include']), editBtn]),
+      ]);
+      row._read = function () { return { include: inc.checked, id: a.id, role: a.role, text: text.value, firstStep: step.value, minutes: Number(mins.value) || 0 }; };
+      return row;
+    });
+    rows.forEach(function (r) { c.appendChild(r); });
+    var st = el('div');
+    var save = el('button', { type: 'button', class: 'primary', text: 'Save to today\'s list', onclick: function () {
+      var picked = rows.map(function (r) { return r._read(); }).filter(function (p) { return p.include; });
+      st.textContent = '';
+      if (!picked.length) { st.appendChild(status('err', 'Nothing selected — tick at least one action.')); return; }
+      if (!picked.some(function (p) { return p.role === 'main'; })) picked[0].role = 'main';
+      var res = L.applyPlan(picked);
+      if (!res.ok) { st.appendChild(status('err', res.error)); return; } // edits stay in the form
+      wrote();
+      st.appendChild(status('ok', 'Saved — ' + picked.length + ' action' + (picked.length === 1 ? '' : 's') + ' now on LOCK-IN HQ. Other tasks stay on your list.'));
+    } });
+    c.appendChild(el('div', { class: 'row' }, [save]));
+    c.appendChild(el('p', { class: 'hint', style: 'color:var(--muted);font-size:0.85rem', text: 'Nothing changes until you save. Saving replaces today\'s main/supporting choice.' }));
+    c.appendChild(st);
+    return c;
+  }
+
+  // ---------- Evening ----------
+  async function evening(out) {
+    var today = L.activeDate();
+    var notes = E.relevantNotes(question(), [], 3);
+    var mode = { ai: false };
+    if (question()) {
+      var cal = await E.loadCalendar(false);
+      var avail = E.availability(today, cal);
+      var ctx = E.buildAiContext(today, avail, E.eventsOn(cal, today).concat(E.suppliedFor(today)), notes, weekOutcomes(today));
+      mode = await tryAi('evening', ctx, notes);
+    }
+    out.appendChild(sourceBadge(mode));
+    var holder = el('div');
+    out.appendChild(holder);
+    renderEvening(holder);
+    out.appendChild(eveningNoteCard());
+    var nc = notesCard(notes, mode.ai ? mode.v.notesUsed : [], mode.ai);
+    if (nc && question()) out.appendChild(nc);
+    var qc = questionCard(mode.ai ? mode.v.answer : '', notes.length);
+    if (qc) out.appendChild(qc);
+  }
+
+  function renderEvening(holder, msg) {
+    holder.textContent = '';
+    var f = L.focus(L.loadToday());
+    var c = card('Today\'s actions — what happened?', []);
+    var focusItems = [f.main].concat(f.support).filter(Boolean);
+    function row(item) {
+      var before = JSON.parse(JSON.stringify(L.loadToday()));
+      return el('div', { class: 'plan-item' }, [
+        el('p', { class: 'title', style: 'font-size:1.05rem', text: item.text }),
+        el('div', { class: 'row' }, [
+          el('button', { type: 'button', text: 'Done', onclick: function () {
+            var r = L.complete(item.id, true);
+            if (r.ok) wrote();
+            renderEvening(holder, r.ok ? status('ok', 'Saved — "' + item.text + '" marked done.', function () { if (L.restoreToday(before).ok) wrote(); renderEvening(holder, status('ok', 'Saved — undone.')); }) : status('err', r.error));
+          } }),
+          el('button', { type: 'button', text: 'Move to tomorrow', onclick: function () {
+            var r = L.defer(item.id);
+            if (r.ok) wrote();
+            renderEvening(holder, r.ok ? status('ok', 'Saved — "' + item.text + '" moved to tomorrow.', function () { if (L.restoreToday(before).ok && L.removeFromTomorrow(item.id).ok) wrote(); renderEvening(holder, status('ok', 'Saved — back on today.')); }) : status('err', r.error));
+          } }),
+        ]),
+      ]);
+    }
+    if (!focusItems.length && !f.inbox.length) c.appendChild(el('p', { class: 'empty', text: 'No open actions on today\'s list.' }));
+    if (focusItems.length) focusItems.forEach(function (i) { c.appendChild(row(i)); });
+    else if (f.inbox.length) c.appendChild(el('p', { class: 'empty', text: 'No main or supporting action was set today.' }));
+    c.appendChild(el('p', { class: 'hint', style: 'color:var(--muted);font-size:0.85rem', text: 'Nothing is marked done unless you tap Done. Anything you leave stays on today\'s list and carries over.' }));
+    if (f.inbox.length) {
+      var d = el('details', {}, [el('summary', { text: 'Other unfinished on today\'s list · ' + f.inbox.length })]);
+      f.inbox.forEach(function (i) { d.appendChild(row(i)); });
+      c.appendChild(d);
+    }
+    if (f.done.length) c.appendChild(el('p', { class: 'meta', style: 'margin-top:12px', text: 'You marked done today: ' + f.done.map(function (g) { return g.text; }).join(' · ') }));
+    if (msg) c.appendChild(msg);
+    holder.appendChild(c);
+  }
+
+  function eveningNoteCard() {
+    var note = el('textarea', { id: 'eveNote', maxlength: '400', placeholder: 'Optional — anything worth remembering about today' });
+    var prio = el('input', { id: 'evePrio', maxlength: '200', placeholder: 'Optional — the one thing for tomorrow' });
+    var st = el('div');
+    var snapNow = window.DailySnapshot ? window.DailySnapshot.loadOrInit() : null;
+    return card('Close the day (optional)', [
+      el('label', { for: 'eveNote', text: 'Short note' }), note,
+      el('label', { for: 'evePrio', text: 'Tomorrow\'s priority' }), prio,
+      snapNow && snapNow.tomorrowPriority ? el('p', { class: 'hint', style: 'color:var(--muted);font-size:0.85rem', text: 'Currently set: ' + snapNow.tomorrowPriority }) : null,
+      el('div', { class: 'row' }, [el('button', { type: 'button', class: 'primary', text: 'Save', onclick: function () {
+        st.textContent = '';
+        var n = note.value.trim(), p = prio.value.trim();
+        if (!n && !p) { st.appendChild(status('err', 'Nothing to save — both are optional.')); return; }
+        var DS = window.DailySnapshot;
+        var snap = DS.loadOrInit();
+        var stamp = E.hm(new Date().toISOString());
+        if (n) snap.notes = (snap.notes ? snap.notes + '\n' : '') + stamp + ' ' + n;
+        if (p) snap.tomorrowPriority = p;
+        DS.save(snap);
+        var back = DS.get();
+        if (!back || (n && back.notes !== snap.notes) || (p && back.tomorrowPriority !== p)) { st.appendChild(status('err', 'Could not save on this device — your text is still here.')); return; }
+        if (p) {
+          var r = L.addToTomorrow(p);
+          if (!r.ok) { st.appendChild(status('err', 'Note saved, but tomorrow\'s priority couldn\'t be added to tomorrow\'s list: ' + r.error)); wrote(); return; }
+        }
+        wrote();
+        note.value = ''; prio.value = '';
+        st.appendChild(status('ok', 'Saved' + (n ? ' — note added to today\'s Daily Control Panel' : '') + (p ? (n ? ';' : ' —') + ' "' + p + '" is on tomorrow\'s list' : '') + '.'));
+      } })]),
+      st,
+    ]);
+  }
+
+  // ---------- Weekly ----------
+  async function weekly(out) {
+    var today = L.activeDate();
+    var cal = await E.loadCalendar(true);
+    var data = E.weeklyData(cal);
+    var notes = E.relevantNotes(question(), [], 3);
+    var mode = { ai: false };
+    if (question()) {
+      var avail = E.availability(today, cal);
+      var ctx = E.buildAiContext(today, avail, data.upcoming, notes, data.outcomes);
+      ctx.completedThisWeek = data.completed.slice(0, 15).map(function (d) { return d.text; });
+      ctx.unfinished = data.unfinished.slice(0, 15).map(function (u) { return u.text; });
+      mode = await tryAi('weekly', ctx, notes);
+    }
+    out.appendChild(sourceBadge(mode));
+
+    var done = el('ul', { class: 'plain commit' });
+    if (data.completed.length) data.completed.forEach(function (d) { done.appendChild(el('li', {}, [el('span', { class: 'time', text: E.dayLabel(d.date) }), d.text])); });
+    else done.appendChild(el('li', { class: 'muted', text: 'Nothing recorded as done between ' + E.dayLabel(data.from) + ' and ' + E.dayLabel(data.to) + '.' }));
+    out.appendChild(card('Completed · last 7 days', [done, data.historyNote ? el('p', { class: 'hint', style: 'color:var(--muted);font-size:0.85rem', text: data.historyNote }) : null]));
+
+    var un = el('ul', { class: 'plain commit' });
+    if (data.unfinished.length) data.unfinished.forEach(function (u) { un.appendChild(el('li', {}, [u.text, el('span', { class: 'src', text: u.where })])); });
+    else un.appendChild(el('li', { class: 'muted', text: 'No unfinished tasks.' }));
+    out.appendChild(card('Unfinished', [un]));
+
+    var up = el('ul', { class: 'plain commit' });
+    up.appendChild(el('li', {}, [el('span', { class: 'src' + (cal.state === 'failed' || cal.state === 'stale' ? ' tag err' : ''), text: E.calendarLabel(cal) })]));
+    data.upcoming.forEach(function (e) {
+      up.appendChild(el('li', {}, [el('span', { class: 'time', text: E.dayLabel(e.date) + (e.time ? ' ' + e.time : '') }), e.text, el('span', { class: 'src', text: e.source === 'calendar' ? 'Google Calendar' : 'Supplied by you — dated event' })]));
+    });
+    up.appendChild(el('li', {}, [el('span', { class: 'src', text: 'Your routine (supplied): ' + L.SUPPLIED_ROUTINE.weekdayWork.label + ' Mon–Fri ' + L.SUPPLIED_ROUTINE.weekdayWork.start + '–' + L.SUPPLIED_ROUTINE.weekdayWork.end })]));
+    out.appendChild(card('Coming up · next 7 days', [up]));
+
+    out.appendChild(outcomesCard(data));
+    var nc = notesCard(notes, mode.ai ? mode.v.notesUsed : [], mode.ai);
+    if (nc && question()) out.appendChild(nc);
+    var qc = questionCard(mode.ai ? mode.v.answer : '', notes.length);
+    if (qc) out.appendChild(qc);
+  }
+
+  function outcomesCard(data) {
+    var c = card('Up to three outcomes · week of ' + E.dayLabel(data.weekStart), []);
+    var inputs = [0, 1, 2].map(function (i) { return el('input', { maxlength: '160', value: data.outcomes[i] || '', 'aria-label': 'Outcome ' + (i + 1), placeholder: 'Outcome ' + (i + 1) + (i ? ' (optional)' : '') }); });
+    inputs.forEach(function (i) { c.appendChild(i); i.style.marginTop = '8px'; });
+    var sugg = data.unfinished.slice(0, 5);
+    if (sugg.length) {
+      c.appendChild(el('p', { class: 'meta', style: 'margin-top:12px', text: 'From your unfinished tasks — tap to use:' }));
+      var chips = el('div', { class: 'chips' });
+      sugg.forEach(function (u) {
+        chips.appendChild(el('button', { type: 'button', text: u.text, onclick: function () {
+          var vals = inputs.map(function (i) { return i.value.trim().toLowerCase(); });
+          if (vals.indexOf(u.text.toLowerCase()) !== -1) return;
+          var empty = inputs.find(function (i) { return !i.value.trim(); });
+          if (empty) empty.value = u.text;
+        } }));
+      });
+      c.appendChild(chips);
+    }
+    var review = el('div');
+    var st = el('div');
+    c.appendChild(el('div', { class: 'row' }, [el('button', { type: 'button', class: 'primary', text: 'Review changes', onclick: function () {
+      st.textContent = ''; review.textContent = '';
+      var vals = inputs.map(function (i) { return i.value.trim(); }).filter(Boolean);
+      var lower = vals.map(function (v) { return v.toLowerCase(); });
+      if (lower.some(function (v, i) { return lower.indexOf(v) !== i; })) { st.appendChild(status('err', 'The same outcome is listed twice.')); return; }
+      var current = L.getWeekOutcomes(data.weekStart);
+      review.appendChild(el('p', { class: 'meta', style: 'margin-top:12px' }, [el('strong', { text: 'Will save for week of ' + E.dayLabel(data.weekStart) + ':' })]));
+      var ol = el('ol', { class: 'review' });
+      if (vals.length) vals.forEach(function (v) { ol.appendChild(el('li', { text: v })); }); else ol.appendChild(el('li', { class: 'muted', text: '(no outcomes — clears the list)' }));
+      review.appendChild(ol);
+      if (current.length) review.appendChild(el('p', { class: 'meta', text: 'Replaces: ' + current.join(' · ') }));
+      review.appendChild(el('p', { class: 'meta', text: 'Tasks are not changed.' }));
+      review.appendChild(el('div', { class: 'row' }, [
+        el('button', { type: 'button', class: 'primary', text: 'Confirm and save', onclick: function () {
+          var r = L.setWeekOutcomes(data.weekStart, vals);
+          review.textContent = '';
+          if (!r.ok) { st.appendChild(status('err', r.error)); return; }
+          wrote();
+          st.appendChild(status('ok', 'Saved ' + vals.length + ' outcome' + (vals.length === 1 ? '' : 's') + ' for week of ' + E.dayLabel(data.weekStart) + '. Morning briefings will favour matching tasks.'));
+        } }),
+        el('button', { type: 'button', text: 'Back', onclick: function () { review.textContent = ''; } }),
+      ]));
+    } })]));
+    c.appendChild(review);
+    c.appendChild(st);
+    return c;
+  }
+
+  // ---------- Wiring ----------
+  var MODES = { morning: morning, evening: evening, weekly: weekly };
+  Array.prototype.forEach.call(document.querySelectorAll('.modes button'), function (b) {
+    b.addEventListener('click', async function () {
+      if (busy) return;
+      busy = true;
+      Array.prototype.forEach.call(document.querySelectorAll('.modes button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      var out = $('out');
+      out.textContent = '';
+      out.appendChild(el('p', { class: 'meta', style: 'margin-top:16px', text: ai.available ? 'Asking the AI…' : 'Building your briefing…' }));
+      var frag = el('div', { style: 'margin-top:16px' });
+      try { await MODES[b.getAttribute('data-mode')](frag); }
+      catch (e) { frag.textContent = ''; frag.appendChild(status('err', 'Something went wrong building this briefing: ' + ((e && e.message) || e))); }
+      out.textContent = '';
+      out.appendChild(frag);
+      busy = false;
+    });
+  });
+
+  E.aiStatus().then(function (s) {
+    ai = s;
+    var b = $('aiBadge');
+    b.textContent = s.available ? 'AI on' : 'AI off · basic';
+    b.className = 'badge' + (s.available ? ' ai' : '');
+    $('aiReason').textContent = s.available ? 'AI is set up (' + s.model + '). It only runs when you press a button.' : 'AI is off: ' + s.reason;
+  });
+})();
+</script>
+</body>
+</html>

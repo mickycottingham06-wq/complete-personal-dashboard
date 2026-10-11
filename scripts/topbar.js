@@ -310,6 +310,7 @@ body.topbar-modal-open {
       key: 'today', label: 'Today',
       links: [
         { key: 'lock-in',        icon: '🎯', label: 'LOCK-IN HQ',        href: '/index.html' },
+        { key: 'assistant',      icon: '🧭', label: 'Assistant',         href: '/pages/assistant.html' },
         { key: 'second-brain',   icon: '🧠', label: 'Second Brain',      href: '/pages/second-brain.html' },
         { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/command-centre.html' },
         { key: 'snapshot',       icon: '📋', label: 'Daily Control Panel', href: '/pages/daily-snapshot.html' },
@@ -426,6 +427,7 @@ body.topbar-modal-open {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('command-centre.html')) return 'command-centre';
     if (p.endsWith('second-brain.html')) return 'second-brain';
+    if (p.endsWith('assistant.html')) return 'assistant';
     if (p.endsWith('index.html') || p === '/') return 'lock-in';
     if (p.endsWith('daily-snapshot.html')) return 'snapshot';
     if (p.endsWith('streaks.html')) return 'streaks';

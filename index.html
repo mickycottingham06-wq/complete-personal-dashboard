@@ -31,13 +31,14 @@
 
   <div class="card menu" id="moreMenu" hidden>
     <a href="pages/second-brain.html">Second Brain <span class="tag">Notes</span></a>
-    <a href="pages/ai-ceo.html">Assistant <span class="tag">AI CEO page</span></a>
+    <a href="pages/assistant.html">Assistant <span class="tag">Morning · Evening · Weekly</span></a>
     <a href="#" class="soon-link">Content <span class="tag">Not built yet</span></a>
     <a href="#" class="soon-link">Workforce <span class="tag">Not built yet</span></a>
     <div class="group">Existing pages</div>
     <a href="pages/main.html">Full To Do list</a>
     <a href="command-centre.html">Command Centre (old home)</a>
     <a href="pages/daily-snapshot.html">Daily Control Panel</a>
+    <a href="pages/ai-ceo.html">AI CEO (prompt builder)</a>
     <a href="pages/integrations.html">Integrations &amp; Cloud Sync</a>
   </div>
 
@@ -291,7 +292,8 @@
     if (f.main) mainSlot.appendChild(actionCard(f.main, true));
     else mainSlot.appendChild(el('div', { class: 'card' }, [el('p', { class: 'empty', text:
       f.inbox.length ? 'No main action chosen. Open "Captured" below and tap Make main on one item.'
-                     : 'Nothing chosen yet. Capture what matters below, then make one item your main action.' })]));
+                     : 'Nothing chosen yet. Capture what matters below, then make one item your main action.' }),
+      el('p', { class: 'meta', style: 'margin-top:8px' }, ['Or let the ', el('a', { href: 'pages/assistant.html', text: 'Assistant suggest a plan' }), '.'])]));
 
     var supportSlot = $('supportSlot');
     supportSlot.textContent = '';

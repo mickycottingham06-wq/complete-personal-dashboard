@@ -68,11 +68,53 @@ Never put them in this project folder — everything here is served publicly by 
    full-text search, and originals in a **private** Supabase Storage bucket. Plain keyword search is still enough;
    no paid embeddings or AI API needed.
 
+## Stage 3 — Assistant (done)
+
+`pages/assistant.html` + `scripts/assistant-engine.js` + `api/assistant.js`. Linked from **More** (AI CEO kept
+separately as "AI CEO (prompt builder)") and from the home page's empty main-action state.
+
+- **Morning** — today's commitments with source + freshness (Google Calendar fresh / cached / may be out of date /
+  refresh failed; supplied routine separate; email "not connected — not checked"). Estimated focus time with its
+  basis shown (after work or from 09:00 until 21:30, family time kept free, ~1 h per calendar event).
+  One main + ≤2 supporting from **existing open tasks** (main role → carried-over → first step set → matches week
+  outcomes). A business/money task swaps in only if it fits. Missing first steps are flagged, not invented.
+  Edit / untick, then **Save to today's list** (one verified write to `goals:`). Nothing changes before saving.
+- **Evening** — today's main/supporting actions; you tap **Done** or **Move to tomorrow** (existing defer).
+  Nothing is inferred. Optional short note (→ Daily Snapshot `notes`) and tomorrow's priority
+  (→ Daily Snapshot `tomorrowPriority` + tomorrow's `goals:` list, as main if none set).
+- **Weekly reset** — completed (last 7 days) and unfinished work from stored records, deduped; next 7 days'
+  calendar events (only from a real fetch) and supplied dated events. Up to three outcomes for the week
+  (Sat/Sun → next week), with **Review changes** → **Confirm and save**.
+- **Dated events**: weigh-in 16 Oct / fight 17 Oct only shape plans in the 7 days before (fight week: ≤1 supporting),
+  the day before and the day itself (≤30–45 min, no supporting). After 17 Oct they have no effect.
+
+### New storage
+- `lockInLog` (synced by Auto Cloud Save like every key): `done` — completed tasks copied out of `goals:` day
+  keys before rollover deletes them (both LOCK-IN HQ and `pages/main.html` rollovers); `weeks` — weekly outcomes.
+  Completion history starts with this update; older completions were never kept by the app.
+
+### AI (optional)
+- `GET/POST /api/assistant` (Vercel function, `@anthropic-ai/sdk` 0.128.0). Key in `ANTHROPIC_API_KEY` only.
+  Model `claude-opus-5-5` by default (`ASSISTANT_MODEL` to change), low effort, structured JSON output,
+  server-side refusal fallback enabled. Only runs on a button press.
+- Sent: open tasks (≤12), today's commitments, availability, week outcomes, ≤3 Second Brain excerpts that share
+  2+ keywords with the question/tasks, your question. Notes are wrapped as `<reference_note>` data and the model
+  is told not to follow instructions in them. The page re-checks every task/note id in the reply; unknown tasks
+  are labelled "New — not on your list", support is capped, only notes actually sent can be shown as used.
+- If AI is off or fails, the page says so and shows the basic briefing.
+
+### Scheduled delivery (not built)
+Briefings are manual only. A scheduled morning/evening message would need:
+1. **Server-side data access** — today data lives in the browser (and the Supabase `life_os_state` blob when signed
+   in). A Vercel Cron job would read that row with a Supabase service-role key (server-only) and run the same
+   engine logic server-side (it's currently browser code).
+2. **Calendar on the server** — Google refresh tokens are stored in the browser; they'd need storing server-side.
+3. **A delivery channel** — e.g. web push (service worker + VAPID keys) or email via a provider (Resend, etc.),
+   plus opt-in settings and quiet hours.
+4. **Vercel Cron** schedule in `vercel.json` (e.g. 06:30 Europe/London — Cron runs in UTC, so handle BST).
+
 ## Later stages (not built)
 
-3. **Assistant** — a planning helper that suggests the main action, first step and duration from today's list,
-   commitments and supplied routine. Suggestions only; nothing saved without you confirming. Needs a server-side
-   AI route (no keys in the browser).
 4. **Content** — capture and schedule posts for MB Automotive Works (ideas → draft → posted), kept out of the home screen.
 5. **Workforce** — track jobs/people/suppliers for MB Automotive Works (who's doing what, follow-ups).
    Also the place to add a verified email integration (Gmail OAuth via `/api` routes) so the home screen can show real email commitments.
