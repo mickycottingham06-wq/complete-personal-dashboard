@@ -27,7 +27,9 @@
   }
 
   // Returns { ok, data, model } or { ok:false, error }. Never throws.
-  async function ask(mode, question, context) {
+  // extra: optional top-level fields (only `roleId` is used, by Workforce;
+  // the server validates it and owns every system prompt).
+  async function ask(mode, question, context, extra) {
     var token = accessToken();
     if (!token) return { ok: false, error: 'Sign in to use AI.' };
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -36,7 +38,7 @@
       var r = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ mode: mode, question: question || '', context: context }),
+        body: JSON.stringify({ mode: mode, question: question || '', context: context, roleId: extra && extra.roleId ? String(extra.roleId) : undefined }),
         signal: ctrl ? ctrl.signal : undefined,
       });
       var j = null;

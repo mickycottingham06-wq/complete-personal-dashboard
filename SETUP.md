@@ -38,6 +38,10 @@ alter publication supabase_realtime add table public.app_state;
 ```
 
 ### SQL #2 — progress-photo sync (Storage bucket)
+> ⚠️ **Review before using.** The SQL below makes the bucket **public** and lets the `anon` role read, upload,
+> overwrite and delete any file in it. Check the policies actually applied in your project before deploying — see
+> the deployment checklist in `docs/LOCK_IN_HQ.md`. Never store customer photos here.
+
 Progress photos upload to a Supabase **Storage** bucket called `progress-photos` (only the
 image URLs sync through `app_state`). Skip this if you don't need photos to sync across devices.
 ```sql
@@ -263,7 +267,8 @@ console.anthropic.com.
 
 ## 8. Assistant AI (optional, server-side)
 
-The Assistant and Content pages work without AI (labelled basic briefings / Template mode).
+The Assistant, Content and Workforce pages work without AI (labelled basic briefings / Template mode / Basic mode).
+All three share this one endpoint and one per-user daily limit.
 `/api/assistant` is a **paid** endpoint, so it stays **off** until every protection below is in place:
 
 | Requirement | Value |

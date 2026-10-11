@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "agents:sync": "node tools/sync-agents.mjs",
+    "agents:check": "node tools/sync-agents.mjs --check"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",
     "@supabase/supabase-js": "^2.45.0"

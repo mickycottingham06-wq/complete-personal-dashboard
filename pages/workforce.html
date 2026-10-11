@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<script src="/api/config"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16191f">
+<title>Workforce · LOCK-IN HQ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/auto-sync.js"></script>
+<script src="../scripts/sync-status-line.js"></script>
+<script src="../scripts/lockin-data.js"></script>
+<script src="../scripts/second-brain-data.js"></script>
+<script src="../scripts/ai-client.js"></script>
+<script src="../scripts/assistant-engine.js"></script>
+<script src="../scripts/workforce-calc.js"></script>
+<script src="../scripts/workforce-engine.js"></script>
+<link rel="stylesheet" href="../styles/lock-in.css">
+<style>
+  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--blue); }
+  .badge { display: inline-block; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .badge.ai { background: var(--blue-soft); color: var(--text); }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
+  .flag { color: var(--warn); margin: 8px 0 0; }
+  .spec { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; }
+  .spec strong { font-size: 1.05rem; }
+  .spec button { min-height: 44px; padding: 6px 14px; font-size: 0.92rem; }
+  .spec select { width: auto; flex: 1 1 220px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .opts button { min-height: 44px; padding: 6px 14px; }
+  table.calc { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  table.calc td { padding: 8px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+  table.calc td:last-child { text-align: right; white-space: nowrap; font-weight: 600; }
+  table.calc tr:last-child td { border-bottom: 1px solid var(--line); }
+  .small-list { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 0.9rem; }
+  .small-list li { margin: 4px 0; overflow-wrap: anywhere; }
+  .draft { min-height: 160px; }
+  .result-text { margin: 10px 0 0; overflow-wrap: anywhere; }
+  .ai-text { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--blue-soft); overflow-wrap: anywhere; }
+  h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 18px 0 6px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← LOCK-IN HQ</a>
+  <header style="padding-top:0">
+    <h1>WORKFORCE</h1>
+    <span class="badge" id="aiBadge">AI: checking…</span>
+  </header>
+
+  <form class="card" id="reqForm" autocomplete="off">
+    <label for="req" style="margin-top:0">What do you need help with?</label>
+    <textarea id="req" maxlength="1200" placeholder="e.g. Quote for front pads: parts £85, 2 hours at £45/hr · How much can I spend until payday? · Rent-to-rent deal: landlord rent £1,200, 5 rooms at £550 per room"></textarea>
+    <div class="row"><button type="submit" class="primary" id="helpBtn">Help me</button></div>
+    <p class="status" id="reqStatus" role="status" aria-live="polite"></p>
+  </form>
+
+  <div id="specLine" class="spec" hidden></div>
+  <div id="flow" aria-live="polite"></div>
+
+  <p class="hint" style="margin-top:18px">One specialist per request. Nothing is sent, booked, paid, traded or published, and no web research or account access happens here. Saving to Second Brain or adding to today only happens when you confirm.</p>
+  <p class="sync-line" id="syncLine"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var E = window.WorkforceEngine, L = window.LockIn, SB = window.SecondBrain;
+  var CATEGORY = { 'mb-automotive-business': 'Business', 'personal-budget': 'Money', 'property-analyst': 'Property', 'content-marketing': 'Business', 'training-recovery': 'Health' };
+  var state = null, ai = { available: false, reason: '' }, lastWriteAt = '';
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k === 'value') n.value = attrs[k];
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function status(kind, msg) { return el('p', { class: 'status ' + (kind || ''), role: 'status', text: msg }); }
+  var renderSync = window.SyncStatusLine.bind($('syncLine'), function () { return lastWriteAt; });
+  function wrote() { lastWriteAt = new Date().toISOString(); renderSync(); }
+
+  async function refreshAi() {
+    ai = await window.AiClient.status();
+    $('aiBadge').textContent = ai.available ? 'AI on' : 'AI off · Basic mode';
+    $('aiBadge').className = 'badge' + (ai.available ? ' ai' : '');
+    $('aiBadge').title = ai.available ? ai.model : ai.reason;
+  }
+
+  // ---------- specialist line with Change ----------
+  function renderSpec() {
+    var line = $('specLine');
+    line.textContent = '';
+    if (!state || !state.roleId) { line.hidden = true; return; }
+    line.hidden = false;
+    var sel = el('select', { 'aria-label': 'Choose a specialist', hidden: '' });
+    E.SPECIALISTS.forEach(function (s) { var o = el('option', { value: s.id, text: s.name }); if (s.id === state.roleId) o.selected = true; sel.appendChild(o); });
+    sel.addEventListener('change', function () { start(sel.value); });
+    var change = el('button', { type: 'button', text: 'Change', onclick: function () { sel.hidden = !sel.hidden; change.hidden = true; sel.focus(); } });
+    line.appendChild(el('span', { class: 'meta', style: 'margin:0', text: 'Specialist:' }));
+    line.appendChild(el('strong', { text: E.byId(state.roleId).name }));
+    line.appendChild(change);
+    line.appendChild(sel);
+  }
+
+  // ---------- flow ----------
+  function start(roleId) {
+    state = { request: state.request, roleId: roleId, answers: {}, aiClarified: false };
+    renderSpec();
+    advance();
+  }
+
+  function advance() {
+    var out = E.step(state);
+    if (out.type === 'question') renderQuestion(out.text, out.options, function (v) { return E.applyAnswer(state, out.key, v); });
+    else finish(out);
+  }
+
+  // One question at a time. onAnswer returns an error string or ''.
+  function renderQuestion(text, options, onAnswer, label) {
+    var flow = $('flow');
+    flow.textContent = '';
+    var input = el('input', { id: 'answer', maxlength: '300', 'aria-label': 'Your answer' });
+    var st = el('div');
+    function submit(v) {
+      var err = onAnswer(v);
+      if (err) { st.textContent = ''; st.appendChild(status('err', err)); input.focus(); return; }
+      advance();
+    }
+    var form = el('form', { class: 'card', autocomplete: 'off', style: 'margin-top:12px' }, [
+      label ? el('span', { class: 'badge', text: label }) : null,
+      el('p', { class: 'title', style: 'font-size:1.08rem;margin-top:8px', text: text }),
+      options && options.length ? el('div', { class: 'opts' }, options.map(function (o) { return el('button', { type: 'button', text: o, onclick: function () { submit(o); } }); })) : null,
+      input,
+      el('div', { class: 'row' }, [el('button', { type: 'submit', class: 'primary', text: 'Continue' })]),
+      st,
+    ]);
+    form.addEventListener('submit', function (e) { e.preventDefault(); submit(input.value); });
+    flow.appendChild(form);
+    input.focus();
+  }
+
+  function answersUsed() {
+    var a = state.answers, out = [];
+    Object.keys(a).forEach(function (k) {
+      if (k === 'extraCosts' || k === 'intent' || k === 'strategy') return;
+      var v = a[k];
+      if (v && typeof v === 'object') v = Object.keys(v).map(function (x) { return x + ' ' + E.gbp(v[x]); }).join(', ');
+      else if (typeof v === 'number' && !/hours|rooms|Months|Nights|Pct/.test(k)) v = E.gbp(v);
+      else if (v === true) v = 'yes'; else if (v === false) v = 'no';
+      out.push(k.replace(/([A-Z])/g, ' $1').toLowerCase() + ': ' + v);
+    });
+    return out;
+  }
+
+  async function finish(res) {
+    var flow = $('flow');
+    flow.textContent = '';
+    flow.appendChild(el('p', { class: 'meta', style: 'margin-top:12px', text: ai.available && E.byId(state.roleId).ai ? 'Asking the ' + E.byId(state.roleId).name + ' specialist…' : 'Working it out…' }));
+    var notes = state.roleId === 'content-marketing' ? [] : window.AssistantEngine.relevantNotes(state.request, E.byId(state.roleId).topic, 3);
+    var aiOut = null, aiNote = '';
+    if (ai.available && E.byId(state.roleId).ai) {
+      var sent = { answers: state.answers, computed: res.computed || {}, records: res.records || [], notes: notes.map(function (n) { return { id: n.id, title: n.title, excerpt: n.excerpt }; }) };
+      var r = await window.AiClient.ask('workforce', state.request, sent, { roleId: state.roleId });
+      if (!r.ok) aiNote = 'AI failed: ' + r.error + ' Showing Basic mode.';
+      else {
+        var v = E.validateAiResult(r.data, sent, res);
+        if (!v.ok) aiNote = 'AI text not used — ' + v.reason + '. Showing Basic mode.';
+        else if (v.clarifyingQuestion && !state.aiClarified) {
+          state.aiClarified = true;
+          renderQuestion(v.clarifyingQuestion, [], function (ans) { if (!String(ans).trim()) return 'Please type an answer.'; state.answers.clarification = String(ans).trim(); return ''; }, 'Question from the AI specialist');
+          return;
+        } else { aiOut = v; aiOut.model = r.model; }
+      }
+    }
+    renderResult(res, notes, aiOut, aiNote);
+  }
+
+  function renderResult(res, notes, aiOut, aiNote) {
+    var flow = $('flow');
+    flow.textContent = '';
+    var c = el('div', { class: 'card', style: 'margin-top:12px' });
+    c.appendChild(el('span', { class: 'badge' + (aiOut ? ' ai' : ''), text: aiOut ? 'AI · ' + aiOut.model + ' — check before acting' : (res.label + (ai.available ? '' : ' · AI off')) }));
+    if (aiOut && res.table) c.appendChild(el('span', { class: 'badge', style: 'margin-left:6px', text: 'Figures calculated in the app' }));
+    if (aiNote) c.appendChild(el('p', { class: 'flag', text: aiNote }));
+    if (aiOut) c.appendChild(el('p', { class: 'ai-text', text: aiOut.result }));
+    (res.lines || []).forEach(function (l, i) { c.appendChild(el('p', { class: 'result-text', style: i === 0 && !aiOut ? 'font-size:1.12rem;font-weight:600' : '', text: l })); });
+    if (res.table) {
+      var t = el('table', { class: 'calc' });
+      res.table.forEach(function (row) { t.appendChild(el('tr', {}, [el('td', { text: row[0] }), el('td', { text: row[1] })])); });
+      c.appendChild(el('div', { style: 'overflow-x:auto' }, [t]));
+    }
+    if (res.steps) c.appendChild(el('ul', { class: 'small-list', style: 'color:var(--text)' }, res.steps.map(function (s) { return el('li', { text: s }); })));
+    if (res.draft) {
+      var ta = el('textarea', { class: 'draft', 'aria-label': 'Draft' });
+      ta.value = res.draft;
+      var cst = el('div');
+      c.appendChild(el('h3', { text: 'Draft (edit before you send it yourself)' }));
+      c.appendChild(ta);
+      c.appendChild(el('div', { class: 'row' }, [el('button', { type: 'button', text: 'Copy draft', onclick: async function () {
+        cst.textContent = '';
+        try { await navigator.clipboard.writeText(ta.value); cst.appendChild(status('ok', 'Draft copied — nothing was sent.')); }
+        catch (e) { ta.select(); cst.appendChild(status('err', 'Copy blocked — the draft is selected, copy it manually.')); }
+      } })]));
+      c.appendChild(cst);
+    }
+    if (res.contentUrl || res.contentLink) c.appendChild(el('div', { class: 'row' }, [el('a', { class: 'btn primary', style: 'background:var(--blue-strong);color:#fff', href: res.contentUrl || 'content.html', text: res.contentUrl ? 'Open Content with these details' : 'Open Content' })]));
+    if (res.missingCosts && res.missingCosts.length) {
+      var extra = el('input', { maxlength: '200', 'aria-label': 'Add a missing cost', placeholder: 'e.g. selling costs 4500, finance 6000' });
+      c.appendChild(el('h3', { text: 'Missing costs (counted as £0)' }));
+      c.appendChild(el('p', { class: 'meta', text: res.missingCosts.join(' · ') }));
+      c.appendChild(extra);
+      c.appendChild(el('div', { class: 'row' }, [el('button', { type: 'button', text: 'Add and recalculate', onclick: function () { state.answers.extraCosts = (state.answers.extraCosts || '') + ' ' + extra.value; advance(); } })]));
+    }
+    var next = (aiOut && aiOut.nextAction) || res.nextAction;
+    if (next) {
+      c.appendChild(el('h3', { text: 'Next action' }));
+      c.appendChild(el('p', { class: 'meta', style: 'color:var(--text)' }, [el('strong', { text: next.text }), next.firstStep ? ' — first step: ' + next.firstStep : '', next.minutes ? ' (~' + next.minutes + ' min)' : '']));
+    }
+    if (res.assumptions && res.assumptions.length) {
+      c.appendChild(el('h3', { text: 'Inputs and assumptions' }));
+      c.appendChild(el('ul', { class: 'small-list' }, res.assumptions.map(function (a) { return el('li', { text: a }); })));
+    }
+    // what was used
+    var used = ['Your request'].concat(answersUsed().map(function (a) { return 'You said — ' + a; }));
+    // app records always feed the in-app calculation, so all are listed
+    (res.records || []).forEach(function (r) { used.push(r.source + ': ' + r.label); });
+    var shownNotes = aiOut ? notes.filter(function (n) { return aiOut.notesUsed.indexOf(n.id) !== -1; }) : notes;
+    shownNotes.forEach(function (n) { used.push('Second Brain' + (aiOut ? '' : ' (keyword match)') + ': ' + n.title); });
+    c.appendChild(el('h3', { text: 'Used' }));
+    c.appendChild(el('ul', { class: 'small-list' }, used.map(function (u) { return el('li', { text: u }); })));
+
+    var confirmArea = el('div');
+    c.appendChild(el('div', { class: 'row' }, [
+      el('button', { type: 'button', id: 'saveNoteBtn', text: 'Save to Second Brain', onclick: function () { confirmNote(confirmArea, res, aiOut, used, next); } }),
+      next ? el('button', { type: 'button', id: 'addActionBtn', text: 'Add action to today', onclick: function () { confirmAction(confirmArea, next); } }) : null,
+    ]));
+    c.appendChild(confirmArea);
+    flow.appendChild(c);
+  }
+
+  function noteText(res, aiOut, used, next) {
+    var parts = ['Request: ' + state.request, ''];
+    if (aiOut) parts.push('AI (' + aiOut.model + '): ' + aiOut.result, '');
+    (res.lines || []).forEach(function (l) { parts.push(l); });
+    (res.table || []).forEach(function (r) { parts.push('- ' + r[0] + ': ' + r[1]); });
+    (res.steps || []).forEach(function (s) { parts.push('- ' + s); });
+    if (res.draft) parts.push('', 'Draft:', res.draft);
+    if (next) parts.push('', 'Next action: ' + next.text + (next.firstStep ? ' — ' + next.firstStep : ''));
+    if (res.assumptions) parts.push('', 'Assumptions:'), res.assumptions.forEach(function (a) { parts.push('- ' + a); });
+    parts.push('', 'Used:'); used.forEach(function (u) { parts.push('- ' + u); });
+    return parts.join('\n');
+  }
+
+  function confirmNote(area, res, aiOut, used, next) {
+    area.textContent = '';
+    var spec = E.byId(state.roleId);
+    var title = el('input', { maxlength: '200', value: spec.name + ': ' + state.request.slice(0, 60), 'aria-label': 'Note title' });
+    var body = el('textarea', { 'aria-label': 'Note content', style: 'min-height:180px' });
+    body.value = noteText(res, aiOut, used, next);
+    var st = el('div');
+    area.appendChild(el('div', { class: 'card', style: 'margin-top:12px;background:var(--bg)' }, [
+      el('p', { class: 'meta', text: 'Save this to Second Brain (' + CATEGORY[state.roleId] + ')? You can edit it first.' }),
+      title, body,
+      el('div', { class: 'row' }, [
+        el('button', { type: 'button', class: 'primary', text: 'Confirm save', onclick: function () {
+          st.textContent = '';
+          var r = SB.create({ title: title.value, content: body.value, category: CATEGORY[state.roleId] });
+          if (!r.ok) { st.appendChild(status('err', r.error)); return; }
+          wrote();
+          area.textContent = '';
+          area.appendChild(status('ok', 'Saved to Second Brain as "' + r.note.title + '".'));
+        } }),
+        el('button', { type: 'button', text: 'Cancel', onclick: function () { area.textContent = ''; } }),
+      ]),
+      st,
+    ]));
+  }
+
+  function confirmAction(area, next) {
+    area.textContent = '';
+    var text = el('input', { maxlength: '200', value: next.text, 'aria-label': 'Action' });
+    var step = el('input', { maxlength: '200', value: next.firstStep || '', 'aria-label': 'First step' });
+    var mins = el('input', { type: 'number', min: '0', max: '240', value: String(next.minutes || 0), 'aria-label': 'Minutes', inputmode: 'numeric' });
+    var st = el('div');
+    area.appendChild(el('div', { class: 'card', style: 'margin-top:12px;background:var(--bg)' }, [
+      el('p', { class: 'meta', text: 'Add this to today\'s list on LOCK-IN HQ?' }),
+      el('label', { text: 'Action' }), text, el('label', { text: 'First step' }), step, el('label', { text: 'Minutes' }), mins,
+      el('div', { class: 'row' }, [
+        el('button', { type: 'button', class: 'primary', text: 'Confirm add', onclick: function () {
+          st.textContent = '';
+          var r = L.capture(text.value);
+          if (!r.ok) { st.appendChild(status('err', r.error)); return; }
+          var u = L.update(r.item.id, { firstStep: step.value, minutes: mins.value });
+          if (!u.ok) { st.appendChild(status('err', 'Added, but the first step/time could not be saved: ' + u.error)); wrote(); return; }
+          wrote();
+          area.textContent = '';
+          area.appendChild(status('ok', 'Added to today\'s list — it\'s under "Captured" on LOCK-IN HQ.'));
+        } }),
+        el('button', { type: 'button', text: 'Cancel', onclick: function () { area.textContent = ''; } }),
+      ]),
+      st,
+    ]));
+  }
+
+  // ---------- Help me ----------
+  $('reqForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var text = $('req').value.trim();
+    $('reqStatus').textContent = '';
+    if (!text) { $('reqStatus').appendChild(status('err', 'Describe what you need first.')); return; }
+    await refreshAi();
+    var r = E.route(text);
+    state = { request: text, roleId: r.roleId, answers: {}, aiClarified: false };
+    renderSpec();
+    if (r.ambiguous) {
+      renderQuestion('Which area is this about?', E.SPECIALISTS.map(function (s) { return s.name; }), function (v) {
+        var s = E.SPECIALISTS.find(function (x) { return x.name === v || x.short.toLowerCase() === String(v).trim().toLowerCase(); });
+        if (!s) return 'Choose one of the options.';
+        state.roleId = s.id; renderSpec(); return '';
+      });
+      return;
+    }
+    advance();
+  });
+
+  if (window.SupabaseAuth) window.SupabaseAuth.init();
+  refreshAi();
+})();
+</script>
+</body>
+</html>

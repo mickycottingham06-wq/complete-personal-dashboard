@@ -146,7 +146,75 @@ Briefings are manual only. A scheduled morning/evening message would need:
   The existing Supabase `progress-photos` bucket is public with anon write access, so it is **not** used for
   customer photos. Cross-device photo sync would need a private bucket with per-user RLS (not built).
 
-## Later stages (not built)
+## Stage 5 — Workforce (done)
 
-5. **Workforce** — track jobs/people/suppliers for MB Automotive Works (who's doing what, follow-ups).
-   Also the place to add a verified email integration (Gmail OAuth via `/api` routes) so the home screen can show real email commitments.
+`pages/workforce.html` + `scripts/workforce-engine.js` + `scripts/workforce-calc.js`. Linked from **More** and the sidebar.
+
+- One box ("What do you need help with?") and **Help me**. A keyword router picks **one** specialist and shows it with
+  a small **Change**. If the request fits none (or two equally), it asks one question: "Which area is this about?".
+- Each specialist asks for missing essentials **one question at a time**, then shows one result with a next action,
+  the inputs/assumptions, and a **Used** list (your request, your answers, app records, matching notes).
+- **Save to Second Brain** and **Add action to today** each open an editable preview; nothing is written until
+  **Confirm**. The page reads app data raw (never through loaders that create defaults), so using it changes nothing.
+
+| Specialist | Basic mode (always available) | AI (if protected endpoint on) |
+|---|---|---|
+| MB Automotive Business | Quote from your parts / labour hours × rate / travel, asks VAT status, draft reply with the figures; reply template from your facts; job checklist; one customer-generation action → Content | Wording on top; figures must match the app's |
+| Personal Budget | Balance (Money HQ value offered as "entered by you, not live"), payday, Money HQ bills due before payday (business bills excluded, paid ones ignored, monthly dates rolled forward), other payments, money set aside (property / family / other) → available until payday and per day, or shortfall. Missing input = no figure | Commentary only; any £/% not calculated is rejected |
+| Property Analyst | Flip / rent-to-rent / serviced accommodation from your figures: profit, return, break-even sale price / rooms / occupancy, missing costs (counted £0, add & recalculate), "verify with a current source" list. Never assumes occupancy, rents, comparables or rules | Commentary only, same figure check |
+| Content Marketing | Hands off to the Content page with details / vehicle / format prefilled (nothing created until Create draft) | Not used here — Content has its own checks |
+| Training and Recovery | Confirms dated goals (16/17 Oct, Boxing HQ fight date) and injuries first; plans around work hours and family time using Boxing HQ targets / Strength HQ week; no diagnosis; refuses extreme cuts | Wording on top |
+
+**Runtime:** AI goes through the same `/api/assistant` (mode `workforce`), so it shares the session check, allowlist,
+the one daily limit (`assistant_usage` counts Assistant + Content + Workforce together), timeout and bounded retries.
+The browser sends only a `roleId`; the server rejects unknown ids and builds the system prompt from
+`api/_specialists.js` — any prompt text from the browser is ignored. Notes go as untrusted `document` blocks. Output is
+schema-validated on the server; the page then rejects AI text containing £/% figures the app didn't calculate or
+claims of research/account access, limits note/record references to those sent, and allows at most one AI
+clarifying question. AI off or failing → labelled **Basic mode**.
+
+## Claude Code subagents
+
+- Canonical instructions: `api/_specialists.js` (`SPECIALISTS`, `SHARED_RULES`). The website uses `webSystemPrompt()`;
+  `tools/sync-agents.mjs` renders `agentBody()` into `.claude/agents/<id>.md` with `name`, `description`, `tools`
+  frontmatter. Edit the source, run `npm run agents:sync`; `npm run agents:check` fails if files drift.
+- Tools are read-only: `Read, Grep, Glob` (Property Analyst also `WebSearch, WebFetch` so it can cite a current
+  source). No personal records or secrets are in the files.
+- **Discovery:** Claude Code loads project agents from `.claude/agents/` when a session starts (a session already running
+  won't see new ones — restart it). Use them via `/agents`, by asking e.g. "use the property-analyst subagent to …", or
+  let Claude delegate based on the description.
+- **Verified 11 Oct 2026** with Claude Code 2.1.193: a fresh `claude -p` session in this folder listed all five and
+  invoked `personal-budget`, which reported its tools as Read, Grep, Glob.
+- **Separate systems:** the website runs its own specialist API workflows (`/api/assistant`); Claude Code runs its own
+  subagents. The website does **not** call Claude Code subagents. A bridge (e.g. a server running the Claude Agent SDK
+  with these definitions) would be remaining work, with its own auth, sandboxing and cost controls.
+
+## Deployment readiness checklist (in order)
+
+1. **Review and merge** the `lock-in-hq-stage-1` branch (not pushed). Keep your own README edit separate.
+2. **Supabase `progress-photos` bucket — confirm before deploying.** SETUP.md §2 creates it `public = true` with an
+   `anon` policy for **all** operations (read, upload, overwrite, delete) — anyone with the anon key (which ships to
+   browsers) could list/replace/delete files. In Supabase → Storage → Policies, check what is actually applied. If it
+   matches SETUP.md, plan a change (private bucket + `authenticated` per-user RLS, then signed URLs in Strength HQ) — this
+   affects gym progress photos, so change it deliberately, keep existing photos, and test Strength HQ. No customer photos
+   use this bucket.
+3. Confirm Supabase **Auth** settings: decide whether public sign-up should be on (AI is allowlist-only regardless).
+4. Run `supabase/life_os_state.sql` (if not already) and `supabase/assistant_usage.sql`.
+5. Vercel env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`,
+   `ASSISTANT_ALLOWED_EMAILS`; optional `ASSISTANT_DAILY_LIMIT`, `ASSISTANT_MODEL`; existing Google/WHOOP/Trading 212 vars.
+6. Set a monthly **spend limit** in the Anthropic Console (backstop to the per-user limit).
+7. Deploy to a **preview** URL first (Vercel installs `@anthropic-ai/sdk` 0.128.0 from package.json).
+8. On the preview: `GET /api/assistant` shows `enabled: true`; signed out → AI off; signed in with an allowlisted email →
+   one Morning, one caption and one Workforce request succeed; a non-allowlisted account gets 403; usage rows appear.
+9. Sign in on two devices; confirm Cloud Sync carries `goals:*`, `secondBrain`, `lockInLog`, `contentDrafts`, and
+   that Content photos stay on the device that added them.
+10. Connect Google Calendar on the deployed domain (OAuth redirect URI) and check the commitments labels.
+11. Only then promote to production. Email remains unconnected; scheduled briefings are not built.
+
+## Remaining work
+
+- Email integration (none exists; every page says "not connected").
+- Scheduled briefings (see Stage 3 notes).
+- Private cross-device photo storage for Content (needs a private bucket with per-user RLS).
+- Website ↔ Claude Code subagent bridge (not built; see above).
+- Brand logo asset for Stories (none in the repo).

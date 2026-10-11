@@ -502,6 +502,18 @@
   });
 
   // ---------- boot ----------
+  // Prefill from a Workforce hand-off (?details=&vehicle=&kind=). Fills the
+  // fields only — nothing is created until Create draft is pressed.
+  (function prefill() {
+    var q = new URLSearchParams(location.search);
+    if (!q.get('details')) return;
+    $('jobDetails').value = q.get('details').slice(0, 1500);
+    $('vehicle').value = (q.get('vehicle') || '').slice(0, 80);
+    var k = q.get('kind') === 'story' ? 'story' : 'post';
+    var btn = document.querySelector('.seg button[data-kind="' + k + '"]');
+    if (btn) btn.click();
+    setStatus($('createStatus'), '', 'Filled in from Workforce — check the details are right, then press Create draft.');
+  })();
   if (window.SupabaseAuth) window.SupabaseAuth.init();
   C.photoStorageAvailable().then(function (ok) { photoStoreOk = ok; photoNote(); if (ok) C.cleanupOrphanPhotos([]); });
   renderDrafts();

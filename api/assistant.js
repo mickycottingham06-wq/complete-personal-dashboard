@@ -1,6 +1,7 @@
 // ============================================================
 // GET  /api/assistant  → { enabled, model, missing }   (names only, never values)
-// POST /api/assistant  → short structured AI output (planning or caption)
+// POST /api/assistant  → short structured AI output (planning, caption or a
+//                        Workforce specialist chosen by a validated roleId)
 //
 // Paid endpoint — it is only enabled when ALL protection is configured:
 //   ANTHROPIC_API_KEY                key, server-side only
@@ -21,6 +22,7 @@
 // ============================================================
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { ROLE_IDS, webSystemPrompt } from './_specialists.js';
 
 export const DEFAULT_MODEL = 'claude-haiku-5-5';
 const MAX_BODY_CHARS = 12000;
@@ -29,7 +31,7 @@ const TIMEOUT_MS = 20000;
 const MAX_RETRIES = 2;           // SDK retries 408/409/429/5xx/connection errors on the same model only
 const BURST_MS = 3000;           // per-instance: one request every 3 s per user
 const PLAN_MODES = ['morning', 'evening', 'weekly'];
-const MODES = PLAN_MODES.concat(['caption']);
+const MODES = PLAN_MODES.concat(['caption', 'workforce']);
 
 // ---------- schemas ----------
 const ACTION = {
@@ -67,6 +69,24 @@ export const CAPTION_SCHEMA = {
   additionalProperties: false,
 };
 
+export const WORKFORCE_SCHEMA = {
+  type: 'object',
+  properties: {
+    result: { type: 'string' },
+    nextAction: {
+      type: 'object',
+      properties: { text: { type: 'string' }, firstStep: { type: 'string' }, minutes: { type: 'integer' } },
+      required: ['text', 'firstStep', 'minutes'],
+      additionalProperties: false,
+    },
+    clarifyingQuestion: { type: 'string' },
+    notesUsed: { type: 'array', items: { type: 'string' } },
+    recordsUsed: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['result', 'nextAction', 'clarifyingQuestion', 'notesUsed', 'recordsUsed'],
+  additionalProperties: false,
+};
+
 // ---------- prompts ----------
 export const PLAN_SYSTEM = [
   'You are a calm executive assistant for one person (UK, Europe/London, GBP).',
@@ -100,6 +120,19 @@ function docBlock(n) {
 
 // Builds { system, schema, content } for one request. Exported for tests.
 export function buildRequest(body) {
+  if (body.mode === 'workforce') {
+    // System prompt comes only from the server's specialist table; any
+    // prompt-like fields sent by the browser are ignored.
+    const c = body.context || {};
+    const notes = Array.isArray(c.notes) ? c.notes.slice(0, 3) : [];
+    const ctx = {
+      request: String(body.question || '').slice(0, 1200),
+      answers: c.answers && typeof c.answers === 'object' ? c.answers : {},
+      computed: c.computed && typeof c.computed === 'object' ? c.computed : {},
+      records: Array.isArray(c.records) ? c.records.slice(0, 20) : [],
+    };
+    return { system: webSystemPrompt(body.roleId), schema: WORKFORCE_SCHEMA, content: notes.map(docBlock).concat([{ type: 'text', text: 'Context (data):\n' + JSON.stringify(ctx) }]) };
+  }
   if (body.mode === 'caption') {
     const c = body.context || {};
     const facts = {
@@ -126,6 +159,12 @@ function validAction(a) {
 }
 export function validateOutput(mode, d) {
   if (!d || typeof d !== 'object') return false;
+  if (mode === 'workforce') {
+    const a = d.nextAction;
+    return isStr(d.result, 1500) && a && typeof a === 'object' && isStr(a.text, 300) && isStr(a.firstStep, 300) &&
+      Number.isInteger(a.minutes) && a.minutes >= 0 && a.minutes <= 600 && isStr(d.clarifyingQuestion, 300) &&
+      Array.isArray(d.notesUsed) && d.notesUsed.every((x) => isStr(x, 80)) && Array.isArray(d.recordsUsed) && d.recordsUsed.every((x) => isStr(x, 80));
+  }
   if (mode === 'caption') {
     return isStr(d.caption, 2200) && d.caption.trim().length > 0 && isStr(d.storyHeadline, 120) &&
       Array.isArray(d.storyLines) && d.storyLines.length <= 4 && d.storyLines.every((l) => isStr(l, 120));
@@ -206,6 +245,7 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   if (!body || MODES.indexOf(body.mode) === -1 || !body.context || typeof body.context !== 'object') return res.status(400).json({ error: 'Bad request.' });
+  if (body.mode === 'workforce' && ROLE_IDS.indexOf(body.roleId) === -1) return res.status(400).json({ error: 'Unknown specialist.' });
   if (JSON.stringify(body).length > MAX_BODY_CHARS) return res.status(413).json({ error: 'Request too large.' });
 
   const quota = await consumeQuota(access.sb, access.user, body.mode, s);
