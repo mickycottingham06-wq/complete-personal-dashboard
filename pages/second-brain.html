@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<script src="/api/config"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16191f">
+<title>Second Brain · LOCK-IN HQ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../scripts/supabase-status.js"></script>
+<script src="../scripts/supabase-auth.js"></script>
+<script src="../scripts/backup-data.js"></script>
+<script src="../scripts/cloud-sync.js"></script>
+<script src="../scripts/force-save.js"></script>
+<script src="../scripts/integrations-data.js"></script>
+<script src="../scripts/auto-sync.js"></script>
+<script src="../scripts/sync-status-line.js"></script>
+<script src="../scripts/second-brain-data.js"></script>
+<link rel="stylesheet" href="../styles/lock-in.css">
+<style>
+  .back { display: inline-flex; align-items: center; min-height: 48px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--blue); }
+  .search-row { display: flex; gap: 10px; }
+  .search-row input { flex: 1 1 auto; min-width: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chips button { min-height: 44px; padding: 6px 14px; border-radius: 999px; font-size: 0.95rem; }
+  .chips button[aria-pressed="true"] { background: var(--blue-soft); border-color: var(--blue); color: var(--text); }
+  .notes li { border-top: 1px solid var(--line); }
+  .notes li:first-child { border-top: 0; }
+  .note-btn { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 0; padding: 14px 4px; min-height: 56px; }
+  .note-btn:hover { background: var(--surface-2); }
+  .note-title { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .note-snip { display: block; color: var(--muted); font-size: 0.95rem; margin-top: 2px; overflow-wrap: anywhere; }
+  .note-meta { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
+  .editor textarea { min-height: 220px; }
+  .dates { color: var(--muted); font-size: 0.85rem; margin: 12px 0 0; }
+  .danger { color: var(--err); }
+  .file-label { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); cursor: pointer; margin: 0; font-size: 1rem; }
+  .file-label:hover { border-color: var(--blue); }
+  .file-label:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .report { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.92rem; }
+  .report li { margin: 4px 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← LOCK-IN HQ</a>
+  <header style="padding-top:0">
+    <h1>SECOND BRAIN</h1>
+    <button type="button" class="primary" id="addBtn">Add note</button>
+  </header>
+
+  <div id="browse">
+    <div class="search-row">
+      <label for="q" class="visually-hidden">Search notes</label>
+      <input type="search" id="q" placeholder="Search your notes" autocomplete="off">
+      <button type="button" id="filterBtn" aria-expanded="false" aria-controls="chips">Filter</button>
+    </div>
+    <div class="chips" id="chips" hidden></div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <div class="card"><ul class="plain notes" id="list"></ul></div>
+    <div class="row" id="moreRow" hidden><button type="button" id="moreBtn">Show more</button></div>
+
+    <details>
+      <summary>Import, export &amp; restore</summary>
+      <div class="card">
+        <p class="meta"><strong>Import .txt or .md files.</strong> Each file becomes one note and keeps its filename. The text is copied into the note so it can be searched.</p>
+        <p class="hint">PDFs, photos and Word documents can't be read yet — they'll be listed as not imported. Keep originals in OneDrive or Google Drive and paste a link into a note instead.</p>
+        <div class="row">
+          <label class="file-label">Import files<input type="file" id="importInput" class="visually-hidden" accept=".txt,.md,.markdown,text/plain,text/markdown" multiple></label>
+        </div>
+        <ul class="report" id="importReport" hidden></ul>
+        <p class="meta" style="margin-top:18px"><strong>Backup.</strong> Export saves every note to a file. Restore adds notes from a file — it never deletes notes you already have; if a note is in both, the newer edit is kept.</p>
+        <div class="row">
+          <button type="button" id="exportBtn">Export notes</button>
+          <label class="file-label">Restore from file<input type="file" id="restoreInput" class="visually-hidden" accept=".json,application/json"></label>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <form class="card editor" id="editor" hidden autocomplete="off">
+    <label for="fTitle" style="margin-top:0">Title</label>
+    <input id="fTitle" maxlength="200" placeholder="Optional — first line is used if blank">
+    <label for="fContent">Note</label>
+    <textarea id="fContent"></textarea>
+    <label for="fCategory">Category (optional)</label>
+    <select id="fCategory"><option value="">None</option></select>
+    <label for="fUrl">Link to original document (optional)</label>
+    <input id="fUrl" type="url" inputmode="url" placeholder="https://… (OneDrive, Google Drive, etc.)">
+    <p class="hint" id="fSource"></p>
+    <p class="dates" id="fDates"></p>
+    <div class="row">
+      <button type="submit" class="primary">Save</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+      <button type="button" id="deleteBtn" class="danger">Delete</button>
+    </div>
+    <p class="status" id="editStatus" role="status" aria-live="polite"></p>
+  </form>
+
+  <p class="sync-line" id="syncLine"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SB = window.SecondBrain;
+  var PAGE = 15;
+  var shown = PAGE;
+  var category = '';
+  var editingId = null; // null = closed, '' = new note
+  var lastWriteAt = '';
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function when(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+  }
+  function setStatus(node, kind, msg, undo) {
+    node.className = 'status' + (kind ? ' ' + kind : '');
+    node.textContent = msg || '';
+    if (undo) node.appendChild(el('button', { type: 'button', text: 'Undo', onclick: undo }));
+  }
+  var renderSync = window.SyncStatusLine.bind($('syncLine'), function () { return lastWriteAt; });
+  function wrote() { lastWriteAt = new Date().toISOString(); renderSync(); }
+
+  // ---------- List ----------
+  function renderList() {
+    var q = $('q').value;
+    var all = SB.load().notes;
+    var results = SB.search(q, category);
+    var list = $('list');
+    list.textContent = '';
+    if (!all.length) {
+      list.appendChild(el('li', { class: 'empty', text: 'No notes yet. Tap Add note, or import .txt/.md files below.' }));
+    } else if (!results.length) {
+      list.appendChild(el('li', { class: 'empty', text: 'No notes match' + (q.trim() ? ' "' + q.trim() + '"' : '') + (category ? ' in ' + category : '') + '.' }));
+    }
+    results.slice(0, shown).forEach(function (n) {
+      var meta = [n.category, 'Updated ' + when(n.updatedAt), n.sourceFile ? 'From ' + n.sourceFile : ''].filter(Boolean).join(' · ');
+      var snip = SB.snippet(n, q);
+      list.appendChild(el('li', {}, [el('button', { type: 'button', class: 'note-btn', onclick: function () { openEditor(n.id); } }, [
+        el('span', { class: 'note-title', text: n.title || '(untitled)' }),
+        snip ? el('span', { class: 'note-snip', text: snip }) : null,
+        el('span', { class: 'note-meta', text: meta }),
+      ])]));
+    });
+    $('moreRow').hidden = results.length <= shown;
+  }
+
+  function renderChips() {
+    var chips = $('chips');
+    chips.textContent = '';
+    [''].concat(SB.CATEGORIES).forEach(function (c) {
+      chips.appendChild(el('button', { type: 'button', 'aria-pressed': String(category === c), text: c || 'All', onclick: function () {
+        category = c; shown = PAGE; renderChips(); renderList();
+        $('filterBtn').textContent = category ? 'Filter: ' + category : 'Filter';
+      } }));
+    });
+  }
+
+  $('q').addEventListener('input', function () { shown = PAGE; renderList(); });
+  $('moreBtn').addEventListener('click', function () { shown += PAGE; renderList(); });
+  $('filterBtn').addEventListener('click', function () {
+    var c = $('chips');
+    c.hidden = !c.hidden;
+    this.setAttribute('aria-expanded', String(!c.hidden));
+  });
+
+  // ---------- Editor ----------
+  SB.CATEGORIES.forEach(function (c) { $('fCategory').appendChild(el('option', { value: c, text: c })); });
+
+  function openEditor(id) {
+    var n = id ? SB.get(id) : null;
+    editingId = n ? n.id : '';
+    $('fTitle').value = n ? n.title : '';
+    $('fContent').value = n ? n.content : '';
+    $('fCategory').value = n ? n.category : (category || '');
+    $('fUrl').value = n ? n.sourceUrl : '';
+    var src = $('fSource');
+    src.textContent = '';
+    if (n && n.sourceFile) src.appendChild(document.createTextNode('Imported from ' + n.sourceFile + '. '));
+    if (n && /^https?:\/\//i.test(n.sourceUrl)) src.appendChild(el('a', { href: n.sourceUrl, target: '_blank', rel: 'noopener noreferrer', text: 'Open original' }));
+    $('fDates').textContent = n ? 'Created ' + when(n.createdAt) + ' · Updated ' + when(n.updatedAt) : '';
+    $('deleteBtn').hidden = !n;
+    setStatus($('editStatus'), '', '');
+    $('browse').hidden = true;
+    $('addBtn').hidden = true;
+    $('editor').hidden = false;
+    (n ? $('fContent') : $('fTitle')).focus();
+  }
+  function closeEditor() {
+    editingId = null;
+    $('editor').hidden = true;
+    $('browse').hidden = false;
+    $('addBtn').hidden = false;
+    renderList();
+  }
+
+  $('addBtn').addEventListener('click', function () { openEditor(''); });
+  $('cancelBtn').addEventListener('click', closeEditor);
+
+  $('editor').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var url = $('fUrl').value.trim();
+    if (url && !/^https?:\/\//i.test(url)) { setStatus($('editStatus'), 'err', 'Links need to start with https:// or http://.'); return; }
+    var fields = { title: $('fTitle').value, content: $('fContent').value, category: $('fCategory').value, sourceUrl: url };
+    var res = editingId ? SB.update(editingId, fields) : SB.create(fields);
+    if (!res.ok) { setStatus($('editStatus'), 'err', res.error); return; } // form keeps what was typed
+    wrote();
+    closeEditor();
+    setStatus($('status'), 'ok', 'Saved "' + res.note.title + '".');
+  });
+
+  $('deleteBtn').addEventListener('click', function () {
+    var res = SB.remove(editingId);
+    if (!res.ok) { setStatus($('editStatus'), 'err', res.error); return; }
+    wrote();
+    closeEditor();
+    setStatus($('status'), 'ok', 'Deleted "' + res.note.title + '".', function () {
+      var r = SB.restoreNote(res.note, res.index);
+      if (r.ok) { wrote(); setStatus($('status'), 'ok', 'Restored "' + res.note.title + '".'); }
+      else setStatus($('status'), 'err', r.error);
+      renderList();
+    });
+  });
+
+  // ---------- Import / export / restore ----------
+  $('importInput').addEventListener('change', async function () {
+    var input = this;
+    var out = await SB.importFiles(input.files);
+    input.value = '';
+    var rep = $('importReport');
+    rep.textContent = '';
+    out.imported.forEach(function (n) { rep.appendChild(el('li', { text: '✓ Imported ' + n })); });
+    out.skipped.forEach(function (s) { rep.appendChild(el('li', { class: 'danger', text: s.name + ': ' + s.reason })); });
+    rep.hidden = !rep.childNodes.length;
+    if (out.imported.length) wrote();
+    setStatus($('status'), out.skipped.length ? 'err' : 'ok',
+      'Imported ' + out.imported.length + ' file' + (out.imported.length === 1 ? '' : 's') + (out.skipped.length ? ', ' + out.skipped.length + ' not imported — see the list below.' : '.'));
+    renderList();
+  });
+
+  $('exportBtn').addEventListener('click', function () {
+    var payload = SB.buildExport();
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var a = el('a', { href: URL.createObjectURL(blob), download: 'second-brain-' + payload.exportedAt.slice(0, 10) + '.json' });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    setStatus($('status'), 'ok', 'Exported ' + payload.notes.length + ' note' + (payload.notes.length === 1 ? '' : 's') + ' — check your downloads.');
+  });
+
+  $('restoreInput').addEventListener('change', function () {
+    var input = this;
+    var file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var payload = null;
+      try { payload = JSON.parse(String(r.result)); } catch (e) {}
+      var res = SB.restore(payload);
+      if (!res.ok) { setStatus($('status'), 'err', res.error); return; }
+      wrote();
+      setStatus($('status'), 'ok', 'Restore saved: ' + res.added + ' added, ' + res.updated + ' updated.');
+      renderList();
+    };
+    r.onerror = function () { setStatus($('status'), 'err', 'Could not read that file.'); };
+    r.readAsText(file);
+  });
+
+  // ---------- Boot ----------
+  renderChips();
+  renderList();
+  window.addEventListener('storage', function (e) { if (e.key === SB.KEY && editingId === null) renderList(); });
+})();
+</script>
+</body>
+</html>

@@ -30,10 +30,46 @@ The previous home (Command Centre) is unchanged at `command-centre.html` and lin
 - Locally: serve the folder with any static server and open `/`. `/api/*` won't exist, so calendar shows
   *Not connected* / *Refresh failed* and sync shows device-only — this is expected.
 
+## Stage 2 — Second Brain (done)
+
+`pages/second-brain.html` + `scripts/second-brain-data.js`. Linked from **More** and the sidebar.
+
+- One search box, **Add note**, a short list (15 at a time, newest first; title matches rank first).
+  Category filters (Business, Money, Property, Health, Family) stay hidden behind **Filter**.
+- Note fields: title (optional — first line used if blank), content, optional category, optional link to the
+  original document (http/https only). `createdAt`/`updatedAt` set automatically.
+- Create, edit, delete with Undo. Search is plain text over stored title/content/category/filename/link —
+  every term must appear; nothing is generated or summarised.
+- Import `.txt`/`.md` (≤200 KB each): text copied into a note, filename kept in `sourceFile`.
+  PDFs, photos and other files are listed as **not read** — nothing is stored for them.
+- Export → `second-brain-YYYY-MM-DD.json`. Restore merges: adds missing notes, newer `updatedAt` wins, never deletes.
+
+### Storage and sync
+
+- One key: `secondBrain` = `{ version: 1, notes: [...] }` in localStorage. "Saved" only after a read-back check.
+- Auto Cloud Save pushes **all** localStorage keys except its exclude list (`cloudSyncMeta`, `sb-*`, a few UI keys),
+  so `secondBrain` is included in the Supabase `life_os_state` row. The page loads `auto-sync.js`, so each save
+  marks a local change. The footer only says "Synced to cloud" after a push that finished after your last save
+  (`scripts/sync-status-line.js`, shared with the home page).
+- Limit: browser storage is roughly 5 MB per site, shared with the rest of the app. Fine for text notes; not for documents.
+
+### Original documents
+
+Keep originals in OneDrive/Google Drive (or another private store) and paste a link into the note.
+Never put them in this project folder — everything here is served publicly by Vercel.
+
+### Next step: PDF/document ingestion (not built)
+
+1. Add a server route (e.g. `api/extract-text.js`) that accepts an upload, extracts text from text-based PDFs
+   with an open-source parser (e.g. `pdf-parse`), and returns the text — the file itself is not stored or served.
+2. The page saves the returned text as a normal note with `sourceFile` set, and says "text extracted" vs
+   "no text found (scanned image)". Scanned PDFs/photos would need OCR (e.g. Tesseract) — a separate, optional step.
+3. Large documents need storage outside localStorage: a Supabase table (`notes`, RLS per user) with Postgres
+   full-text search, and originals in a **private** Supabase Storage bucket. Plain keyword search is still enough;
+   no paid embeddings or AI API needed.
+
 ## Later stages (not built)
 
-2. **Second Brain** — searchable store for brain-dump notes that aren't tasks (ideas, references, property study),
-   with "turn into task" back into the `goals:` store. Needs its own synced key and a simple list/search page.
 3. **Assistant** — a planning helper that suggests the main action, first step and duration from today's list,
    commitments and supplied routine. Suggestions only; nothing saved without you confirming. Needs a server-side
    AI route (no keys in the browser).
