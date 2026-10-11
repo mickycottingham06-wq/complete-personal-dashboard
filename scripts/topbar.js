@@ -309,7 +309,8 @@ body.topbar-modal-open {
     {
       key: 'today', label: 'Today',
       links: [
-        { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/index.html' },
+        { key: 'lock-in',        icon: '🎯', label: 'LOCK-IN HQ',        href: '/index.html' },
+        { key: 'command-centre', icon: '🏠', label: 'Command Centre',    href: '/command-centre.html' },
         { key: 'snapshot',       icon: '📋', label: 'Daily Control Panel', href: '/pages/daily-snapshot.html' },
         { key: 'weekly-review',  icon: '🗒️', label: 'Weekly Review',     href: '/pages/weekly-review.html' },
       ],
@@ -345,7 +346,7 @@ body.topbar-modal-open {
       key: 'system', label: 'System',
       links: [
         { key: 'integrations', icon: '🔌', label: 'Integrations', href: '/pages/integrations.html' },
-        { key: 'settings',     icon: '⚙️', label: 'Settings',     href: '/index.html?openSettings=1', id: 'sidebarSettingsLink' },
+        { key: 'settings',     icon: '⚙️', label: 'Settings',     href: '/command-centre.html?openSettings=1', id: 'sidebarSettingsLink' },
       ],
     },
   ];
@@ -422,7 +423,8 @@ body.topbar-modal-open {
   // covers every section, not just the bottom tabs.
   function sidebarPageKey() {
     const p = (window.location.pathname || '').toLowerCase();
-    if (p.endsWith('index.html') || p === '/') return 'command-centre';
+    if (p.endsWith('command-centre.html')) return 'command-centre';
+    if (p.endsWith('index.html') || p === '/') return 'lock-in';
     if (p.endsWith('daily-snapshot.html')) return 'snapshot';
     if (p.endsWith('streaks.html')) return 'streaks';
     if (p.endsWith('business-hq.html')) return 'business';

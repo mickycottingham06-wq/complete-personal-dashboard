@@ -772,7 +772,7 @@ body::after {
       const old = getGoals(k);
       old.forEach(g => {
         if (!g.done && g.text && !texts.has(g.text)) {
-          today.push({ text: g.text, done: false });
+          today.push(Object.assign({}, g, { done: false })); // keep LOCK-IN HQ fields (id, role, firstStep, minutes)
           texts.add(g.text);
         }
       });
@@ -1198,7 +1198,7 @@ body::after {
     const tomorrow = getGoals(tomorrowKey());
     const seen = new Set(tomorrow.map(g => g.text));
     remaining.forEach(g => {
-      if (!seen.has(g.text)) { tomorrow.push({ text: g.text, done: false }); seen.add(g.text); }
+      if (!seen.has(g.text)) { tomorrow.push(Object.assign({}, g, { done: false })); seen.add(g.text); }
     });
     setGoals(tomorrowKey(), tomorrow);
     setGoals(todayKey(), today.filter(g => g.done));

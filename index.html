@@ -1,15 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
-<script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
-<title>Command Centre · Micky's Dashboard</title>
-
+<script src="/api/config"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#16191f">
+<title>LOCK-IN HQ</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="scripts/sync.js" defer></script>
-<script src="scripts/topbar.js" defer></script>
 <script src="scripts/supabase-status.js"></script>
 <script src="scripts/supabase-auth.js"></script>
 <script src="scripts/backup-data.js"></script>
@@ -17,1717 +14,446 @@
 <script src="scripts/force-save.js"></script>
 <script src="scripts/integrations-data.js"></script>
 <script src="scripts/auto-sync.js"></script>
-<script src="scripts/daily-snapshot-data.js"></script>
-<script src="scripts/streaks-data.js"></script>
-<script src="scripts/business-data.js"></script>
-<script src="scripts/money-data.js"></script>
-<script src="scripts/ai-ceo-data.js"></script>
-<script src="scripts/boxing-data.js"></script>
-<script src="scripts/health-data.js"></script>
-<script src="scripts/training-data.js"></script>
-<script src="scripts/hormone-data.js"></script>
-<script src="scripts/appearance-data.js"></script>
-<script src="scripts/goals-data.js"></script>
-<script src="scripts/daily-guidance-data.js"></script>
-<script src="scripts/life-stats-data.js"></script>
-<script src="scripts/heatmap-data.js"></script>
-<script src="scripts/weekly-review-data.js"></script>
 <script src="scripts/google-calendar-service.js"></script>
-<script src="scripts/core-data.js"></script>
-
+<script src="scripts/lockin-data.js"></script>
 <style>
-/* ===== Shared design tokens (same as the rest of the dashboard) ===== */
-:root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --success: #6BE3A4;
-  --warning: #F2C063;
-  --danger: #FF6B6B;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
-* { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
-  background: #050506;
-  color: var(--text-secondary);
-  font-family: var(--font);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-body {
-  min-height: 100vh; position: relative; overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
-}
-/* Soft drifting glow + dot texture (matches the other pages). */
-body::before {
-  content: ''; position: fixed; inset: 0;
-  background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
-  animation: drift 36s ease-in-out infinite alternate;
-}
-body::after {
-  content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
-}
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
-
-.page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 18px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-}
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
-
-/* ===== Shared section/card system (same as the rest of the dashboard) ===== */
-.section { margin: 0 0 22px; }
-.section-title {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-}
-.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
-.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
-.snap-date { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-secondary); font-size: 12px; }
-
-.gm-card {
-  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px; padding: 20px;
-  margin-bottom: 14px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
-}
-
-/* Compact stat tiles reused by both preview cards below. */
-.streak-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-.streak-stat { text-align: center; padding: 14px 8px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
-.streak-stat .v { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
-.streak-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
-
-.gm-eyebrow {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary); margin-bottom: 6px;
-}
-
-/* ===== Preview cards (compact Daily Snapshot / Streaks entry points) ===== */
-.preview-card {
-  display: block; text-decoration: none; color: inherit; cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-.preview-card:hover { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(0,0,0,0.55); border-color: rgba(255,255,255,0.14); }
-.preview-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.preview-focus { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
-.preview-focus.is-empty { color: var(--text-tertiary); font-weight: 500; font-style: italic; }
-.preview-arrow { font-size: 18px; color: var(--text-tertiary); transition: transform 0.18s ease, color 0.18s ease; flex-shrink: 0; }
-.preview-card:hover .preview-arrow { transform: translateX(4px); color: var(--text-primary); }
-.streak-stats-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 16px; }
-.streak-stats-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 16px; }
-@media (max-width: 480px) { .streak-stats-4 { grid-template-columns: repeat(2,1fr); } }
-.preview-sub { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
-.preview-rev-track { height: 8px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 14px; }
-.preview-rev-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #F2C063, #FDE68A); transition: width 0.3s ease; }
-.preview-rev-pct { margin-top: 6px; font-size: 12px; color: var(--text-tertiary); }
-
-/* ===== Daily Control Panel preview extras (priorities, status chips, CTA) ===== */
-.preview-priorities { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.preview-priority { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
-.preview-priority .pp-mark { width: 14px; flex-shrink: 0; font-size: 12px; color: var(--text-tertiary); }
-.preview-priority.done { color: var(--text-tertiary); text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.25); }
-.preview-priority.done .pp-mark { color: var(--success); }
-.preview-priority.is-empty { color: var(--text-tertiary); font-style: italic; }
-.preview-sub.is-empty { font-style: italic; }
-.status-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.status-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 20px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); }
-.status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
-.status-chip.done { color: var(--text-secondary); }
-.status-chip.done .dot { background: var(--success); box-shadow: 0 0 8px rgba(107,227,164,0.6); }
-.preview-cta { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
-
-/* ===== Core priority grid — 4-6 focused cards, 2-up on wider screens ===== */
-.core-grid { display: grid; grid-template-columns: 1fr; }
-@media (min-width: 860px) {
-  .core-grid { grid-template-columns: repeat(2, 1fr); column-gap: 18px; }
-}
-
-/* ===== Quick actions — compact pill row, navigates only, no new logic ===== */
-.quick-actions-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.quick-action {
-  flex: 1 1 auto; min-width: 132px; text-align: center;
-  padding: 12px 14px; border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.035);
-  color: var(--text-secondary); text-decoration: none;
-  font-size: 12.5px; font-weight: 700; letter-spacing: 0.01em;
-  transition: background 0.15s, color 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.quick-action:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.quick-action:active { transform: scale(0.97); }
-button.quick-action { font-family: inherit; cursor: pointer; }
-
-/* ===== More sections — collapsed by default, native <details> so the
-   secondary pages (Streaks, AI CEO, Hormone, Appearance, Life Stats,
-   Heatmap, Integrations) stay reachable without dominating the homepage. ===== */
-.more-details { border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; background: rgba(255,255,255,0.02); overflow: hidden; }
-.more-summary {
-  list-style: none; cursor: pointer; user-select: none;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 18px; font-size: 13px; font-weight: 700; color: var(--text-secondary);
-  -webkit-tap-highlight-color: transparent;
-}
-.more-summary::-webkit-details-marker { display: none; }
-.more-summary:hover { color: var(--text-primary); }
-.more-summary-arrow { color: var(--text-tertiary); transition: transform 0.18s ease; font-size: 13px; }
-.more-details[open] .more-summary-arrow { transform: rotate(180deg); }
-.more-body { padding: 4px 18px 18px; }
-.more-body .section { margin-bottom: 14px; }
-.more-body .section:last-child { margin-bottom: 0; }
-
-/* ===== Header row + gear ===== */
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.hub-head .dash-title { margin: 0; }
-.hub-head-right { display: flex; align-items: center; gap: 10px; }
-.acct-indicator {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 10.5px; font-weight: 600; color: var(--text-tertiary);
-  white-space: nowrap;
-}
-.acct-indicator .dot { width: 6px; height: 6px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
-.acct-indicator.signed-in { color: var(--success); }
-.acct-indicator.signed-in .dot { background: var(--success); box-shadow: 0 0 6px rgba(107,227,164,0.6); }
-.acct-indicator.configured .dot { background: var(--warning); }
-
-/* ===== Quick Sync indicator (top bar) ===== */
-.sync-indicator {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 11px; border-radius: 11px;
-  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
-  font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--text-tertiary);
-  white-space: nowrap; cursor: pointer; transition: background 0.15s, color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.sync-indicator:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.sync-indicator:active { transform: scale(0.96); }
-.sync-indicator .dot { width: 6px; height: 6px; border-radius: 50%; background: #76746E; flex-shrink: 0; }
-.sync-indicator.ready .dot, .sync-indicator.synced .dot { background: var(--success); box-shadow: 0 0 6px rgba(107,227,164,0.6); }
-.sync-indicator.ready, .sync-indicator.synced { color: var(--success); }
-.sync-indicator.needs .dot { background: var(--warning); box-shadow: 0 0 6px rgba(242,192,99,0.5); }
-.sync-indicator.needs { color: var(--warning); }
-.sync-indicator.err .dot { background: var(--danger); box-shadow: 0 0 6px rgba(255,107,107,0.5); }
-.sync-indicator.err { color: var(--danger); }
-
-/* ===== Quick Sync panel ===== */
-.qs-stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; }
-.qs-stat { padding: 10px 12px; border-radius: 11px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); }
-.qs-stat .v { font-size: 13px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
-.qs-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 4px; }
-.qs-btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.qs-btn {
-  flex: 1 1 auto; min-width: 140px; padding: 12px 13px; border-radius: 11px;
-  border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--text-secondary);
-  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.qs-btn:hover:not(:disabled) { background: rgba(255,255,255,0.06); color: var(--text-primary); }
-.qs-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.qs-msg { background: rgba(107,227,164,0.08); border: 1px solid rgba(107,227,164,0.28); color: #6BE3A4; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 12px; }
-.qs-err { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.28); color: #FF8A8A; padding: 10px 12px; border-radius: 10px; font-size: 11.5px; margin-bottom: 12px; }
-.qs-full-link { display: block; text-align: center; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
-.qs-full-link:hover { color: var(--text-primary); }
-.gear-btn {
-  width: 42px; height: 42px; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 12px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
-  cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.gear-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.gear-btn:active { transform: scale(0.94) rotate(35deg); }
-.gear-btn svg { width: 22px; height: 22px; }
-
-/* ===== Today bar — compact Command Centre status strip ===== */
-.today-bar { padding: 14px 18px; }
-.today-bar-row { display: flex; flex-wrap: wrap; gap: 18px; }
-.today-bar-item { flex: 1; min-width: 92px; }
-.today-bar-v { font-size: 14.5px; font-weight: 700; color: var(--text-primary); line-height: 1.25; }
-.today-bar-l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 4px; }
-@media (max-width: 620px) { .today-bar-item { min-width: 42%; } }
-
-/* ===== Settings modal ===== */
-.modal-bg {
-  position: fixed; inset: 0; z-index: 120; display: none;
-  align-items: center; justify-content: center; padding: 20px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-}
-.modal-bg.show { display: flex; }
-.modal {
-  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
-  background: #0e0e10; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6);
-}
-.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
-.modal-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.modal-close:hover { color: var(--text-primary); }
-.field { margin-bottom: 14px; }
-.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
-.field-row { display: flex; gap: 8px; align-items: center; }
-.set-input {
-  flex: 1; min-width: 0; padding: 11px 13px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
-  background: rgba(0,0,0,0.3); color: var(--text-primary);
-  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
-}
-.set-input:focus { border-color: rgba(255,255,255,0.28); }
-.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
-.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 11px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
-.set-save {
-  width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B;
-  font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25);
-  transition: filter 0.15s, transform 0.1s;
-}
-.set-save:hover { filter: brightness(1.05); }
-.set-save:active { transform: translateY(1px); }
-.set-status { text-align: center; font-size: 12px; color: var(--success); min-height: 16px; margin-top: 8px; }
-.section-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 20px 0 14px; }
-.whoop-box { margin-top: 8px; padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); }
-.whoop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.whoop-status { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.whoop-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #76746E; }
-.whoop-status.on .dot { background: #6BE3A4; box-shadow: 0 0 8px rgba(107,227,164,0.7); }
-.whoop-sync { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); text-align: right; }
-.whoop-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 14px; }
-.whoop-stat { text-align: center; }
-.whoop-stat .v { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
-.whoop-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 5px; }
-.whoop-btn { width: 100%; margin-top: 14px; padding: 11px; border: 1px solid rgba(255,255,255,0.12); border-radius: 11px; background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.whoop-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+  :root {
+    --bg: #16191f;
+    --surface: #1f242c;
+    --surface-2: #272d37;
+    --line: #333b47;
+    --text: #e9edf2;
+    --muted: #a3adbb;
+    --blue: #5b9cff;
+    --blue-strong: #3d7fe6;
+    --blue-soft: rgba(91, 156, 255, 0.14);
+    --ok: #6fcf97;
+    --warn: #f2c46d;
+    --err: #ff8a80;
+    --radius: 16px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top, 0px) 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+  .wrap { max-width: 620px; margin: 0 auto; }
+  a { color: var(--blue); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 0 8px; }
+  h1 { font-size: 1.15rem; letter-spacing: 0.08em; margin: 0; }
+  .date { color: var(--muted); font-size: 0.95rem; margin: 0; }
+  h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  section { margin-top: 22px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .card + .card { margin-top: 12px; }
+  .main-card { border-color: var(--blue-strong); background: linear-gradient(180deg, var(--blue-soft), var(--surface) 70%); }
+  .title { font-size: 1.35rem; font-weight: 650; margin: 0 0 8px; overflow-wrap: anywhere; }
+  .support .title { font-size: 1.1rem; }
+  .meta { color: var(--muted); margin: 0 0 4px; overflow-wrap: anywhere; }
+  .meta strong { color: var(--text); font-weight: 600; }
+  .missing { color: var(--warn); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  button, .btn {
+    font: inherit; font-size: 1rem; min-height: 48px; padding: 10px 18px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text); cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  button:hover, .btn:hover { border-color: var(--blue); }
+  button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  button.primary { background: var(--blue-strong); border-color: var(--blue-strong); color: #fff; font-weight: 600; }
+  button.primary:hover { background: var(--blue); }
+  button[disabled] { opacity: 0.6; cursor: progress; }
+  .row button { flex: 1 1 auto; }
+  .empty { color: var(--muted); margin: 0; }
+  label { display: block; font-size: 0.9rem; color: var(--muted); margin: 12px 0 6px; }
+  input, select, textarea {
+    font: inherit; width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  textarea { min-height: 84px; resize: vertical; }
+  .status { min-height: 1.5em; margin: 8px 0 0; font-size: 0.95rem; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  .status button { min-height: 36px; padding: 4px 12px; margin-left: 8px; font-size: 0.9rem; }
+  ul.plain { list-style: none; padding: 0; margin: 0; }
+  .commit li { padding: 8px 0; border-top: 1px solid var(--line); }
+  .commit li:first-child { border-top: 0; padding-top: 0; }
+  .src { display: block; font-size: 0.8rem; color: var(--muted); }
+  .time { font-variant-numeric: tabular-nums; color: var(--blue); margin-right: 8px; font-weight: 600; }
+  .tag { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .tag.err { color: var(--err); }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; color: var(--muted); font-size: 0.95rem; }
+  .inbox li { padding: 12px 0; border-top: 1px solid var(--line); }
+  .inbox li .row { margin-top: 8px; }
+  .inbox li .row button { min-height: 44px; font-size: 0.92rem; padding: 6px 12px; }
+  .more-btn { min-width: 96px; }
+  .menu { margin-top: 10px; }
+  .menu a, .menu .soon { display: flex; justify-content: space-between; align-items: center; min-height: 56px; padding: 10px 4px; border-top: 1px solid var(--line); color: var(--text); text-decoration: none; }
+  .menu a:first-child { border-top: 0; }
+  .menu a:hover { color: var(--blue); }
+  .menu .soon { color: var(--muted); }
+  .menu .group { margin: 16px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .sync-line { color: var(--muted); font-size: 0.85rem; margin-top: 28px; text-align: center; }
 </style>
 </head>
 <body>
-<div class="page">
-
-  <div class="hub-head">
-    <h1 class="dash-title">Command Centre</h1>
-    <div class="hub-head-right">
-      <span class="acct-indicator" id="acctIndicator" title="Account status"><span class="dot"></span><span class="txt">Local only</span></span>
-      <button class="sync-indicator" id="syncIndicator" type="button" title="Cloud sync status — click for quick sync">
-        <span class="dot"></span><span class="txt">Local only</span>
-      </button>
-      <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>LOCK-IN HQ</h1>
+      <p class="date" id="todayLabel"></p>
     </div>
+    <button type="button" class="more-btn" id="moreBtn" aria-expanded="false" aria-controls="moreMenu">More</button>
+  </header>
+
+  <div class="card menu" id="moreMenu" hidden>
+    <a href="#" id="secondBrainLink">Second Brain <span class="tag">Not built yet</span></a>
+    <a href="pages/ai-ceo.html">Assistant <span class="tag">AI CEO page</span></a>
+    <a href="#" class="soon-link">Content <span class="tag">Not built yet</span></a>
+    <a href="#" class="soon-link">Workforce <span class="tag">Not built yet</span></a>
+    <div class="group">Existing pages</div>
+    <a href="pages/main.html">Full To Do list</a>
+    <a href="command-centre.html">Command Centre (old home)</a>
+    <a href="pages/daily-snapshot.html">Daily Control Panel</a>
+    <a href="pages/integrations.html">Integrations &amp; Cloud Sync</a>
   </div>
 
-  <!-- ===== TODAY BAR — compact status strip: date, completion %,
-       streak, weather, next calendar event. All read live from
-       existing data (Streaks, Integrations) — nothing owned here. ===== -->
-  <div class="section" id="todayBarSection">
-    <div class="gm-card today-bar">
-      <div class="today-bar-row">
-        <div class="today-bar-item">
-          <div class="today-bar-v" id="todayDate">—</div>
-          <div class="today-bar-l">Today</div>
-        </div>
-        <div class="today-bar-item">
-          <div class="today-bar-v" id="todayCompletion">—</div>
-          <div class="today-bar-l">Completion</div>
-        </div>
-        <div class="today-bar-item">
-          <div class="today-bar-v" id="todayStreak">—</div>
-          <div class="today-bar-l">Streak</div>
-        </div>
-        <div class="today-bar-item">
-          <div class="today-bar-v" id="todayWeather">Not connected</div>
-          <div class="today-bar-l">Weather</div>
-        </div>
-        <div class="today-bar-item">
-          <div class="today-bar-v" id="todayNextEvent">Not connected</div>
-          <div class="today-bar-l">Next Event</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <section aria-labelledby="commitH">
+    <h2 id="commitH">Today's commitments</h2>
+    <div class="card commit"><ul class="plain" id="commitList"></ul></div>
+  </section>
 
-  <!-- ===== DAILY CONTROL PANEL PREVIEW — compact entry point, full view lives at
-       pages/daily-snapshot.html so it no longer dominates the main page ===== -->
-  <div class="section" id="dailySnapshotPreview">
-    <div class="section-title">Daily Control Panel <span class="snap-date" id="previewSnapDate"></span></div>
-    <a class="gm-card preview-card" href="pages/daily-snapshot.html">
-      <div class="preview-top">
-        <div>
-          <div class="gm-eyebrow" style="margin-bottom:4px">Main Focus</div>
-          <div class="preview-focus" id="previewMainFocus">—</div>
-        </div>
-        <span class="preview-arrow">→</span>
-      </div>
+  <section aria-labelledby="focusH">
+    <h2 id="focusH">Main action</h2>
+    <div id="mainSlot"></div>
+  </section>
 
-      <ul class="preview-priorities" id="previewPriorities"></ul>
+  <section aria-labelledby="supportH" id="supportSection">
+    <h2 id="supportH">Supporting</h2>
+    <div id="supportSlot"></div>
+  </section>
 
-      <div class="preview-sub" id="previewChecklistLine" style="margin-top:10px">—</div>
-
-      <div class="status-chip-row" id="previewStatusChips" style="margin-top:14px"></div>
-
-      <div class="preview-sub" id="previewGuidanceNudge" style="margin-top:10px;display:none"></div>
-
-      <div class="preview-cta">Open Daily Control Panel →</div>
-    </a>
-  </div>
-
-  <!-- ===== CORE PRIORITY CARDS — the 6 sections that matter every day.
-       Everything else lives in Quick Actions / More Sections below so this
-       stays a focused overview, not a full section directory. ===== -->
-  <div class="core-grid">
-
-    <!-- ===== MONEY HQ PREVIEW — compact entry point, full view lives at
-         pages/money-hq.html ===== -->
-    <div class="section" id="moneyPreview">
-      <div class="section-title">Money HQ</div>
-      <a class="gm-card preview-card" href="pages/money-hq.html">
-        <div class="preview-top">
-          <div>
-            <div class="gm-eyebrow" style="margin-bottom:4px">Net Worth</div>
-            <div class="preview-focus" id="previewMoneyNetWorth">£0</div>
-            <div class="preview-sub" id="previewMoneySavings">—</div>
-          </div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-          <div class="streak-stat"><div class="v" id="previewMoneyIncome">£0</div><div class="l">Income</div></div>
-          <div class="streak-stat"><div class="v" id="previewMoneySpending">£0</div><div class="l">Spending</div></div>
-          <div class="streak-stat"><div class="v" id="previewMoneyRate">0%</div><div class="l">Savings Rate</div></div>
-        </div>
-        <div class="preview-sub" id="previewMoneyBill" style="margin-top:12px">—</div>
-        <div class="preview-sub" id="previewMoneyDsFlag" style="margin-top:4px"></div>
-      </a>
-    </div>
-
-    <!-- ===== BUSINESS HQ PREVIEW — compact entry point, full view lives at
-         pages/business-hq.html ===== -->
-    <div class="section" id="businessPreview">
-      <div class="section-title">Business HQ</div>
-      <a class="gm-card preview-card" href="pages/business-hq.html">
-        <div class="preview-top">
-          <div>
-            <div class="gm-eyebrow" style="margin-bottom:4px">Current Focus</div>
-            <div class="preview-focus" id="previewBizFocus">—</div>
-            <div class="preview-sub" id="previewBizProject">—</div>
-          </div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBizRevFill" style="width:0%"></div></div>
-        <div class="preview-rev-pct" id="previewBizRevPct">£0 of £0</div>
-        <div class="preview-sub" id="previewBizTask" style="margin-top:12px">—</div>
-        <div class="preview-sub" id="previewBizPipeline" style="margin-top:4px"></div>
-        <div class="preview-sub" id="previewBizDsFlag" style="margin-top:4px"></div>
-      </a>
-    </div>
-
-    <!-- ===== BOXING HQ PREVIEW — compact entry point, full view lives at
-         pages/boxing-hq.html ===== -->
-    <div class="section" id="boxingPreview">
-      <div class="section-title">Boxing HQ</div>
-      <a class="gm-card preview-card" href="pages/boxing-hq.html">
-        <div class="preview-top">
-          <div>
-            <div class="gm-eyebrow" style="margin-bottom:4px">Training Phase</div>
-            <div class="preview-focus" id="previewBoxPhase">—</div>
-            <div class="preview-sub" id="previewBoxWeight">—</div>
-          </div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="preview-rev-track"><div class="preview-rev-fill" id="previewBoxSessFill" style="width:0%"></div></div>
-        <div class="preview-rev-pct" id="previewBoxSessPct">0 / 0 sessions this week</div>
-        <div class="preview-sub" id="previewBoxFocus" style="margin-top:12px">—</div>
-        <div class="preview-sub" id="previewBoxDsFlag" style="margin-top:4px"></div>
-      </a>
-    </div>
-
-    <!-- ===== HEALTH HQ PREVIEW — compact entry point, full view lives at
-         pages/health.html ===== -->
-    <div class="section" id="healthPreview">
-      <div class="section-title">Health HQ</div>
-      <a class="gm-card preview-card" href="pages/health.html">
-        <div class="preview-top">
-          <div class="gm-eyebrow">Today</div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-          <div class="streak-stat"><div class="v" id="previewHealthSleep">—</div><div class="l">Sleep</div></div>
-          <div class="streak-stat"><div class="v" id="previewHealthRecovery">—</div><div class="l">Recovery</div></div>
-          <div class="streak-stat"><div class="v" id="previewHealthWater">—</div><div class="l">Water</div></div>
-        </div>
-        <div class="preview-sub" id="previewHealthDsFlag" style="margin-top:12px"></div>
-      </a>
-    </div>
-
-    <!-- ===== STRENGTH HQ PREVIEW — compact entry point, full view lives at
-         pages/gym.html ===== -->
-    <div class="section" id="strengthPreview">
-      <div class="section-title">Strength HQ</div>
-      <a class="gm-card preview-card" href="pages/gym.html">
-        <div class="preview-top">
-          <div>
-            <div class="gm-eyebrow" style="margin-bottom:4px">Today's Session</div>
-            <div class="preview-focus" id="previewStrengthSession">—</div>
-            <div class="preview-sub" id="previewStrengthWeek">—</div>
-          </div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-          <div class="streak-stat"><div class="v" id="previewStrengthReadiness">—</div><div class="l">Readiness</div></div>
-          <div class="streak-stat"><div class="v" id="previewStrengthSessions">—</div><div class="l">This week</div></div>
-          <div class="streak-stat"><div class="v" id="previewStrengthLifts">—</div><div class="l">Lifts up</div></div>
-        </div>
-        <div class="preview-sub" id="previewStrengthWarn" style="margin-top:12px"></div>
-      </a>
-    </div>
-
-    <!-- ===== GOALS PREVIEW — compact entry point, full view lives at
-         pages/goals.html ===== -->
-    <div class="section" id="goalsPreview">
-      <div class="section-title">Goals</div>
-      <a class="gm-card preview-card" href="pages/goals.html">
-        <div class="preview-top">
-          <div>
-            <div class="gm-eyebrow" style="margin-bottom:4px">Main Life Goal</div>
-            <div class="preview-focus" id="previewGoalMain">—</div>
-            <div class="preview-sub" id="previewGoalNinetyDay">—</div>
-          </div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="preview-rev-track"><div class="preview-rev-fill" id="previewGoalProgressFill" style="width:0%"></div></div>
-        <div class="preview-rev-pct" id="previewGoalProgressPct">0% average progress</div>
-        <div class="preview-sub" id="previewGoalCount" style="margin-top:12px">0 active goals</div>
-        <div class="preview-sub" id="previewGoalDsFlag" style="margin-top:4px"></div>
-      </a>
-    </div>
-
-    <!-- ===== WEEKLY REVIEW PREVIEW — compact entry point, full view lives at
-         pages/weekly-review.html ===== -->
-    <div class="section" id="weeklyReviewPreview">
-      <div class="section-title">Weekly Review <span class="snap-date" id="previewWeekRange"></span></div>
-      <a class="gm-card preview-card" href="pages/weekly-review.html">
-        <div class="preview-top">
-          <div>
-            <div class="gm-eyebrow" style="margin-bottom:4px">Next Week Focus</div>
-            <div class="preview-focus" id="previewWeekFocus">—</div>
-          </div>
-          <span class="preview-arrow">→</span>
-        </div>
-        <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-          <div class="streak-stat"><div class="v" id="previewWeekScore">—</div><div class="l">Week Score</div></div>
-          <div class="streak-stat"><div class="v" id="previewWeekHabitAvg">0%</div><div class="l">Habit Avg</div></div>
-          <div class="streak-stat"><div class="v" id="previewWeekPriorities">0</div><div class="l">Priorities Set</div></div>
-        </div>
-        <div class="preview-sub" id="previewWeekProblem" style="margin-top:12px"></div>
-      </a>
-    </div>
-
-  </div>
-
-  <!-- ===== QUICK ACTIONS — one tap to the actions used most often.
-       Every action just navigates to an existing section. ===== -->
-  <div class="section" id="quickActions">
-    <div class="section-title">Quick Actions</div>
-    <div class="gm-card">
-      <div class="quick-actions-row">
-        <a class="quick-action" href="pages/money-hq.html">Log spending</a>
-        <a class="quick-action" href="pages/daily-snapshot.html">Open Daily Control Panel</a>
-        <a class="quick-action" href="pages/boxing-hq.html">Add training note</a>
-        <a class="quick-action" href="pages/weekly-review.html">Open Weekly Review</a>
-        <a class="quick-action" href="pages/ai-ceo.html">Open AI CEO</a>
-        <button class="quick-action" id="qaCloudSync" type="button">Save &amp; Sync</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== MORE SECTIONS — secondary pages, collapsed by default so they
-       don't compete with the core priority cards above. Still reachable
-       here or via the grouped sidebar. ===== -->
-  <div class="section" id="moreSectionsWrap">
-    <details class="more-details">
-      <summary class="more-summary">
-        <span>More sections</span>
-        <span class="more-summary-arrow">⌄</span>
-      </summary>
-      <div class="more-body">
-
-        <!-- ===== STREAKS PREVIEW — compact entry point, full view lives at
-             pages/streaks.html ===== -->
-        <div class="section" id="streaksPreview">
-          <div class="section-title">Streaks</div>
-          <a class="gm-card preview-card" href="pages/streaks.html">
-            <div class="preview-top">
-              <div class="gm-eyebrow">Consistency</div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-              <div class="streak-stat"><div class="v" id="previewStreakCurrent">0</div><div class="l">Current</div></div>
-              <div class="streak-stat"><div class="v" id="previewStreakBest">0</div><div class="l">Best</div></div>
-              <div class="streak-stat"><div class="v" id="previewStreakToday">0%</div><div class="l">Today</div></div>
-            </div>
-          </a>
-        </div>
-
-        <!-- ===== AI CEO PREVIEW — compact entry point, full view lives at
-             pages/ai-ceo.html ===== -->
-        <div class="section" id="aiCeoPreview">
-          <div class="section-title">AI CEO</div>
-          <a class="gm-card preview-card" href="pages/ai-ceo.html">
-            <div class="preview-top">
-              <div>
-                <div class="gm-eyebrow" style="margin-bottom:4px">Mode</div>
-                <div class="preview-focus" id="previewCeoMode">—</div>
-                <div class="preview-sub" id="previewCeoBlocker">—</div>
-              </div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats" style="margin-top:10px;margin-bottom:0;grid-template-columns:1fr">
-              <div class="streak-stat"><div class="v" id="previewCeoOpenActions">0</div><div class="l">Open Actions</div></div>
-            </div>
-            <div class="preview-sub" id="previewCeoNextAction" style="margin-top:12px">—</div>
-          </a>
-        </div>
-
-        <!-- ===== HORMONE OPTIMISATION PREVIEW — compact entry point, full view lives
-             at pages/hormone-optimisation.html ===== -->
-        <div class="section" id="hormonePreview">
-          <div class="section-title">Hormone Optimisation</div>
-          <a class="gm-card preview-card" href="pages/hormone-optimisation.html">
-            <div class="preview-top">
-              <div class="gm-eyebrow">Today</div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats-4" style="margin-top:10px">
-              <div class="streak-stat"><div class="v" id="previewHormoneScore">—</div><div class="l">Hor. Score</div></div>
-              <div class="streak-stat"><div class="v" id="previewHormoneEnergy">—</div><div class="l">Energy</div></div>
-              <div class="streak-stat"><div class="v" id="previewHormoneSleep">—</div><div class="l">Sleep</div></div>
-              <div class="streak-stat"><div class="v" id="previewHormoneStress">—</div><div class="l">Stress</div></div>
-            </div>
-          </a>
-        </div>
-
-        <!-- ===== APPEARANCE / LOOKS PREVIEW — compact entry point, full view lives
-             at pages/appearance.html ===== -->
-        <div class="section" id="appearancePreview">
-          <div class="section-title">Appearance / Looks</div>
-          <a class="gm-card preview-card" href="pages/appearance.html">
-            <div class="preview-top">
-              <div class="gm-eyebrow" id="previewAppearanceFocus">No focus set</div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats-4" style="margin-top:10px">
-              <div class="streak-stat"><div class="v" id="previewLooksScore">—</div><div class="l">Looks</div></div>
-              <div class="streak-stat"><div class="v" id="previewSkinScore">—</div><div class="l">Skin</div></div>
-              <div class="streak-stat"><div class="v" id="previewSkincarePct">—</div><div class="l">Skincare</div></div>
-              <div class="streak-stat"><div class="v" id="previewGroomingPct">—</div><div class="l">Grooming</div></div>
-            </div>
-          </a>
-        </div>
-
-        <!-- ===== LIFE STATS PREVIEW — compact entry point, full view lives at
-             pages/life-stats.html ===== -->
-        <div class="section" id="lifeStatsPreview">
-          <div class="section-title">Life Stats</div>
-          <a class="gm-card preview-card" href="pages/life-stats.html">
-            <div class="preview-top">
-              <div class="gm-eyebrow">Life OS Overview</div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats" style="margin-top:10px;margin-bottom:0">
-              <div class="streak-stat"><div class="v" id="previewLifeStatsOverall">—</div><div class="l">Overall</div></div>
-              <div class="streak-stat"><div class="v" id="previewLifeStatsStreak">—</div><div class="l">Streak</div></div>
-              <div class="streak-stat"><div class="v" id="previewLifeStatsGoals">—</div><div class="l">Goals</div></div>
-            </div>
-            <div class="preview-sub" id="previewLifeStatsAttention" style="margin-top:12px">No areas flagged</div>
-          </a>
-        </div>
-
-        <!-- ===== HEATMAP PREVIEW — compact entry point, full view lives at
-             pages/heatmap.html ===== -->
-        <div class="section" id="heatmapPreview">
-          <div class="section-title">Heatmap</div>
-          <a class="gm-card preview-card" href="pages/heatmap.html">
-            <div class="preview-top">
-              <div class="gm-eyebrow">Daily Consistency</div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats-4" style="margin-top:10px">
-              <div class="streak-stat"><div class="v" id="previewHeatmapToday">0</div><div class="l">Today</div></div>
-              <div class="streak-stat"><div class="v" id="previewHeatmapStreak">0</div><div class="l">Streak</div></div>
-              <div class="streak-stat"><div class="v" id="previewHeatmapWeekAvg">0</div><div class="l">Week Avg</div></div>
-              <div class="streak-stat"><div class="v" id="previewHeatmapBestDay">—</div><div class="l">Best Day</div></div>
-            </div>
-          </a>
-        </div>
-
-        <!-- ===== INTEGRATIONS PREVIEW — compact entry point, full view lives at
-             pages/integrations.html ===== -->
-        <div class="section" id="integrationsPreview">
-          <div class="section-title">Integrations</div>
-          <a class="gm-card preview-card" href="pages/integrations.html">
-            <div class="preview-top">
-              <div class="gm-eyebrow">Connected Services</div>
-              <span class="preview-arrow">→</span>
-            </div>
-            <div class="streak-stats-4" style="margin-top:10px">
-              <div class="streak-stat"><div class="v" id="previewIntWeather">Off</div><div class="l">Weather</div></div>
-              <div class="streak-stat"><div class="v" id="previewIntCalendar">Off</div><div class="l">Calendar</div></div>
-              <div class="streak-stat"><div class="v" id="previewIntAi">Off</div><div class="l">AI API</div></div>
-              <div class="streak-stat"><div class="v" id="previewIntCloud">Off</div><div class="l">Cloud Sync</div></div>
-            </div>
-            <div class="preview-sub" id="previewIntWeatherDetail" style="margin-top:10px"></div>
-            <div class="preview-sub" id="previewIntCalendarDetail" style="margin-top:4px"></div>
-          </a>
-        </div>
-
-      </div>
+  <section aria-labelledby="dumpH">
+    <h2 id="dumpH"><label for="dumpInput" style="margin:0;color:inherit;font-size:inherit">Brain dump</label></h2>
+    <form class="card" id="dumpForm" autocomplete="off">
+      <textarea id="dumpInput" placeholder="Anything on your mind — get it out of your head." maxlength="500"></textarea>
+      <div class="row"><button type="submit" class="primary" id="dumpBtn">Capture</button></div>
+      <p class="status" id="dumpStatus" role="status" aria-live="polite"></p>
+    </form>
+    <details id="inboxDetails">
+      <summary id="inboxSummary"></summary>
+      <ul class="plain inbox" id="inboxList"></ul>
     </details>
-  </div>
+  </section>
 
-</div>
-
-<!-- ===== Settings / Your Data ===== -->
-<div class="modal-bg" id="settingsBg">
-  <div class="modal" role="dialog" aria-label="Your data">
-    <div class="modal-head">
-      <span class="modal-title">Your Data</span>
-      <button class="modal-close" id="settingsClose" type="button" aria-label="Close">×</button>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Height</label>
-      <div class="field-row">
-        <input class="set-input" id="heightA" type="number" min="0" inputmode="decimal" placeholder="cm">
-        <input class="set-input" id="heightB" type="number" min="0" inputmode="decimal" placeholder="in" style="display:none">
-        <div class="seg" id="heightUnitSeg">
-          <button type="button" data-u="cm" class="on">cm</button>
-          <button type="button" data-u="ft">ft/in</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Weight</label>
-      <div class="field-row">
-        <input class="set-input" id="weight" type="number" min="0" inputmode="decimal" placeholder="weight">
-        <div class="seg" id="weightUnitSeg">
-          <button type="button" data-u="kg" class="on">kg</button>
-          <button type="button" data-u="lb">lb</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Age</label>
-      <input class="set-input" id="age" type="number" min="0" inputmode="numeric" placeholder="years">
-    </div>
-
-    <div class="field">
-      <label class="field-label">Sex</label>
-      <div class="seg" id="sexSeg" style="width:100%;display:flex">
-        <button type="button" data-s="m" style="flex:1">Male</button>
-        <button type="button" data-s="f" style="flex:1">Female</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Active hours / week</label>
-      <input class="set-input" id="activity" type="number" min="0" inputmode="decimal" placeholder="e.g. 5">
-    </div>
-
-    <button class="set-save" id="settingsSave" type="button">Save</button>
-    <div class="set-status" id="settingsStatus"></div>
-
-    <div class="section-divider"></div>
-
-    <label class="field-label">WHOOP</label>
-    <div class="whoop-box">
-      <div class="whoop-row">
-        <span class="whoop-status" id="whStatus"><span class="dot"></span><span id="whStatusText">Not connected</span></span>
-        <span class="whoop-sync" id="whSync"></span>
-      </div>
-      <div class="whoop-stats" id="whStats" style="display:none">
-        <div class="whoop-stat"><div class="v" id="whRec">—</div><div class="l">Recovery</div></div>
-        <div class="whoop-stat"><div class="v" id="whSleep">—</div><div class="l">Sleep</div></div>
-        <div class="whoop-stat"><div class="v" id="whRhr">—</div><div class="l">Rest HR</div></div>
-      </div>
-      <button class="whoop-btn" id="whAction" type="button">Sync now</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== Quick Sync — fast-access panel. Reuses window.CloudSync / window.Backup
-     / window.SupabaseAuth / window.ForceSave exactly as the full Cloud Sync
-     section on pages/integrations.html does; this is not a second sync system,
-     just a shorter path to the same actions. ===== -->
-<div class="modal-bg" id="quickSyncBg">
-  <div class="modal" role="dialog" aria-label="Quick sync">
-    <div class="modal-head">
-      <span class="modal-title">Quick Sync</span>
-      <button class="modal-close" id="quickSyncClose" type="button" aria-label="Close">×</button>
-    </div>
-
-    <!-- Compact sign-in — shown only while Supabase is configured and
-         no one is signed in. Reuses window.SupabaseAuth.signIn, same call
-         Integrations → Account makes. Once signed in, this hides and the
-         stats/status below take over — no big always-open form. -->
-    <div id="qsSignIn" style="display:none;">
-      <div class="preview-sub" style="margin-bottom:12px;">Sign in to turn on Auto Cloud Save — it starts right away.</div>
-      <div class="qs-err" id="qsSignInErrBox" style="display:none"></div>
-      <form id="qsSignInForm" class="field-row" style="flex-wrap:wrap; margin-bottom:14px;">
-        <input class="set-input" id="qsSignInEmail" type="email" placeholder="Email" autocomplete="email" required style="flex:1 1 160px;">
-        <input class="set-input" id="qsSignInPassword" type="password" placeholder="Password" autocomplete="current-password" required style="flex:1 1 140px;">
-        <button class="qs-btn" id="qsSignInBtn" type="submit" style="flex:0 0 auto;min-width:96px;">Sign in</button>
-      </form>
-      <a class="qs-full-link" href="pages/integrations.html#cloud-sync" style="display:block; margin-bottom:16px;">New here? Create an account →</a>
-    </div>
-
-    <div class="qs-stats">
-      <div class="qs-stat"><div class="v" id="qsSignedIn">—</div><div class="l">Account</div></div>
-      <div class="qs-stat"><div class="v" id="qsLocalSave">—</div><div class="l">Last local save</div></div>
-      <div class="qs-stat"><div class="v" id="qsCloudSync">—</div><div class="l">Last cloud update</div></div>
-      <div class="qs-stat"><div class="v" id="qsStatus">—</div><div class="l">Status</div></div>
-      <div class="qs-stat"><div class="v" id="qsAutoSave">—</div><div class="l">Auto Save</div></div>
-      <div class="qs-stat"><div class="v" id="qsAutoSaveLast">—</div><div class="l">Last auto push</div></div>
-    </div>
-
-    <!-- Why Auto Save isn't pushing right now, if it isn't — visible text,
-         not just the qsAutoSave tile's title tooltip. -->
-    <div class="preview-sub" id="qsAutoSaveReason" style="display:none; margin:-6px 0 6px;"></div>
-    <!-- Live diagnostics: last check time, current status code, last auto
-         attempt time — always visible, not hidden in a tooltip. -->
-    <div class="preview-sub" id="qsAutoSaveDiag" style="display:none; margin:-2px 0 12px; opacity:0.65;"></div>
-
-    <div class="qs-err" id="qsErrBox" style="display:none"></div>
-    <div class="qs-msg" id="qsMsgBox" style="display:none"></div>
-
-    <div class="qs-btn-row">
-      <button class="qs-btn" id="qsForceSaveBtn" type="button">💾 Force Local Save</button>
-    </div>
-    <div class="qs-btn-row">
-      <button class="qs-btn" id="qsPushBtn" type="button" disabled>⬆ Push Local → Cloud</button>
-      <button class="qs-btn" id="qsPullBtn" type="button" disabled>⬇ Pull Cloud → This Device</button>
-    </div>
-    <div class="qs-btn-row">
-      <button class="qs-btn" id="qsSyncBtn" type="button" disabled>⟳ Sync Now</button>
-    </div>
-
-    <a class="qs-full-link" id="qsFullLink" href="pages/integrations.html#cloud-sync">Open full Cloud Sync settings →</a>
-  </div>
+  <p class="status" id="actionStatus" role="status" aria-live="polite"></p>
+  <p class="sync-line" id="syncLine"></p>
 </div>
 
 <script>
 (function () {
   'use strict';
-  const $ = (id) => document.getElementById(id);
-  const WATER_KEY = 'po_water_v1';
-  const WHOOP_KEY = 'whoop_tokens_v1';
-  const SYNC_KEY  = 'whoop_last_sync';
 
-  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
-  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  var TZ = 'Europe/London';
+  var L = window.LockIn;
+  var editingId = null;
+  var lastActionAt = '';
 
-  // Mirror of topbar.js defaultWaterState so we never clobber the water tracker.
-  function defaultWater() {
-    return { unit:'bottle', bottleMl:500, glassMl:250, weightUnit:'kg',
-      profile:{ weightKg:75, age:25, sex:'m', activityHrsPerWeek:5 },
-      caffeineMgPerDay:200, substances:[], logs:{} };
-  }
-
-  /* ---------- unit state ---------- */
-  let heightUnit = 'cm';   // 'cm' | 'ft'
-  let weightUnit = 'kg';   // 'kg' | 'lb'
-  let sex = 'm';
-
-  function setHeightUnit(u) {
-    heightUnit = u;
-    $('heightUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
-    const a = $('heightA'), b = $('heightB');
-    if (u === 'cm') { a.placeholder = 'cm'; b.style.display = 'none'; }
-    else { a.placeholder = 'ft'; b.placeholder = 'in'; b.style.display = ''; }
-  }
-  function setWeightUnit(u) {
-    weightUnit = u;
-    $('weightUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
-  }
-  function setSex(s) {
-    sex = s;
-    $('sexSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
-  }
-
-  function getHeightCm() {
-    if (heightUnit === 'cm') { const v = parseFloat($('heightA').value); return v > 0 ? v : null; }
-    const ft = parseFloat($('heightA').value) || 0;
-    const inch = parseFloat($('heightB').value) || 0;
-    const cm = ft * 30.48 + inch * 2.54;
-    return cm > 0 ? Math.round(cm) : null;
-  }
-  function fillHeight(cm) {
-    if (!cm) { $('heightA').value = ''; $('heightB').value = ''; return; }
-    if (heightUnit === 'cm') { $('heightA').value = Math.round(cm); }
-    else { const totalIn = cm / 2.54; $('heightA').value = Math.floor(totalIn / 12); $('heightB').value = Math.round(totalIn % 12); }
-  }
-
-  /* ---------- load existing profile into the form ---------- */
-  function populate() {
-    const w = loadJSON(WATER_KEY, defaultWater());
-    const p = w.profile || {};
-    setWeightUnit(w.weightUnit === 'lb' ? 'lb' : 'kg');
-    setHeightUnit(p.heightUnit === 'ft' ? 'ft' : 'cm');
-    setSex(p.sex === 'f' ? 'f' : 'm');
-    fillHeight(p.heightCm || null);
-    if (p.weightKg) $('weight').value = weightUnit === 'lb' ? Math.round(p.weightKg * 2.20462) : Math.round(p.weightKg);
-    else $('weight').value = '';
-    $('age').value = p.age || '';
-    $('activity').value = (p.activityHrsPerWeek != null ? p.activityHrsPerWeek : '');
-  }
-
-  /* ---------- save back into po_water_v1 (merge, never overwrite logs) ---------- */
-  function save() {
-    const w = loadJSON(WATER_KEY, defaultWater());
-    w.profile = w.profile || {};
-    const cm = getHeightCm();
-    if (cm) { w.profile.heightCm = cm; w.profile.heightUnit = heightUnit; }
-    const wv = parseFloat($('weight').value);
-    if (wv > 0) { w.profile.weightKg = weightUnit === 'lb' ? +(wv / 2.20462).toFixed(1) : wv; w.weightUnit = weightUnit; }
-    const age = parseInt($('age').value, 10); if (age > 0) w.profile.age = age;
-    w.profile.sex = sex;
-    const act = parseFloat($('activity').value); if (act >= 0 && !isNaN(act)) w.profile.activityHrsPerWeek = act;
-    saveJSON(WATER_KEY, w);
-    const s = $('settingsStatus'); s.textContent = 'Saved ✓';
-    setTimeout(() => { s.textContent = ''; }, 1800);
-  }
-
-  // Auto-save as the user edits, so nothing is lost if they close the
-  // modal without pressing Save. Debounced so typing doesn't thrash storage.
-  let autoSaveTimer = null;
-  let autoSavePending = false;
-  function autoSave() { clearTimeout(autoSaveTimer); autoSavePending = true; autoSaveTimer = setTimeout(() => { autoSavePending = false; save(); }, 400); }
-
-  // Lets Force Local Save (Quick Sync panel, or the Integrations page) commit
-  // this pending edit immediately instead of waiting out the 400ms timer.
-  if (window.ForceSave) {
-    window.ForceSave.registerFlush(() => {
-      if (autoSavePending) { clearTimeout(autoSaveTimer); autoSavePending = false; save(); }
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
     });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function hm(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+  }
+  function dayMonth(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ });
+  }
+  function setStatus(node, kind, msg, undo) {
+    node.className = 'status' + (kind ? ' ' + kind : '');
+    node.textContent = msg || '';
+    if (undo) node.appendChild(el('button', { type: 'button', text: 'Undo', onclick: undo }));
   }
 
-  /* ---------- open / close ---------- */
-  function open() { populate(); renderWhoop(); $('settingsBg').classList.add('show'); syncWhoop(); }
-  function close() { $('settingsBg').classList.remove('show'); }
-  $('settingsOpen').addEventListener('click', open);
+  // ---------- Commitments ----------
+  // Real events only from the app's own Google Calendar integration
+  // (OAuth tokens + /api routes). Mock/demo events are never shown here.
+  var cal = { state: 'not-connected', events: [], at: '', error: '' };
 
-  // Deep-link from the sidebar "Settings" item: /index.html?openSettings=1
-  // opens this modal directly, then cleans the URL.
-  if (new URLSearchParams(window.location.search).get('openSettings') === '1') {
-    open();
-    history.replaceState(null, '', window.location.pathname);
+  function readCalendar() {
+    var gc = window.Integrations ? window.Integrations.load().googleCalendar : null;
+    var connected = !!(gc && gc.enabled && window.GoogleCalendarService && window.GoogleCalendarService.isConnected());
+    if (!connected) { cal = { state: 'not-connected', events: [], at: '', error: '' }; return null; }
+    // Cache counts only if it came from a real fetch (status exactly 'Connected').
+    var real = gc.status === 'Connected' && gc.lastSync;
+    cal = {
+      state: 'loading',
+      events: real ? window.GoogleCalendarService.getToday(gc.upcomingEvents) : [],
+      at: real ? gc.lastSync : '',
+      error: '',
+    };
+    return gc;
   }
-  $('settingsClose').addEventListener('click', close);
-  $('settingsBg').addEventListener('click', (e) => { if (e.target === $('settingsBg')) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  $('settingsSave').addEventListener('click', save);
-  ['heightA', 'heightB', 'weight', 'age', 'activity'].forEach((id) => {
-    $(id).addEventListener('input', autoSave);
-  });
-  $('heightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const cm = getHeightCm(); setHeightUnit(b.dataset.u); fillHeight(cm); save();
-  }));
-  $('weightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const v = parseFloat($('weight').value);
-    const kg = v > 0 ? (weightUnit === 'lb' ? v / 2.20462 : v) : null;
-    setWeightUnit(b.dataset.u);
-    if (kg) $('weight').value = weightUnit === 'lb' ? Math.round(kg * 2.20462) : Math.round(kg);
-    save();
-  }));
-  $('sexSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { setSex(b.dataset.s); save(); }));
 
-  /* ---------- WHOOP ---------- */
-  let whStats = null;
-  function relTime(ts) {
-    if (!ts) return 'never';
-    const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.floor(s/60) + ' min ago';
-    if (s < 86400) return Math.floor(s/3600) + ' h ago';
-    return Math.floor(s/86400) + ' d ago';
-  }
-  function renderWhoop(err) {
-    const t = loadJSON(WHOOP_KEY, null);
-    const statusEl = $('whStatus'), txt = $('whStatusText'), syncEl = $('whSync'), action = $('whAction');
-    if (!t || !t.access) {
-      statusEl.classList.remove('on'); txt.textContent = 'Not connected';
-      syncEl.textContent = ''; $('whStats').style.display = 'none';
-      action.textContent = 'Connect on Health page';
-      return;
-    }
-    statusEl.classList.add('on'); txt.textContent = err ? 'Connected (sync failed)' : 'Connected';
-    const last = Number(localStorage.getItem(SYNC_KEY)) || 0;
-    syncEl.textContent = 'Last synced ' + relTime(last);
-    action.textContent = 'Sync now';
-    if (whStats) {
-      $('whStats').style.display = '';
-      $('whRec').textContent   = whStats.rec   != null ? whStats.rec + '%'  : '—';
-      $('whSleep').textContent = whStats.sleep != null ? whStats.sleep + '%' : '—';
-      $('whRhr').textContent   = whStats.rhr   != null ? whStats.rhr         : '—';
-    }
-  }
-  async function wRefresh(t) {
-    if (!t.refresh) return null;
-    try {
-      const r = await fetch('/api/whoop-refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refresh_token: t.refresh }) });
-      const j = await r.json();
-      if (j.access_token) { const n = { access:j.access_token, refresh:j.refresh_token||t.refresh, expires:Date.now()+(j.expires_in||3500)*1000 }; saveJSON(WHOOP_KEY, n); return n; }
-    } catch (e) {}
-    return null;
-  }
-  async function wFetch(path, t) {
-    const [p, qs] = path.split('?');
-    const params = new URLSearchParams(qs || ''); params.set('path', p);
-    const r = await fetch('/api/whoop-data?' + params.toString(), { headers: { 'Authorization': 'Bearer ' + t.access, 'Accept':'application/json' } });
-    if (r.status === 401) { const n = await wRefresh(t); if (n) return wFetch(path, n); throw new Error('unauthorized'); }
-    if (!r.ok) throw new Error('whoop ' + r.status);
-    return r.json();
-  }
-  async function syncWhoop() {
-    let t = loadJSON(WHOOP_KEY, null);
-    if (!t || !t.access) return;
-    if (t.expires && Date.now() > t.expires - 60000) { const n = await wRefresh(t); if (n) t = n; }
-    try {
-      const [rec, sleep] = await Promise.all([
-        wFetch('/recovery?limit=1', t).catch(()=>null),
-        wFetch('/activity/sleep?limit=1', t).catch(()=>null),
-      ]);
-      const r0 = rec && rec.records && rec.records[0];
-      const s0 = sleep && sleep.records && sleep.records[0];
-      whStats = {
-        rec:   r0 && r0.score && r0.score.recovery_score != null ? Math.round(r0.score.recovery_score) : null,
-        rhr:   r0 && r0.score && r0.score.resting_heart_rate != null ? Math.round(r0.score.resting_heart_rate) : null,
-        sleep: s0 && s0.score && s0.score.sleep_performance_percentage != null ? Math.round(s0.score.sleep_performance_percentage) : null,
-      };
-      localStorage.setItem(SYNC_KEY, String(Date.now()));
-      renderWhoop();
-    } catch (e) { renderWhoop(e); }
-  }
-  $('whAction').addEventListener('click', () => {
-    const t = loadJSON(WHOOP_KEY, null);
-    if (!t || !t.access) { window.location.href = 'pages/health.html'; return; }
-    $('whAction').textContent = 'Syncing…'; syncWhoop();
-  });
-})();
-</script>
-
-<!-- ===== Daily Snapshot / Streaks preview cards — reads through
-     window.DailySnapshot + window.Streaks (scripts/daily-snapshot-data.js,
-     scripts/streaks-data.js). The full interactive views live at
-     pages/daily-snapshot.html and pages/streaks.html. ===== -->
-<script>
-(function () {
-  'use strict';
-  const $ = (id) => document.getElementById(id);
-
-  function renderSnapshotPreview() {
-    const snap = window.DailySnapshot.loadOrInit();
-
-    // Daily Guidance Engine — fills mainFocus / priorities from deterministic
-    // local suggestions ONLY when they're still blank (new day, nothing typed
-    // yet). Never overwrites an edit; a same-day refresh is a no-op here.
-    let guidance = null;
-    if (window.DailyGuidance) {
-      guidance = window.DailyGuidance.computeGuidance();
-      if (window.DailyGuidance.applyDefaultsToSnapshot(snap, guidance)) window.DailySnapshot.save(snap);
-    }
-
-    const d = new Date();
-    const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    $('previewSnapDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
-
-    const focusEl = $('previewMainFocus');
-    const hasFocus = !!(snap.mainFocus && snap.mainFocus.trim());
-    focusEl.textContent = hasFocus ? snap.mainFocus.trim() : 'Set today’s focus →';
-    focusEl.classList.toggle('is-empty', !hasFocus);
-
-    const prioritiesWrap = $('previewPriorities');
-    prioritiesWrap.innerHTML = '';
-    const namedPriorities = snap.priorities.filter((p) => p.text && p.text.trim());
-    if (!namedPriorities.length) {
-      const li = document.createElement('li');
-      li.className = 'preview-priority is-empty';
-      li.textContent = 'Choose top priorities →';
-      prioritiesWrap.appendChild(li);
+  async function refreshCalendar() {
+    if (!readCalendar()) { renderCommitments(); return; }
+    renderCommitments();
+    var cached = { events: cal.events, at: cal.at };
+    var res = await window.GoogleCalendarService.refresh('googleCalendar');
+    if (res.ok) {
+      var gc = res.state.googleCalendar;
+      cal = { state: 'fresh', events: window.GoogleCalendarService.getToday(gc.upcomingEvents), at: gc.lastSync, error: '' };
     } else {
-      namedPriorities.forEach((p) => {
-        const li = document.createElement('li');
-        li.className = 'preview-priority' + (p.completed ? ' done' : '');
-        const mark = document.createElement('span');
-        mark.className = 'pp-mark';
-        mark.textContent = p.completed ? '✓' : '○';
-        const txt = document.createElement('span');
-        txt.textContent = p.text.trim();
-        li.append(mark, txt);
-        prioritiesWrap.appendChild(li);
+      cal = { state: 'failed', events: cached.events, at: cached.at, error: res.error || 'unknown error' };
+    }
+    renderCommitments();
+  }
+
+  function routineItems() {
+    var r = L.SUPPLIED_ROUTINE;
+    var items = [];
+    var today = L.activeDate();
+    var dow = new Date(today + 'T12:00:00').getDay();
+    if (r.weekdayWork.days.indexOf(dow) !== -1) {
+      items.push({ time: r.weekdayWork.start + '–' + r.weekdayWork.end, text: r.weekdayWork.label });
+    }
+    r.dates.forEach(function (d) {
+      var diff = Math.round((new Date(d.date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 864e5);
+      if (diff >= 0 && diff <= 14) {
+        items.push({ time: diff === 0 ? 'Today' : dayMonth(d.date + 'T12:00:00'), text: d.label + (diff > 0 ? ' — in ' + diff + ' day' + (diff === 1 ? '' : 's') : '') });
+      }
+    });
+    return items;
+  }
+
+  function renderCommitments() {
+    var ul = $('commitList');
+    ul.textContent = '';
+
+    // Calendar (retrieved)
+    var head;
+    if (cal.state === 'not-connected') {
+      ul.appendChild(el('li', {}, [
+        el('span', { text: 'Calendar ' }), el('span', { class: 'tag', text: 'Not connected' }),
+        el('span', { class: 'src' }, ['Connect Google Calendar in ', el('a', { href: 'pages/integrations.html', text: 'Integrations' }), ' to see real events here.']),
+      ]));
+    } else {
+      if (cal.state === 'loading') head = 'Refreshing calendar…';
+      else if (cal.state === 'fresh') head = 'From Google Calendar · retrieved ' + hm(cal.at);
+      else head = 'Refresh failed' + (cal.at ? ' · showing events retrieved ' + dayMonth(cal.at) + ' ' + hm(cal.at) : ' · no cached events');
+      ul.appendChild(el('li', {}, [el('span', { class: 'src' + (cal.state === 'failed' ? ' tag err' : ''), text: head })]));
+      if (cal.state === 'failed') ul.lastChild.title = cal.error;
+      if (cal.events.length) {
+        cal.events.forEach(function (e) {
+          ul.appendChild(el('li', {}, [el('span', { class: 'time', text: e.time || 'All day' }), e.title]));
+        });
+      } else if (cal.at && cal.state !== 'loading') {
+        ul.appendChild(el('li', { class: 'empty', text: 'No calendar events today.' }));
+      }
+    }
+
+    // Email — no email integration exists in the app.
+    ul.appendChild(el('li', {}, [
+      el('span', { text: 'Email ' }), el('span', { class: 'tag', text: 'Not connected' }),
+      el('span', { class: 'src', text: 'The app has no email integration yet.' }),
+    ]));
+
+    // Supplied routine (not retrieved)
+    var routine = routineItems();
+    if (routine.length) {
+      ul.appendChild(el('li', {}, [el('span', { class: 'src', text: 'Your usual routine — supplied by you, not from a calendar' })]));
+      routine.forEach(function (r) {
+        ul.appendChild(el('li', {}, [el('span', { class: 'time', text: r.time }), r.text]));
       });
     }
+  }
 
-    const habitsTotal = snap.habits.length;
-    const habitsDone = snap.habits.filter((h) => h.completed).length;
-    const execKeys = ['trainingCompleted', 'businessTaskCompleted', 'healthRoutineCompleted', 'spendingLogged', 'goalActionCompleted'];
-    const execDone = execKeys.filter((k) => snap[k]).length;
-
-    const checklistEl = $('previewChecklistLine');
-    if (habitsDone + execDone === 0) {
-      checklistEl.textContent = 'Log today’s status →';
-      checklistEl.classList.add('is-empty');
+  // ---------- Actions ----------
+  function run(fn, statusNode, okMsg, undo) {
+    var res = fn();
+    if (res.ok) {
+      lastActionAt = new Date().toISOString();
+      setStatus(statusNode || $('actionStatus'), 'ok', okMsg, undo);
     } else {
-      checklistEl.textContent = habitsDone + '/' + habitsTotal + ' habits · ' + execDone + '/' + execKeys.length + ' checklist';
-      checklistEl.classList.remove('is-empty');
+      setStatus(statusNode || $('actionStatus'), 'err', res.error);
     }
+    render();
+    renderSync();
+    return res;
+  }
 
-    const chipsWrap = $('previewStatusChips');
-    chipsWrap.innerHTML = '';
-    [
-      ['Business', !!snap.businessTaskCompleted],
-      ['Training', !!snap.trainingCompleted],
-      ['Health', !!snap.healthRoutineCompleted],
-      ['Money logged', !!snap.spendingLogged],
-    ].forEach(([label, done]) => {
-      const chip = document.createElement('span');
-      chip.className = 'status-chip' + (done ? ' done' : '');
-      const dot = document.createElement('span');
-      dot.className = 'dot';
-      const txt = document.createElement('span');
-      txt.textContent = label;
-      chip.append(dot, txt);
-      chipsWrap.appendChild(chip);
+  function snapshot() { return JSON.parse(JSON.stringify(L.loadToday())); }
+
+  function doComplete(item) {
+    var before = snapshot();
+    run(function () { return L.complete(item.id, true); }, null, 'Saved — marked done.', function () {
+      run(function () { return L.restoreToday(before); }, null, 'Saved — undone.');
     });
-
-    const nudgeEl = $('previewGuidanceNudge');
-    if (guidance && guidance.nudges && guidance.nudges.length) {
-      nudgeEl.textContent = '💡 ' + guidance.nudges[0];
-      nudgeEl.style.display = '';
-    } else {
-      nudgeEl.style.display = 'none';
-    }
   }
-
-  function renderStreaksPreview() {
-    const result = window.Streaks.recompute();
-    $('previewStreakCurrent').textContent = String(result.data.currentStreak);
-    $('previewStreakBest').textContent = String(result.data.bestStreak);
-    $('previewStreakToday').textContent = Math.round(result.pct * 100) + '%';
-  }
-
-  function fmtMoney(n) {
-    const v = Number(n) || 0;
-    return '£' + v.toLocaleString('en-GB', { maximumFractionDigits: 0 });
-  }
-
-  function renderBusinessPreview() {
-    const biz = window.Business.load();
-
-    const focusEl = $('previewBizFocus');
-    const hasFocus = !!(biz.currentFocus && biz.currentFocus.trim());
-    focusEl.textContent = hasFocus ? biz.currentFocus.trim() : 'Set your business focus →';
-    focusEl.classList.toggle('is-empty', !hasFocus);
-
-    $('previewBizProject').textContent = biz.activeProject ? 'Active: ' + biz.activeProject : 'No active project set';
-
-    const target = Number(biz.revenueTarget) || 0;
-    const current = Number(biz.currentRevenue) || 0;
-    const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
-    $('previewBizRevFill').style.width = pct + '%';
-    $('previewBizRevPct').textContent = fmtMoney(current) + ' of ' + fmtMoney(target) + ' (' + pct + '%)';
-
-    const taskEl = $('previewBizTask');
-    const hasTask = !!(biz.todayTask && biz.todayTask.trim());
-    taskEl.textContent = hasTask ? 'Today: ' + biz.todayTask.trim() : 'No task set for today';
-
-    const pipe = window.Business.computePipelineValue(biz);
-    $('previewBizPipeline').textContent = pipe.count
-      ? 'Pipeline: ' + fmtMoney(pipe.total) + ' total (' + fmtMoney(pipe.active) + ' active)'
-      : '';
-
-    const snap = window.DailySnapshot.loadOrInit();
-    $('previewBizDsFlag').textContent = snap.businessTaskCompleted ? '✓ Marked done in Daily Snapshot' : '';
-  }
-
-  function renderMoneyPreview() {
-    const summary = window.Money.computeSummary();
-    $('previewMoneyNetWorth').textContent = fmtMoney(summary.netWorth);
-    $('previewMoneySavings').textContent = (summary.monthlySavings >= 0 ? 'Saving ' : 'Overspent ') + fmtMoney(Math.abs(summary.monthlySavings)) + ' this month';
-    $('previewMoneyIncome').textContent = fmtMoney(summary.monthlyIncome);
-    $('previewMoneySpending').textContent = fmtMoney(summary.monthlySpending);
-    $('previewMoneyRate').textContent = summary.savingsRate + '%';
-    $('previewMoneyBill').textContent = summary.nextBill
-      ? 'Next bill: ' + summary.nextBill.name + ' (' + fmtMoney(summary.nextBill.amount) + ')'
-      : 'No upcoming bills';
-
-    const snap = window.DailySnapshot.loadOrInit();
-    $('previewMoneyDsFlag').textContent = snap.spendingLogged ? '✓ Spending logged today' : '';
-  }
-
-  function renderAiCeoPreview() {
-    const ceo = window.AiCeo.load();
-    const mode = window.AiCeo.modeById(ceo.activeMode);
-    $('previewCeoMode').textContent = mode.icon + ' ' + mode.label;
-
-    const hasBlocker = !!(ceo.currentBlocker && ceo.currentBlocker.trim());
-    $('previewCeoBlocker').textContent = hasBlocker ? 'Blocker: ' + ceo.currentBlocker.trim() : 'No blocker logged';
-
-    const openActions = ceo.actionPlan.filter((a) => a.status !== 'Done').length;
-    $('previewCeoOpenActions').textContent = String(openActions);
-
-    const nextEl = $('previewCeoNextAction');
-    const hasNext = !!(ceo.nextBestAction && ceo.nextBestAction.trim());
-    nextEl.textContent = hasNext ? 'Next: ' + ceo.nextBestAction.trim() : 'No next action set →';
-  }
-
-  function renderBoxingPreview() {
-    const box = window.Boxing.load();
-
-    $('previewBoxPhase').textContent = box.trainingPhase || '—';
-
-    const cur = Number(box.currentWeight) || 0;
-    const tgt = Number(box.targetWeight) || 0;
-    $('previewBoxWeight').textContent = (cur || tgt) ? (cur || '—') + 'kg → ' + (tgt || '—') + 'kg target' : 'Set current & target weight';
-
-    const target = Number(box.weeklyBoxingTarget) || 0;
-    const completed = Number(box.completedBoxingSessions) || 0;
-    const pct = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
-    $('previewBoxSessFill').style.width = pct + '%';
-    $('previewBoxSessPct').textContent = completed + ' / ' + target + ' boxing sessions this week';
-
-    const focusEl = $('previewBoxFocus');
-    const hasFocus = !!(box.currentFocus && box.currentFocus.trim());
-    focusEl.textContent = hasFocus ? 'Focus: ' + box.currentFocus.trim() : 'No focus set';
-
-    const snap = window.DailySnapshot.loadOrInit();
-    $('previewBoxDsFlag').textContent = snap.trainingCompleted ? '✓ Training completed today' : '';
-  }
-
-  // Manual scores default to 0 until the user has logged anything —
-  // show a clean dash instead of a misleading "0h" / "0/10".
-  function fmtScore(n, suffix) { const v = Number(n) || 0; return v ? v + suffix : '—'; }
-
-  function renderHealthPreview() {
-    const health = window.Health.load();
-    $('previewHealthSleep').textContent = fmtScore(health.lastNightSleep, 'h');
-    $('previewHealthRecovery').textContent = fmtScore(health.recoveryScore, '');
-    $('previewHealthWater').textContent = fmtScore(health.waterIntake, 'L');
-
-    const snap = window.DailySnapshot.loadOrInit();
-    $('previewHealthDsFlag').textContent = snap.healthRoutineCompleted ? '✓ Health routine completed today' : '';
-  }
-
-  function renderStrengthPreview() {
-    if (!window.Training) return;
-    const t = window.Training.load();
-    const session = window.Training.getTodaysSession(t, new Date());
-    const nameEl = $('previewStrengthSession');
-    if (session.templateId) {
-      nameEl.textContent = session.templateName + (session.isOptionalGymC ? ' (optional)' : '');
-    } else {
-      const labels = { 'boxing-mobility': 'Boxing + Mobility', boxing: 'Boxing', rest: 'Recovery / Rest day' };
-      nameEl.textContent = labels[session.type] || 'Rest';
-    }
-    $('previewStrengthWeek').textContent = 'Week ' + session.weekNumber + ' of 12 · ' + session.phaseName;
-
-    const stats = window.Training.computeDashboardStats(t);
-    $('previewStrengthReadiness').textContent = stats.readiness === 'unknown' ? '—' : stats.readiness.charAt(0).toUpperCase() + stats.readiness.slice(1);
-    $('previewStrengthSessions').textContent = stats.workoutsThisWeek;
-    $('previewStrengthLifts').textContent = stats.mainLiftsProgressing;
-
-    $('previewStrengthWarn').textContent = session.skipRecommended ? '⚠ Optional Gym C — skip recommended today' : '';
-  }
-
-  function renderHormonePreview() {
-    const hor = window.Hormones.load();
-    $('previewHormoneScore').textContent = fmtScore(hor.hormoneScore, '/10');
-    $('previewHormoneEnergy').textContent = fmtScore(hor.energyLevel, '/10');
-    $('previewHormoneSleep').textContent = fmtScore(hor.sleepConsistency, '/10');
-    $('previewHormoneStress').textContent = fmtScore(hor.stressLevel, '/10');
-  }
-
-  function renderAppearancePreview() {
-    const look = window.Appearance.load();
-    $('previewLooksScore').textContent = fmtScore(look.looksScore, '/10');
-    $('previewSkinScore').textContent = fmtScore(look.skinScore, '/10');
-    const skincare = look.skincareRoutine || [];
-    const skincarePct = skincare.length ? Math.round(skincare.filter(i => i.completed).length / skincare.length * 100) : 0;
-    $('previewSkincarePct').textContent = skincarePct + '%';
-    const grooming = look.groomingRoutine || [];
-    const groomingPct = grooming.length ? Math.round(grooming.filter(i => i.completed).length / grooming.length * 100) : 0;
-    $('previewGroomingPct').textContent = groomingPct + '%';
-    const focusEl = $('previewAppearanceFocus');
-    const hasFocus = !!(look.nextImprovementFocus && look.nextImprovementFocus.trim());
-    focusEl.textContent = hasFocus ? 'Focus: ' + look.nextImprovementFocus.trim() : 'No focus set';
-  }
-
-  function renderGoalsPreview() {
-    const g = window.Goals.load();
-
-    const mainEl = $('previewGoalMain');
-    const hasMain = !!(g.mainLifeGoal && g.mainLifeGoal.trim());
-    mainEl.textContent = hasMain ? g.mainLifeGoal.trim() : 'Set your main life goal →';
-    mainEl.classList.toggle('is-empty', !hasMain);
-
-    const hasNinety = !!(g.ninetyDayGoal && g.ninetyDayGoal.trim());
-    $('previewGoalNinetyDay').textContent = hasNinety ? '90-day: ' + g.ninetyDayGoal.trim() : 'No 90-day goal set';
-
-    const active = g.activeGoals || [];
-    const count = active.length;
-    const avgPct = count ? Math.round(active.reduce((sum, x) => sum + (Number(x.progress) || 0), 0) / count) : 0;
-    $('previewGoalProgressFill').style.width = avgPct + '%';
-    $('previewGoalProgressPct').textContent = avgPct + '% average progress';
-    $('previewGoalCount').textContent = count + (count === 1 ? ' active goal' : ' active goals');
-
-    const snap = window.DailySnapshot.loadOrInit();
-    $('previewGoalDsFlag').textContent = snap.goalActionCompleted ? '✓ Goal action completed today' : '';
-  }
-
-  function renderLifeStatsPreview() {
-    var ls = window.LifeStats.load();
-    var c = window.LifeStats.computeStats();
-
-    $('previewLifeStatsOverall').textContent = fmtScore(ls.overallScore, '/10');
-    $('previewLifeStatsStreak').textContent = String(c.currentStreak);
-    $('previewLifeStatsGoals').textContent = c.goalsAvgProgress + '%';
-
-    var attention = ls.areasNeedingAttention || [];
-    $('previewLifeStatsAttention').textContent = attention.length ? attention[0].text : 'No areas flagged';
-  }
-
-  function renderHeatmapPreview() {
-    window.Heatmap.recompute();
-    var stats = window.Heatmap.computeWeekStats();
-    $('previewHeatmapToday').textContent = String(stats.todayScore);
-    $('previewHeatmapStreak').textContent = String(stats.currentStreak);
-    $('previewHeatmapWeekAvg').textContent = String(stats.weekAvg);
-    $('previewHeatmapBestDay').textContent = stats.bestDay.score > 0 ? String(stats.bestDay.score) : '—';
-  }
-
-  function renderWeeklyReviewPreview() {
-    const wr = window.WeeklyReview.loadOrInit();
-    const p = window.WeeklyReview.computePerformance();
-
-    $('previewWeekRange').textContent = wr.weekStart + ' – ' + wr.weekEnd;
-
-    const focusEl = $('previewWeekFocus');
-    const hasFocus = !!(wr.nextWeekFocus && wr.nextWeekFocus.trim());
-    focusEl.textContent = hasFocus ? wr.nextWeekFocus.trim() : 'Set next week\'s focus →';
-    focusEl.classList.toggle('is-empty', !hasFocus);
-
-    $('previewWeekScore').textContent = Number(wr.overallScore) ? String(wr.overallScore) : '—';
-    $('previewWeekHabitAvg').textContent = p.weeklyHabitAvg + '%';
-    $('previewWeekPriorities').textContent = String((wr.priorities || []).length);
-
-    const problemEl = $('previewWeekProblem');
-    const hasProblem = !!(wr.mainProblem && wr.mainProblem.trim());
-    problemEl.textContent = hasProblem ? 'Main problem: ' + wr.mainProblem.trim() : '';
-  }
-
-  function renderIntegrationsPreview() {
-    var it = window.Integrations.load();
-    function label(section) {
-      if (!section.enabled) return 'Off';
-      if (/error/i.test(section.status)) return 'Error';
-      if (/mock/i.test(section.status)) return 'Mock';
-      if (/demo/i.test(section.status)) return 'Demo';
-      if (/connected/i.test(section.status)) return 'On';
-      return 'On';
-    }
-    $('previewIntWeather').textContent = label(it.weather);
-    $('previewIntCalendar').textContent = label(it.googleCalendar);
-    $('previewIntAi').textContent = label(it.aiApi);
-    $('previewIntCloud').textContent = label(it.cloudSync);
-
-    var w = it.weather;
-    var detail = $('previewIntWeatherDetail');
-    if (w.enabled && w.temperature) {
-      var bits = [];
-      if (w.location) bits.push(w.location);
-      bits.push(w.temperature + (w.condition ? ' · ' + w.condition : ''));
-      if (w.lastSync) {
-        var s = Math.floor((Date.now() - new Date(w.lastSync).getTime()) / 1000);
-        var ago = s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + ' min ago' : s < 86400 ? Math.floor(s / 3600) + ' h ago' : Math.floor(s / 86400) + ' d ago';
-        bits.push('synced ' + ago);
-      }
-      detail.textContent = bits.join(' · ');
-    } else {
-      detail.textContent = '';
-    }
-
-    var cal = it.googleCalendar;
-    var calDetail = $('previewIntCalendarDetail');
-    if (cal.enabled) {
-      var today = window.GoogleCalendarService.getToday(cal.upcomingEvents);
-      var next = window.GoogleCalendarService.getNext(cal.upcomingEvents);
-      var calBits = [];
-      calBits.push(next ? 'Next: ' + next.title + ' · ' + next.time : 'No upcoming events');
-      calBits.push(today.length + ' today');
-      if (cal.lastSync) {
-        var cs = Math.floor((Date.now() - new Date(cal.lastSync).getTime()) / 1000);
-        var calAgo = cs < 60 ? 'just now' : cs < 3600 ? Math.floor(cs / 60) + ' min ago' : cs < 86400 ? Math.floor(cs / 3600) + ' h ago' : Math.floor(cs / 86400) + ' d ago';
-        calBits.push('synced ' + calAgo);
-      }
-      calDetail.textContent = calBits.join(' · ');
-    } else {
-      calDetail.textContent = '';
-    }
-  }
-
-  // ===== Today bar — date, completion %, streak, weather, next event.
-  // Reads through window.Streaks + window.Integrations, owns nothing. =====
-  function renderTodayBar() {
-    const d = new Date();
-    const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    $('todayDate').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
-
-    const result = window.Streaks.recompute();
-    $('todayCompletion').textContent = Math.round(result.pct * 100) + '%';
-    $('todayStreak').textContent = result.data.currentStreak + (result.data.currentStreak === 1 ? ' day' : ' days');
-
-    const it = window.Integrations.load();
-    const w = it.weather;
-    $('todayWeather').textContent = (w.enabled && w.temperature) ? (w.temperature + (w.condition ? ' · ' + w.condition : '')) : 'No data yet';
-
-    const cal = it.googleCalendar;
-    if (cal.enabled) {
-      const next = window.GoogleCalendarService.getNext(cal.upcomingEvents);
-      $('todayNextEvent').textContent = next ? (next.title + ' · ' + next.time) : 'No events';
-    } else {
-      $('todayNextEvent').textContent = 'No data yet';
-    }
-  }
-
-  function renderPreviews() { renderTodayBar(); renderSnapshotPreview(); renderStreaksPreview(); renderBusinessPreview(); renderMoneyPreview(); renderAiCeoPreview(); renderBoxingPreview(); renderHealthPreview(); renderStrengthPreview(); renderHormonePreview(); renderAppearancePreview(); renderGoalsPreview(); renderLifeStatsPreview(); renderHeatmapPreview(); renderWeeklyReviewPreview(); renderIntegrationsPreview(); }
-
-  renderPreviews();
-  window.addEventListener('storage', renderPreviews);
-  window.addEventListener('focus', renderPreviews);
-})();
-</script>
-
-<!-- ===== Account indicator (Supabase foundation — see docs/SUPABASE_PLAN.md) =====
-     Subtle status only: local-only / configured / signed in / not signed in.
-     Never blocks the page — safe if SupabaseAuth/SupabaseFoundation are absent. -->
-<script>
-(function () {
-  'use strict';
-  const el = document.getElementById('acctIndicator');
-  if (!el) return;
-  const txt = el.querySelector('.txt');
-
-  function render(state) {
-    // "configured" always comes straight from SupabaseFoundation — the same
-    // helper Cloud Sync uses — so this indicator can never disagree with it.
-    const base = state || (window.SupabaseAuth ? window.SupabaseAuth.getState() : {});
-    const st = Object.assign({}, base, {
-      configured: window.SupabaseFoundation ? window.SupabaseFoundation.isConfigured() : false,
+  function doDefer(item) {
+    var before = snapshot();
+    run(function () { return L.defer(item.id); }, null, 'Saved — moved to tomorrow.', function () {
+      run(function () {
+        var r = L.restoreToday(before);
+        return r.ok ? L.removeFromTomorrow(item.id) : r;
+      }, null, 'Saved — back on today.');
     });
-    el.classList.remove('configured', 'signed-in');
-    if (!st.configured) {
-      txt.textContent = 'Local only';
-    } else if (st.user) {
-      el.classList.add('signed-in');
-      txt.textContent = 'Signed in';
-    } else {
-      el.classList.add('configured');
-      txt.textContent = 'Not signed in';
-    }
+  }
+  function doRole(item, role, msg) { run(function () { return L.setRole(item.id, role); }, null, msg); }
+
+  function editForm(item) {
+    var status = el('p', { class: 'status', role: 'status', 'aria-live': 'polite' });
+    var name = el('input', { id: 'ed-text', value: item.text, maxlength: '200' });
+    var step = el('input', { id: 'ed-step', value: item.firstStep || '', maxlength: '200', placeholder: 'e.g. Open the quote template' });
+    var mins = el('select', { id: 'ed-min' });
+    [['0', 'Not set'], ['10', '10 min'], ['15', '15 min'], ['25', '25 min'], ['45', '45 min'], ['60', '1 hour'], ['90', '1½ hours'], ['120', '2 hours']].forEach(function (o) {
+      var opt = el('option', { value: o[0], text: o[1] });
+      if (Number(o[0]) === (Number(item.minutes) || 0)) opt.selected = true;
+      mins.appendChild(opt);
+    });
+    var form = el('form', { autocomplete: 'off' }, [
+      el('label', { for: 'ed-text', text: 'Action' }), name,
+      el('label', { for: 'ed-step', text: 'First concrete step' }), step,
+      el('label', { for: 'ed-min', text: 'Realistic time' }), mins,
+      el('div', { class: 'row' }, [
+        el('button', { type: 'submit', class: 'primary', text: 'Save' }),
+        el('button', { type: 'button', text: 'Cancel', onclick: function () { editingId = null; render(); } }),
+      ]),
+      status,
+    ]);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var res = L.update(item.id, { text: name.value, firstStep: step.value, minutes: mins.value });
+      if (!res.ok) { setStatus(status, 'err', res.error); return; } // inputs keep their values
+      editingId = null;
+      lastActionAt = new Date().toISOString();
+      setStatus($('actionStatus'), 'ok', 'Saved.');
+      render();
+      renderSync();
+    });
+    return form;
   }
 
-  if (window.SupabaseAuth) {
-    window.SupabaseAuth.init();
-    window.SupabaseAuth.subscribe(render);
-  } else {
-    render({ configured: false });
-  }
-})();
-</script>
-
-<!-- ===== Quick Sync — top bar indicator + fast-access panel. Reuses
-     window.CloudSync / window.Backup / window.SupabaseAuth / window.ForceSave
-     exactly as pages/integrations.html's Cloud Sync card does — same status
-     source, same push/pull/sync actions, same confirm-before-overwrite
-     safety. This is a shorter path to those actions, not a second system. ===== -->
-<script>
-(function () {
-  'use strict';
-  const $ = (id) => document.getElementById(id);
-  const syncEl = $('syncIndicator');
-  if (!syncEl) return;
-
-  function fmtTime(iso) {
-    if (!iso) return '—';
-    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.floor(s / 60) + ' min ago';
-    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
-    return Math.floor(s / 86400) + ' d ago';
+  function actionCard(item, isMain) {
+    var card = el('div', { class: 'card ' + (isMain ? 'main-card' : 'support') });
+    if (editingId === item.id) { card.appendChild(editForm(item)); return card; }
+    card.appendChild(el('p', { class: 'title', text: item.text }));
+    card.appendChild(item.firstStep
+      ? el('p', { class: 'meta' }, [el('strong', { text: 'First step: ' }), item.firstStep])
+      : el('p', { class: 'meta missing', text: 'No first step yet — tap Edit to add one.' }));
+    card.appendChild(el('p', { class: 'meta', text: item.minutes ? 'About ' + (item.minutes >= 60 ? (item.minutes / 60) + ' h' : item.minutes + ' min') : 'Time not set' }));
+    card.appendChild(el('div', { class: 'row' }, [
+      el('button', { type: 'button', class: isMain ? 'primary' : '', text: 'Done', onclick: function () { doComplete(item); } }),
+      el('button', { type: 'button', text: 'Defer', title: 'Move to tomorrow', onclick: function () { doDefer(item); } }),
+      el('button', { type: 'button', text: 'Edit', onclick: function () { editingId = item.id; render(); var f = $('ed-step'); if (f) f.focus(); } }),
+    ]));
+    return card;
   }
 
-  function showQsMsg(text, isError) {
-    const errBox = $('qsErrBox'), okBox = $('qsMsgBox');
-    if (isError) { errBox.style.display = ''; errBox.textContent = text; okBox.style.display = 'none'; }
-    else { okBox.style.display = ''; okBox.textContent = text; errBox.style.display = 'none'; }
-  }
-  function clearQsMsg() { $('qsErrBox').style.display = 'none'; $('qsMsgBox').style.display = 'none'; }
+  function render() {
+    var f = L.focus(L.loadToday());
 
-  // Seven states, computed by window.CloudSync.getSyncStatus() — the same
-  // helper the Integrations Cloud Sync card uses, so this indicator can
-  // never disagree with it: Local only, Signed out, Cloud ready, Local
-  // newer, Cloud newer, Synced, Sync error.
-  async function computeStatus() {
-    if (!window.CloudSync) return { code: 'local-only', label: 'Local only' };
-    return window.CloudSync.getSyncStatus();
-  }
+    var mainSlot = $('mainSlot');
+    mainSlot.textContent = '';
+    if (f.main) mainSlot.appendChild(actionCard(f.main, true));
+    else mainSlot.appendChild(el('div', { class: 'card' }, [el('p', { class: 'empty', text:
+      f.inbox.length ? 'No main action chosen. Open "Captured" below and tap Make main on one item.'
+                     : 'Nothing chosen yet. Capture what matters below, then make one item your main action.' })]));
 
-  async function renderIndicator() {
-    const status = await computeStatus();
-    // The top button gets a clearer call-to-action than the raw status
-    // label when there's nothing signed in yet to sync — "Signed out"
-    // reads as a dead end, "Cloud Sign In" reads as something to click.
-    syncEl.querySelector('.txt').textContent = status.code === 'signed-out' ? 'Cloud Sign In' : status.label;
-    syncEl.classList.remove('ready', 'synced', 'needs', 'err');
-    if (status.code === 'cloud-ready') syncEl.classList.add('ready');
-    else if (status.code === 'synced') syncEl.classList.add('synced');
-    else if (status.code === 'local-newer' || status.code === 'cloud-newer') syncEl.classList.add('needs');
-    else if (status.code === 'error') syncEl.classList.add('err');
-    return status;
-  }
+    var supportSlot = $('supportSlot');
+    supportSlot.textContent = '';
+    f.support.forEach(function (s) { supportSlot.appendChild(actionCard(s, false)); });
+    $('supportSection').hidden = f.support.length === 0;
 
-  async function renderPanel() {
-    const authState = window.SupabaseAuth ? window.SupabaseAuth.getState() : { configured: false, user: null };
-    $('qsSignIn').style.display = (authState.configured && !authState.user) ? '' : 'none';
-    $('qsSignInBtn').disabled = !!authState.loading;
-    $('qsSignedIn').textContent = authState.user ? (authState.user.email || authState.user.id) : (authState.configured ? 'Not signed in' : 'Not configured');
-    $('qsLocalSave').textContent = window.CloudSync ? fmtTime(window.CloudSync.latestLocalTimestamp()) : '—';
-
-    const canUse = !!(window.CloudSync && window.CloudSync.isAvailable());
-    $('qsPushBtn').disabled = !canUse;
-    $('qsPullBtn').disabled = !canUse;
-    $('qsSyncBtn').disabled = !canUse;
-
-    renderAutoSave();
-
-    const status = await renderIndicator();
-    $('qsStatus').textContent = status.label;
-
-    if (!window.CloudSync || !window.CloudSync.isConfigured()) { $('qsCloudSync').textContent = 'Not configured'; return; }
-    if (!authState.user) { $('qsCloudSync').textContent = 'Sign in to check'; return; }
-    const cloudStatus = await window.CloudSync.getCloudStatus();
-    $('qsCloudSync').textContent = cloudStatus.ok ? (cloudStatus.exists ? fmtTime(cloudStatus.updatedAt) : 'No cloud data yet') : 'Error';
-
-    const meta = window.CloudSync.loadMeta();
-    if (meta.lastError) showQsMsg('Last sync error: ' + meta.lastError, true);
+    var inbox = $('inboxList');
+    inbox.textContent = '';
+    $('inboxSummary').textContent = 'Captured today · ' + f.inbox.length + (f.done.length ? ' · ' + f.done.length + ' done' : '');
+    $('inboxDetails').hidden = f.inbox.length === 0 && f.done.length === 0;
+    f.inbox.forEach(function (item) {
+      var supportFull = f.support.length >= L.MAX_SUPPORT;
+      inbox.appendChild(el('li', {}, [
+        el('span', { text: item.text }),
+        el('div', { class: 'row' }, [
+          el('button', { type: 'button', text: 'Make main', onclick: function () { doRole(item, 'main', 'Saved — now your main action.'); } }),
+          supportFull ? null : el('button', { type: 'button', text: 'Supporting', onclick: function () { doRole(item, 'support', 'Saved — added as supporting.'); } }),
+          el('button', { type: 'button', text: 'Done', onclick: function () { doComplete(item); } }),
+          el('button', { type: 'button', text: 'Defer', onclick: function () { doDefer(item); } }),
+        ]),
+      ]));
+    });
   }
 
-  // Auto Cloud Save (v1) status — reuses the same qs-stat tiles, no new
-  // styling. window.AutoSync only ever pushes, so this is purely a status
-  // readout; it never changes what the push/pull buttons above do.
-  function renderAutoSave() {
-    if (!window.AutoSync) { $('qsAutoSave').textContent = 'Not available'; return; }
-    const s = window.AutoSync.getState();
-    $('qsAutoSave').textContent = s.label;
-    const reasonTxt = s.lastReason || s.reason || '';
-    $('qsAutoSave').title = reasonTxt;
-    const reasonEl = $('qsAutoSaveReason');
-    if (reasonTxt) { reasonEl.style.display = ''; reasonEl.textContent = reasonTxt; }
-    else { reasonEl.style.display = 'none'; }
-    $('qsAutoSaveLast').textContent = s.lastPushAt ? fmtTime(s.lastPushAt) : '—';
-    // Visible diagnostics line — never only a tooltip. Shows last check
-    // time, current status code, last auto attempt time, and the last
-    // result/reason, so "why isn't this pushing?" is always on-screen.
-    const diagEl = $('qsAutoSaveDiag');
-    if (diagEl) {
-      const bits = [];
-      if (s.lastCheckAt) bits.push('checked ' + fmtTime(s.lastCheckAt));
-      if (s.lastStatusCode) bits.push('status: ' + s.lastStatusCode);
-      if (s.lastAttemptAt) bits.push('last attempt ' + fmtTime(s.lastAttemptAt));
-      diagEl.textContent = bits.join(' · ');
-      diagEl.style.display = bits.length ? '' : 'none';
-    }
-    // A push just completed — "Last cloud update"/"Last local save" and the
-    // top status indicator would otherwise stay stale until the panel is
-    // next reopened. Reuse the state's own lastPushAt instead of another
-    // network round trip.
-    if (s.status === 'synced' && s.lastPushAt) {
-      $('qsCloudSync').textContent = fmtTime(s.lastPushAt);
-      $('qsLocalSave').textContent = window.CloudSync ? fmtTime(window.CloudSync.latestLocalTimestamp()) : '—';
-      renderIndicator();
-    }
-  }
-  // Keeps the reason visible even with the panel closed — hover the top
-  // status button, same compact pattern as the Integrations asStatus tile's
-  // title, without adding a new always-open card.
-  if (window.AutoSync) window.AutoSync.subscribe((s) => {
-    const reasonTxt = s.lastReason || s.reason || '';
-    syncEl.title = reasonTxt ? ('Cloud sync status — ' + reasonTxt) : 'Cloud sync status — click for quick sync';
-    if ($('quickSyncBg').classList.contains('show')) renderAutoSave();
-  });
-
-  function showQsSignInErr(msg) {
-    const box = $('qsSignInErrBox');
-    if (!msg) { box.style.display = 'none'; return; }
-    box.style.display = '';
-    box.textContent = msg;
-  }
-
-  $('qsSignInForm').addEventListener('submit', async (e) => {
+  // ---------- Brain dump ----------
+  $('dumpForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    if (!window.SupabaseAuth) return;
-    showQsSignInErr('');
-    const result = await window.SupabaseAuth.signIn($('qsSignInEmail').value.trim(), $('qsSignInPassword').value);
-    if (result && result.error) { showQsSignInErr(result.error); return; }
-    $('qsSignInPassword').value = '';
-    renderPanel();
-  });
-
-  function openPanel() { clearQsMsg(); showQsSignInErr(''); renderPanel(); $('quickSyncBg').classList.add('show'); }
-  function closePanel() { $('quickSyncBg').classList.remove('show'); }
-
-  syncEl.addEventListener('click', openPanel);
-  const qaBtn = $('qaCloudSync');
-  if (qaBtn) qaBtn.addEventListener('click', openPanel);
-  $('quickSyncClose').addEventListener('click', closePanel);
-  $('quickSyncBg').addEventListener('click', (e) => { if (e.target === $('quickSyncBg')) closePanel(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
-
-  $('qsForceSaveBtn').addEventListener('click', () => {
-    const result = window.ForceSave ? window.ForceSave.run() : { ok: true, timestamp: '' };
-    if (!result.ok) { showQsMsg(result.error, true); return; }
-    showQsMsg('Local save confirmed (' + fmtTime(result.timestamp) + ').', false);
-    renderPanel();
-  });
-
-  // Offers (never forces) a backup export before an action that overwrites
-  // one side. Only asked when there's local data worth protecting.
-  function offerBackupFirst() {
-    if (!window.CloudSync.hasLocalData()) return;
-    if (window.confirm('Recommended: export a backup of this device\'s current data first?\n\nExport backup now?')) {
-      window.Backup.downloadExport();
-    }
-  }
-
-  $('qsPushBtn').addEventListener('click', async () => {
-    const status = await window.CloudSync.getCloudStatus();
-    const cloudTime = status.exists ? fmtTime(status.updatedAt) : 'no cloud data yet';
-    const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
-    const confirmed = window.confirm(
-      'Push this device\'s Local Storage data to the cloud?\n\n' +
-      'Local last save: ' + localTime + '\nCloud last update: ' + cloudTime + '\n\n' +
-      'This will OVERWRITE your cloud data for this account. Continue?'
-    );
-    if (!confirmed) return;
-    $('qsPushBtn').disabled = true;
-    // Force local save first — this is the whole point of the quick panel.
-    if (window.ForceSave) {
-      const saved = window.ForceSave.run();
-      if (!saved.ok) { showQsMsg(saved.error, true); renderPanel(); return; }
-    }
-    const result = await window.CloudSync.pushToCloud();
-    if (!result.ok) { showQsMsg(result.error, true); renderPanel(); return; }
-    showQsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
-    renderPanel();
-  });
-
-  $('qsPullBtn').addEventListener('click', async () => {
-    const status = await window.CloudSync.getCloudStatus();
-    if (!status.exists) { showQsMsg('No cloud data found for this account yet — push from a device first.', true); return; }
-    const cloudTime = fmtTime(status.updatedAt);
-    const localTime = fmtTime(window.CloudSync.latestLocalTimestamp());
-    offerBackupFirst();
-    const confirmed = window.confirm(
-      'Pull cloud data down to this device?\n\n' +
-      'Cloud last update: ' + cloudTime + '\nLocal last save: ' + localTime + '\n\n' +
-      'This will OVERWRITE this device\'s Local Storage. Continue?'
-    );
-    if (!confirmed) return;
-    $('qsPullBtn').disabled = true;
-    const result = await window.CloudSync.pullToLocal();
-    if (!result.ok) { showQsMsg(result.error, true); renderPanel(); return; }
-    showQsMsg('Pulled from cloud (' + (result.keyCount || 0) + ' keys). Reloading…', false);
-    setTimeout(() => window.location.reload(), 900);
-  });
-
-  $('qsSyncBtn').addEventListener('click', async () => {
-    const status = await window.CloudSync.getCloudStatus();
-    if (!status.ok) { showQsMsg(status.error || 'Could not reach Supabase.', true); return; }
-    if (!status.exists) {
-      const confirmedFirst = window.confirm('No cloud data exists yet for this account. Push this device\'s Local Storage to the cloud now?');
-      if (!confirmedFirst) return;
-      $('qsSyncBtn').disabled = true;
-      if (window.ForceSave) {
-        const saved = window.ForceSave.run();
-        if (!saved.ok) { showQsMsg(saved.error, true); renderPanel(); return; }
-      }
-      const pushResult = await window.CloudSync.pushToCloud();
-      if (!pushResult.ok) { showQsMsg(pushResult.error, true); renderPanel(); return; }
-      showQsMsg('Pushed to cloud (' + (pushResult.keyCount || 0) + ' keys).', false);
-      renderPanel();
-      return;
-    }
-    const localTime = window.CloudSync.latestLocalTimestamp();
-    const cloudTime = status.updatedAt;
-    if (!localTime || !cloudTime || localTime === cloudTime) { showQsMsg('Already in sync.', false); return; }
-
-    // Timestamps disagree — ask the user which direction rather than guessing.
-    const localNewer = localTime > cloudTime;
-    const direction = localNewer ? 'push (local → cloud)' : 'pull (cloud → local)';
-    if (!localNewer) offerBackupFirst();
-    const confirmed = window.confirm(
-      'Sync now: ' + (localNewer ? 'Local newer' : 'Cloud newer') + '. Recommended: ' + direction + '.\n\n' +
-      'Local last save: ' + fmtTime(localTime) + '\nCloud last update: ' + fmtTime(cloudTime) + '\n\n' +
-      (localNewer
-        ? 'This will OVERWRITE your cloud data with this device\'s Local Storage.'
-        : 'This will OVERWRITE this device\'s Local Storage with your cloud data.') +
-      ' Continue with ' + direction + '? Cancel to decide later from full Cloud Sync settings.'
-    );
-    if (!confirmed) return;
-    $('qsSyncBtn').disabled = true;
-    if (localNewer && window.ForceSave) {
-      const saved = window.ForceSave.run();
-      if (!saved.ok) { showQsMsg(saved.error, true); renderPanel(); return; }
-    }
-    const result = localNewer ? await window.CloudSync.pushToCloud() : await window.CloudSync.pullToLocal();
-    if (!result.ok) { showQsMsg(result.error, true); renderPanel(); return; }
-    if (localNewer) {
-      showQsMsg('Pushed to cloud (' + (result.keyCount || 0) + ' keys).', false);
-      renderPanel();
+    var input = $('dumpInput');
+    var btn = $('dumpBtn');
+    btn.disabled = true;
+    var res = L.capture(input.value);
+    btn.disabled = false;
+    if (res.ok) {
+      input.value = '';
+      lastActionAt = new Date().toISOString();
+      setStatus($('dumpStatus'), 'ok', 'Saved to today\'s list.');
+      render();
+      renderSync();
     } else {
-      showQsMsg('Pulled from cloud (' + (result.keyCount || 0) + ' keys). Reloading…', false);
-      setTimeout(() => window.location.reload(), 900);
+      setStatus($('dumpStatus'), 'err', res.error); // input kept as typed
     }
   });
 
-  if (window.SupabaseAuth) {
-    window.SupabaseAuth.subscribe(() => {
-      renderIndicator();
-      if ($('quickSyncBg').classList.contains('show')) renderPanel();
-    });
-  } else {
-    renderIndicator();
+  // ---------- Sync line (honest about where data lives) ----------
+  function renderSync() {
+    var s = window.AutoSync ? window.AutoSync.getState() : null;
+    var line = 'Saved on this device.';
+    if (!s || s.status === 'not-configured') line = 'Saved on this device only — cloud sync is not set up.';
+    else if (s.status === 'signed-out') line = 'Saved on this device only — sign in under Integrations to sync.';
+    else if (s.status === 'disabled') line = 'Saved on this device only — auto cloud save is off.';
+    else if (s.status === 'offline') line = 'Offline — saved on this device; will sync when back online.';
+    else if (s.status === 'syncing') line = 'Syncing to cloud…';
+    else if (s.status === 'action-needed') line = 'Cloud sync needs attention' + (s.reason ? ': ' + s.reason : '.');
+    else if (s.status === 'synced' && s.lastPushAt && (!lastActionAt || s.lastPushAt >= lastActionAt)) line = 'Synced to cloud ' + hm(s.lastPushAt) + '.';
+    else if (s.status === 'synced') line = 'Saved on this device — cloud sync pending.';
+    $('syncLine').textContent = line;
   }
-  // Cloud status can go stale while the page sits open — refresh periodically.
-  setInterval(renderIndicator, 60 * 1000);
+
+  // ---------- More menu ----------
+  $('moreBtn').addEventListener('click', function () {
+    var m = $('moreMenu');
+    m.hidden = !m.hidden;
+    this.setAttribute('aria-expanded', String(!m.hidden));
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#secondBrainLink, .soon-link'), function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      setStatus($('actionStatus'), '', a.firstChild.textContent.trim() + ' is planned for a later stage — see docs/LOCK_IN_HQ.md.');
+    });
+  });
+
+  // ---------- Boot ----------
+  $('todayLabel').textContent = new Date(L.activeDate() + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  render();
+  refreshCalendar();
+  if (window.AutoSync) window.AutoSync.subscribe(renderSync);
+  renderSync();
+  window.addEventListener('storage', function (e) { if (e.key && e.key.indexOf('goals:') === 0 && !editingId) render(); });
 })();
 </script>
-
 </body>
 </html>
