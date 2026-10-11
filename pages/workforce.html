@@ -20,6 +20,7 @@
 <script src="../scripts/ai-client.js"></script>
 <script src="../scripts/assistant-engine.js"></script>
 <script src="../scripts/workforce-calc.js"></script>
+<script src="../scripts/workforce-records.js"></script>
 <script src="../scripts/workforce-engine.js"></script>
 <script src="../scripts/menu.js" defer></script>
 <link rel="stylesheet" href="../styles/lock-in.css">
@@ -56,6 +57,7 @@
   </form>
 
   <div id="specLine" class="spec" hidden></div>
+  <div id="updateInfo"></div>
   <div id="flow" aria-live="polite"></div>
 
   <p class="hint" style="margin-top:18px">One specialist per request. Nothing is sent, booked, paid, traded or published, and no web research or account access happens here. Saving to Second Brain or adding to today only happens when you confirm.</p>
@@ -66,7 +68,7 @@
 (function () {
   'use strict';
 
-  var E = window.WorkforceEngine, L = window.LockIn, SB = window.SecondBrain;
+  var E = window.WorkforceEngine, L = window.LockIn, SB = window.SecondBrain, WR = window.WorkforceRecords;
   var CATEGORY = { 'mb-automotive-business': 'Business', 'personal-budget': 'Money', 'property-analyst': 'Property', 'content-marketing': 'Business', 'training-recovery': 'Health' };
   var state = null, ai = { available: false, reason: '' }, lastWriteAt = '';
 
@@ -108,6 +110,96 @@
     line.appendChild(el('strong', { text: E.byId(state.roleId).name }));
     line.appendChild(change);
     line.appendChild(sel);
+    renderUpdateInfo();
+  }
+
+  // ---------- "Update my information" (Budget / Training only, collapsed) ----------
+  function field(label, input) { return el('div', {}, [el('label', { text: label }), input]); }
+  function today() { return L.activeDate(); }
+  function restartFlow(msg) {
+    state = { request: state.request, roleId: state.roleId, answers: {}, aiClarified: false };
+    renderUpdateInfo(msg);
+    if (state.request) advance();
+  }
+
+  function renderUpdateInfo(msg) {
+    var box = $('updateInfo');
+    box.textContent = '';
+    if (!state || (state.roleId !== 'personal-budget' && state.roleId !== 'training-recovery')) return;
+    var d = el('details', { id: 'updateDetails' }, [el('summary', { text: 'Update my information' })]);
+    var c = el('div', { class: 'card', style: 'margin-top:4px' });
+    var st = el('div');
+    if (msg) box.appendChild(status('ok', msg)); // outside the panel, which collapses after saving
+    if (state.roleId === 'personal-budget') {
+      var p = WR.budgetProfile(), e = p.earmarked || {};
+      c.appendChild(el('p', { class: 'hint', style: 'margin-top:0', text: 'Entered by you — the app has no bank connection.' + (p.updatedAt ? ' Last updated ' + new Date(p.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + '.' : '') }));
+      var bal = el('input', { type: 'number', step: '0.01', inputmode: 'decimal', id: 'uiBalance', value: p.balance != null ? String(p.balance) : '' });
+      var balDate = el('input', { type: 'date', id: 'uiBalanceDate', value: p.balanceDate || today() });
+      var pay = el('input', { type: 'date', id: 'uiPayday', value: p.payday || '' });
+      var other = el('input', { type: 'number', step: '0.01', inputmode: 'decimal', id: 'uiOtherDue', value: p.otherDue != null ? String(p.otherDue) : '' });
+      var prop = el('input', { type: 'number', step: '0.01', inputmode: 'decimal', id: 'uiProperty', value: e.property != null ? String(e.property) : '' });
+      var fam = el('input', { type: 'number', step: '0.01', inputmode: 'decimal', id: 'uiFamily', value: e.family != null ? String(e.family) : '' });
+      var oth = el('input', { type: 'number', step: '0.01', inputmode: 'decimal', id: 'uiOther', value: e.other != null ? String(e.other) : '' });
+      [field('Personal balance (£)', bal), field('Balance is from', balDate), field('Next payday', pay), field('Other personal payments before payday (£)', other),
+        field('Set aside for property (£)', prop), field('Set aside for family (£)', fam), field('Set aside for other commitments (£)', oth)].forEach(function (n) { c.appendChild(n); });
+      c.appendChild(el('h3', { text: 'Bills' }));
+      var list = el('div', { id: 'uiBills' });
+      function billRow(b) {
+        var row = el('div', { class: 'bill-row', style: 'border-top:1px solid var(--line);padding:8px 0' });
+        row._id = b.id || '';
+        row._status = b.status || 'Upcoming';
+        var name = el('input', { 'aria-label': 'Bill name', placeholder: 'Name', value: b.name || '' });
+        var amt = el('input', { type: 'number', step: '0.01', inputmode: 'decimal', 'aria-label': 'Amount', placeholder: '£', value: b.amount != null ? String(b.amount) : '' });
+        var due = el('input', { type: 'date', 'aria-label': 'Due date', value: (b.dueDate || '').slice(0, 10) });
+        var freq = el('select', { 'aria-label': 'How often' });
+        ['Monthly', 'Weekly', 'Quarterly', 'Yearly', 'One-off'].forEach(function (f) { var o = el('option', { value: f, text: f }); if ((b.frequency || 'Monthly') === f) o.selected = true; freq.appendChild(o); });
+        var kind = el('select', { 'aria-label': 'Personal or business' });
+        [['personal', 'Personal'], ['business', 'Business']].forEach(function (k) { var o = el('option', { value: k[0], text: k[1] }); if ((String(b.category).toLowerCase() === 'business') === (k[0] === 'business')) o.selected = true; kind.appendChild(o); });
+        row._read = function () { return { id: row._id, name: name.value, amount: amt.value, dueDate: due.value, frequency: freq.value, business: kind.value === 'business', status: row._status }; };
+        [name, amt, due].forEach(function (i) { i.style.marginTop = '6px'; });
+        row.appendChild(name); row.appendChild(el('div', { class: 'seg', style: 'margin-top:6px' }, [amt, due]));
+        row.appendChild(el('div', { class: 'seg', style: 'margin-top:6px' }, [freq, kind]));
+        row.appendChild(el('div', { class: 'row', style: 'margin-top:6px' }, [el('button', { type: 'button', text: 'Remove bill', onclick: function () { row.remove(); } })]));
+        return row;
+      }
+      WR.bills().forEach(function (b) { list.appendChild(billRow(b)); });
+      c.appendChild(list);
+      c.appendChild(el('div', { class: 'row' }, [el('button', { type: 'button', text: 'Add a bill', onclick: function () { list.appendChild(billRow({})); } })]));
+      c.appendChild(el('div', { class: 'row' }, [el('button', { type: 'button', class: 'primary', id: 'uiSaveBudget', text: 'Save my information', onclick: function () {
+        st.textContent = '';
+        var r = WR.saveBudget({
+          balance: bal.value, balanceDate: balDate.value, payday: pay.value, otherDue: other.value,
+          earmarked: { property: prop.value, family: fam.value, other: oth.value },
+          bills: Array.prototype.map.call(list.children, function (row) { return row._read(); }),
+        });
+        if (!r.ok) { st.appendChild(status('err', r.error)); return; } // form keeps what was typed
+        wrote();
+        restartFlow('Saved — entered by you, on this device (syncs with Cloud Sync). Budget recalculated below.');
+      } })]));
+    } else {
+      var t = WR.trainingProfile();
+      c.appendChild(el('p', { class: 'hint', style: 'margin-top:0', text: 'Entered by you. ' + (t.confirmedAt ? 'Last confirmed ' + new Date(t.confirmedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + '.' : 'Not confirmed yet — the weigh-in/fight dates you gave earlier are used until you do.') }));
+      var defaults = L.SUPPLIED_ROUTINE.dates;
+      var dw = defaults.find(function (x) { return x.label === 'Weigh-in'; }), df = defaults.find(function (x) { return x.label === 'Fight'; });
+      var goal = el('input', { id: 'uiGoal', maxlength: '200', value: t.goal, placeholder: 'e.g. Make weight safely and fight on 17 Oct' });
+      var wi = el('input', { type: 'date', id: 'uiWeighIn', value: t.confirmedAt ? t.weighInDate : (dw ? dw.date : '') });
+      var fi = el('input', { type: 'date', id: 'uiFight', value: t.confirmedAt ? t.fightDate : (df ? df.date : '') });
+      var av = el('textarea', { id: 'uiAvailability', maxlength: '300', placeholder: 'e.g. Mon/Wed/Fri 18:30–20:00, Sat morning' });
+      av.value = t.availability;
+      var lim = el('textarea', { id: 'uiLimitations', maxlength: '300', placeholder: 'e.g. Sore left shoulder — no overhead pressing (or "none")' });
+      lim.value = t.limitations;
+      [field('Current goal', goal), field('Weigh-in date (clear if none)', wi), field('Fight date (clear if none)', fi), field('When you can train', av), field('Injuries or limitations', lim)].forEach(function (n) { c.appendChild(n); });
+      c.appendChild(el('div', { class: 'row' }, [el('button', { type: 'button', class: 'primary', id: 'uiSaveTraining', text: 'Save and confirm', onclick: function () {
+        st.textContent = '';
+        var r = WR.saveTraining({ goal: goal.value, weighInDate: wi.value, fightDate: fi.value, availability: av.value, limitations: lim.value });
+        if (!r.ok) { st.appendChild(status('err', r.error)); return; }
+        wrote();
+        restartFlow('Saved and confirmed today — entered by you. Guidance updated below.');
+      } })]));
+    }
+    c.appendChild(st);
+    d.appendChild(c);
+    box.appendChild(d);
   }
 
   // ---------- flow ----------

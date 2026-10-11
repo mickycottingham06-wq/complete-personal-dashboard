@@ -52,16 +52,32 @@
     return state;
   }
 
-  // Builds the full export payload: every key currently in localStorage,
-  // captured as raw strings (no re-encoding, so nothing round-trips
-  // through a second JSON pass). This is the whole Life OS dataset —
-  // Daily Snapshot, Streaks, every HQ page, Integrations, Settings, the
-  // daily goal-ticker keys, water tracker, WHOOP tokens, everything.
+  // Credentials never leave the device: not in exports, not in the cloud
+  // copy (CloudSync pushes buildExport()), and never written back by
+  // apply() (restores and cloud loads). Listed by key name only.
+  //   gcal_tokens_v1     Google Calendar OAuth tokens
+  //   whoop_tokens_v1    WHOOP OAuth tokens
+  //   nova_lite_api_key  Anthropic key pasted into the removed Nova page
+  //   sb-*               Supabase sign-in session (supabase-js storage)
+  // plus any key whose name looks like a credential.
+  var SECRET_KEYS = { gcal_tokens_v1: 1, whoop_tokens_v1: 1, nova_lite_api_key: 1 };
+  function isSecretKey(k) {
+    k = String(k || '');
+    return !!SECRET_KEYS[k] || k.indexOf('sb-') === 0 || /(token|secret|api[_-]?key|password|credential)/i.test(k);
+  }
+  // Per-device bookkeeping that must not be copied between devices.
+  var DEVICE_KEYS = { cloudSyncMeta: 1, autoSyncCloudPromptSeen: 1 };
+  function isPortableKey(k) { return !isSecretKey(k) && !DEVICE_KEYS[k]; }
+
+  // Builds the export payload: every portable key in localStorage, as raw
+  // strings — all records, including those from removed pages — minus
+  // credentials and per-device bookkeeping. meta.excluded counts what was
+  // left out (names are not listed in the file).
   function buildExport() {
-    var data = {};
+    var data = {}, excluded = 0;
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      data[k] = localStorage.getItem(k);
+      if (isPortableKey(k)) data[k] = localStorage.getItem(k); else excluded++;
     }
     return {
       meta: {
@@ -69,9 +85,17 @@
         dataVersion: DATA_VERSION,
         exportedAt: nowIso(),
         keyCount: Object.keys(data).length,
+        excluded: excluded,
       },
       data: data,
     };
+  }
+
+  // Names (never values) of credentials currently stored on this device.
+  function storedCredentialKeys() {
+    var out = [];
+    for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isSecretKey(k)) out.push(k); }
+    return out;
   }
 
   // Never throws — always returns { ok, error }. Deliberately loose on
@@ -90,17 +114,21 @@
     return { ok: true, error: '', keyCount: keys.length };
   }
 
-  // Writes every key from the backup into localStorage. Only touches
-  // keys present in the backup — never clears keys the backup doesn't
-  // mention. Caller is responsible for confirming with the user first.
+  // Writes every portable key from the backup into localStorage. Only
+  // touches keys present in the backup — never clears keys the backup
+  // doesn't mention. Credentials and device bookkeeping in older files or
+  // cloud copies are skipped. Caller confirms with the user first.
   function apply(payload) {
     var check = validate(payload);
     if (!check.ok) return { ok: false, error: check.error };
+    var written = 0, skipped = 0;
     try {
       Object.keys(payload.data).forEach(function (k) {
+        if (!isPortableKey(k)) { skipped++; return; }
         localStorage.setItem(k, payload.data[k]);
+        written++;
       });
-      return { ok: true, error: '', keyCount: check.keyCount };
+      return { ok: true, error: '', keyCount: written, skipped: skipped };
     } catch (e) {
       return { ok: false, error: 'Could not write backup to local storage.' };
     }
@@ -148,5 +176,8 @@
     validate: validate,
     apply: apply,
     markBackupDone: markBackupDone,
+    isSecretKey: isSecretKey,
+    isPortableKey: isPortableKey,
+    storedCredentialKeys: storedCredentialKeys,
   };
 })();

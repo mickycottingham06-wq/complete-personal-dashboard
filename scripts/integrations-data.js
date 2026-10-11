@@ -7,9 +7,11 @@
 // foundation can be swapped for a real fetch later without any
 // page or component needing to change shape.
 //
-// Pages read/write through this file (Settings, Today, Assistant).
-// The weather and aiApi sections are kept only so older saved data
-// still loads; no current page uses them.
+// Pages read/write through this file (Settings, Today, Assistant,
+// Workforce). Sections: weather (Settings), googleCalendar (Today,
+// Assistant, Settings), whoop (latest recovery/sleep summary — Settings,
+// Workforce Training), cloudSync (auto-save toggle). aiApi is kept only so
+// older saved data still loads. No credentials are stored here.
 // =============================================================
 (function () {
   'use strict';
@@ -42,6 +44,12 @@
         lastSync: '',
         upcomingEvents: [],
         notes: '',
+      },
+      whoop: {
+        status: 'Not connected',
+        lastSync: '',
+        recoveryScore: null,
+        sleepHours: null,
       },
       aiApi: {
         enabled: false,

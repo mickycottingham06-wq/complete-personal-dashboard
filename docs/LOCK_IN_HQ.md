@@ -21,12 +21,52 @@ A calm personal app built around one day's focus. This file describes the curren
 - Removed in the cleanup: the old Command Centre, AI CEO, To Do list, Daily Control Panel, Weekly Review, Streaks,
   Heatmap, Goals, Life Stats, Appearance, Hormone, Business HQ, Finance, Money HQ, Strength HQ (+ legacy backup copy),
   Boxing HQ, Health HQ, Caffeine, Water tracker, Avatar Lab, Nova, the page template, the old Integrations page (now
-  Settings), their scripts, and the WHOOP / Trading 212 / Weather API routes. `vercel.json` redirects old addresses
-  to Today (and `/pages/integrations.html` to Settings).
+  Settings) and their scripts. `vercel.json` redirects old addresses to Today (and `/pages/integrations.html` to
+  Settings). The WHOOP, Trading 212 and Weather adapters were later restored — see "Integrations" below.
 - **Saved data was not touched.** Everything those pages stored (money, training, boxing, health, habits, reviews,
-  WHOOP tokens, progress-photo links…) remains in browser storage, syncs with Cloud Sync, and is included in
-  **Menu → Backup → Export**. Workforce still reads saved Money HQ bills/balances and Boxing/Strength HQ targets
-  (read-only) — there is no longer a screen to edit them.
+  progress-photo links…) remains in browser storage, syncs with Cloud Sync, and is included in
+  **Menu → Backup → Export** (credentials excepted — see below). Budget and Training details used by Workforce are
+  maintained in Workforce → **Update my information**.
+
+## Release preparation (final pass)
+
+### Workforce — "Update my information"
+A collapsed panel inside the Budget and Training specialists. Everything is labelled as entered by you.
+- **Budget** edits the inputs the calculation uses, in the existing `money` record: personal balance **and its date**,
+  next payday, other payments before payday, money set aside (property / family / other) in `money.budget`, and the
+  bills list in `money.bills` (each marked Personal or Business; business bills are excluded from the personal figure).
+  A balance from an earlier day is confirmed, never assumed ("Your saved personal balance is £X … What is it now?").
+- **Training** edits current goal, weigh-in/fight dates (or none), availability and limitations in the existing
+  `boxing` record, with "Last confirmed" shown. Confirmed dates replace the built-in 16/17 Oct dates everywhere
+  (Today, Assistant, Workforce). Older than 14 days → the specialist asks again.
+
+### Integrations — where each is used
+| Connection | Controls | Used by | Server routes / credentials |
+|---|---|---|---|
+| Google Calendar | Settings | Today, Assistant | `api/google-calendar-*`; client secret server-side; tokens on device only |
+| WHOOP | Settings | Workforce → Training (latest recovery/sleep, dated, not interpreted) | `api/whoop-*` (callback returns to Settings; data proxy limited to 3 read endpoints); secret server-side |
+| Weather | Settings | Settings only | `api/weather.js` (Open-Meteo, no key); failures shown, no placeholder weather |
+| Trading 212 | Settings ("Check connection") | Settings only — nothing saved or traded | `api/trading212-data.js`, now behind the same session + allowlist check as AI (`api/_access.js`) |
+| AI | Settings shows status | Assistant, Content, Workforce | `api/assistant.js` |
+| Email | — | not connected anywhere | — |
+
+### Credentials kept out of backups and sync
+`scripts/backup-data.js` excludes credential keys — `gcal_tokens_v1`, `whoop_tokens_v1`, `nova_lite_api_key`,
+Supabase `sb-*` sessions, and any key named like a token/secret/API key — from exports and the cloud copy, and skips
+them when restoring or loading the cloud copy. Per-device sync bookkeeping (`cloudSyncMeta`) also stays local.
+Settings → Integrations lists stored credentials **by name only** and can remove the unused Nova key.
+Clean-up steps for credentials already in old backups/cloud copies: SETUP.md §9.
+
+### Cloud sync conflicts
+Each device records the cloud version it last pushed/pulled. Status: synced / local-newer (auto-save) /
+cloud-newer (offer to load) / **conflict** (both changed → auto-save stops; Settings offers "Use the cloud copy" or
+"Keep this device's data", each confirmed). Automatic saves are conditional updates (`… where updated_at = <seen>`),
+so a stale or offline device can never silently overwrite a newer cloud copy, even in a race. Re-writing an identical
+value no longer counts as a local change.
+
+### Legacy Supabase objects
+Reviewed SQL with run order and manual decisions: `supabase/legacy/README.md` (inspect → private backup → download
+photos → lock down → verify; optional owner-access template). Nothing deletes data.
 
 ## Stage 1 — done
 
@@ -215,28 +255,24 @@ clarifying question. AI off or failing → labelled **Basic mode**.
 
 ## Deployment readiness checklist (in order)
 
-1. **Review and merge** the `lock-in-hq-stage-1` branch (not pushed). Keep your own README edit separate.
-2. **Supabase `progress-photos` bucket — confirm before deploying.** The old setup created it `public = true` with an
-   `anon` policy for **all** operations (read, upload, overwrite, delete) — anyone with the anon key (which ships to
-   browsers) could list/replace/delete files. The app no longer uses it (Strength HQ was removed), but your old gym
-   progress photos may still be in it. In Supabase → Storage → Policies, check what is actually applied. If it matches,
-   first download the photos you want, then make the bucket private and drop the anon policy. Don't delete photos.
-3. **Supabase `app_state` table — same check.** The old legacy-sync SQL gave `anon` full read/write. The app no longer
-   uses it; export anything you need, then drop the anon policy (or the table).
-4. Confirm Supabase **Auth** settings: decide whether public sign-up should be on (AI is allowlist-only regardless).
+1. **Export a backup on every device you've used** (Menu → Backup) before anything else — your records live in
+   browser storage. Old backup files from before this release may contain credentials (SETUP.md §9).
+2. **Inspect the live Supabase project**: run `supabase/legacy/01_inspect.sql` (read-only) and keep the output.
+3. **Secure the legacy objects**: follow `supabase/legacy/README.md` — `02_backup.sql`, download any progress photos
+   you want, `03_lockdown.sql`, `05_verify.sql`. Decide photo ownership only if you'll ever need them in the app (step 4 template).
+4. Confirm Supabase Auth settings: Email provider on; decide on public sign-up; Site URL + preview Redirect URLs (SETUP.md §8).
 5. Run `supabase/life_os_state.sql` (if not already) and `supabase/assistant_usage.sql`.
-6. Vercel env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`,
-   `ASSISTANT_ALLOWED_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; optional `ASSISTANT_DAILY_LIMIT`,
-   `ASSISTANT_MODEL`. Remove the unused WHOOP / Trading 212 / Weather / legacy-sync vars (SETUP.md §5).
-7. Set a monthly **spend limit** in the Anthropic Console (backstop to the per-user limit).
-8. Deploy to a **preview** URL first (Vercel installs `@anthropic-ai/sdk` 0.128.0 from package.json; `vercel.json`
-   redirects old page addresses).
-9. On the preview: `GET /api/assistant` shows `enabled: true`; signed out → AI off; signed in with an allowlisted email →
-   one Morning, one caption and one Workforce request succeed; a non-allowlisted account gets 403; usage rows appear.
-10. Sign in on two devices; confirm Cloud Sync carries `goals:*`, `secondBrain`, `lockInLog`, `contentDrafts`, and
-   that Content photos stay on the device that added them. Export a backup from each device you've used.
-11. Connect Google Calendar from Menu → Integrations on the deployed domain; it should return you to Settings.
-12. Only then promote to production. Email remains unconnected; scheduled briefings are not built.
+6. Decide whether Preview uses the production Supabase project (shares your real data) or a separate one (SETUP.md §8).
+7. Set Vercel env vars for Preview (SETUP.md §1); register the branch-alias callbacks with Google and WHOOP.
+8. Set a monthly spend limit in the Anthropic Console.
+9. Review and merge/push the `lock-in-hq-stage-1` branch to get a preview deployment (not done yet).
+10. On the preview: sign in; `GET /api/assistant` shows `enabled: true`; one Morning, one caption and one Workforce
+    request succeed; a non-allowlisted account gets 403 (AI and Trading 212); usage rows appear.
+11. Sign in on two devices; make an edit on each in turn; confirm the second device is offered the newer copy and that a
+    deliberate offline edit produces the "both changed" choice rather than an overwrite.
+12. Connect Google Calendar and WHOOP on the preview (callbacks return to Settings); check Weather and Trading 212.
+13. Follow SETUP.md §9 to clear credentials from old cloud copies/backups and revoke anything exposed.
+14. Only then promote to production and repeat steps 7, 10 and 12 on the production domain.
 
 ## Remaining work
 

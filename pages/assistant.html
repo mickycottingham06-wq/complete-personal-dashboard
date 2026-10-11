@@ -436,8 +436,10 @@
       try { history.replaceState(null, '', '?mode=' + b.getAttribute('data-mode')); } catch (e) {}
       var out = $('out');
       out.textContent = '';
+      var progress = el('p', { class: 'meta', style: 'margin-top:16px', text: 'Building your briefing…' });
+      out.appendChild(progress); // shown immediately — never a blank area while checking
       await refreshAi(); // sign-in may have changed since the page loaded
-      out.appendChild(el('p', { class: 'meta', style: 'margin-top:16px', text: ai.available ? 'Asking the AI…' : 'Building your briefing…' }));
+      if (ai.available) progress.textContent = 'Asking the AI…';
       var frag = el('div', { style: 'margin-top:16px' });
       try { await MODES[b.getAttribute('data-mode')](frag); }
       catch (e) { frag.textContent = ''; frag.appendChild(status('err', 'Something went wrong building this briefing: ' + ((e && e.message) || e))); }

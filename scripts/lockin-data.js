@@ -22,13 +22,28 @@
 
   // Supplied by Micky (README), not retrieved from any calendar — the
   // homepage labels these separately from real events.
+  var DEFAULT_DATES = [
+    { date: '2026-10-16', label: 'Weigh-in' },
+    { date: '2026-10-17', label: 'Fight' },
+  ];
   var SUPPLIED_ROUTINE = {
     weekdayWork: { days: [1, 2, 3, 4, 5], start: '08:00', end: '17:30', label: 'Mechanic work' },
-    dates: [
-      { date: '2026-10-16', label: 'Weigh-in' },
-      { date: '2026-10-17', label: 'Fight' },
-    ],
   };
+  // Dated goals: once confirmed in Workforce → Training → "Update my
+  // information" (stored in the `boxing` record), those dates replace the
+  // defaults above — including clearing them if the event is off.
+  Object.defineProperty(SUPPLIED_ROUTINE, 'dates', {
+    enumerable: true,
+    get: function () {
+      var b = null;
+      try { b = JSON.parse(localStorage.getItem('boxing')); } catch (e) {}
+      if (!b || !b.profileConfirmedAt) return DEFAULT_DATES.slice();
+      var out = [];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(b.weighInDate || '')) out.push({ date: b.weighInDate, label: 'Weigh-in' });
+      if (/^\d{4}-\d{2}-\d{2}$/.test(b.fightDate || '')) out.push({ date: b.fightDate, label: 'Fight' });
+      return out;
+    },
+  });
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dateToKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }

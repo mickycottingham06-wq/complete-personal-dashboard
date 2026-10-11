@@ -70,16 +70,30 @@ function makeClient({ sessionUser, sessionDelayMs, cloudUpdatedAt, upsertImpl })
       }),
       onAuthStateChange: () => {},
     },
+    // Writes (conditional update / insert / forced upsert — see
+    // scripts/cloud-sync.js) all count as pushes and resolve like
+    // supabase-js: { data: [{ updated_at }], error }. The returned
+    // updated_at is the fixture's cloudUpdatedAt so the "cloud" never
+    // advances after a push.
     from() {
-      return {
-        select() { return this; },
-        eq() { return this; },
+      let pending = null;
+      const b = {
+        select() { return b; },
+        eq() { return b; },
         maybeSingle: async () => ({
           data: cloudUpdatedAt ? { data_version: 1, updated_at: cloudUpdatedAt } : null,
           error: null,
         }),
-        upsert: async (row) => { pushCalls++; return upsertImpl(row); },
+        update(row) { pushCalls++; pending = upsertImpl(row); return b; },
+        insert(row) { pushCalls++; pending = upsertImpl(row); return b; },
+        upsert(row) { pushCalls++; pending = upsertImpl(row); return b; },
+        then(resolve, reject) {
+          return Promise.resolve(pending)
+            .then((r) => (r && r.error ? { data: null, error: r.error } : { data: [{ updated_at: cloudUpdatedAt || new Date().toISOString() }], error: null }))
+            .then(resolve, reject);
+        },
       };
+      return b;
     },
   };
 }
@@ -138,7 +152,9 @@ const NOW = new Date().toISOString();
 function localNewerFixture(extraMeta) {
   return makeLocalStorage({
     goals: JSON.stringify({ updatedAt: NOW, items: ['ship it'] }),
-    cloudSyncMeta: JSON.stringify(Object.assign({ localChangedAt: NOW, lastPushedAt: '', lastPulledAt: '', lastError: '', lastErrorAt: '' }, extraMeta || {})),
+    // This device last synced an hour ago (it saw the cloud row from then)
+    // and has edited since → local-newer under the conflict-safe model.
+    cloudSyncMeta: JSON.stringify(Object.assign({ localChangedAt: NOW, lastPushedAt: '', lastPulledAt: '', lastError: '', lastErrorAt: '', lastCloudSeenAt: HOUR_AGO, lastSyncAt: HOUR_AGO, userId: 'u1' }, extraMeta || {})),
   });
 }
 
@@ -237,6 +253,11 @@ async function test5_dedupCannotSkipLocalNewer() {
   check('first push happened', client._pushCalls() >= 1, client._pushCalls());
   await waitUntil(() => sandbox.window.AutoSync.getState().status === 'synced', 2000);
 
+  // A new local edit marker (as markDirty stamps) with an identical payload:
+  // status is local-newer again, and nothing may dedup it away.
+  const meta = JSON.parse(ls.getItem('cloudSyncMeta'));
+  meta.localChangedAt = new Date(Date.now() + 1000).toISOString();
+  ls.setItem('cloudSyncMeta', JSON.stringify(meta));
   const secondPushHappened = await waitUntil(() => client._pushCalls() >= 2, 2000);
   check('an unchanged-payload watchdog tick while status is local-newer still pushes again (no dedup-skip)', secondPushHappened, 'pushCalls=' + client._pushCalls());
 }

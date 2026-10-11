@@ -1,104 +1,135 @@
 # LOCK-IN HQ — Setup Guide
 
 A static app (plain HTML/JS) with a few Vercel serverless routes in `api/`. Everything works on one
-device with no setup; Supabase adds sign-in and a private cloud copy, Google Calendar adds real
-events, and an Anthropic key adds optional AI wording. The deployment checklist is in
-[docs/LOCK_IN_HQ.md](docs/LOCK_IN_HQ.md).
+device with no setup; Supabase adds sign-in and a private cloud copy; the optional connections and AI
+are switched on by environment variables. The release checklist is in [docs/LOCK_IN_HQ.md](docs/LOCK_IN_HQ.md).
 
 ---
 
-## 1. Deploy
+## 1. Environment variables (every name the code reads)
 
-1. Import the repo in **Vercel → Add New → Project**. Framework preset **Other**, root `./`, no build command.
-2. Vercel installs `package.json` dependencies (`@supabase/supabase-js`, `@anthropic-ai/sdk`) for the API routes.
-3. Deploy to a **Preview** first. Add env vars to Preview as well as Production, and **redeploy** after changing them.
+Set in Vercel → Project → Settings → Environment Variables, separately for **Production** and **Preview**,
+then redeploy. Values marked *public* are sent to the browser by `/api/config`; everything else stays server-side.
 
-Locally, serve the folder with any static server and open `/`. The `/api/*` routes don't run locally, so
-the app shows "local only", "calendar not connected" and "AI off" — that's expected.
+| Variable | Needed for | Read by |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | sign-in, Cloud Sync, protected routes (*public*) | `api/config.js`, `api/_access.js` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same (*public* anon key — never the service_role key) | `api/config.js`, `api/_access.js` |
+| `ASSISTANT_ALLOWED_EMAILS` | who may use AI **and** Trading 212 (comma-separated) | `api/_access.js` |
+| `ANTHROPIC_API_KEY` | AI (Assistant, Content, Workforce) | `api/assistant.js` |
+| `ASSISTANT_MODEL` | optional, default `claude-haiku-5-5` | `api/assistant.js` |
+| `ASSISTANT_DAILY_LIMIT` | optional, default 40 AI requests per user per 24 h | `api/assistant.js` |
+| `GOOGLE_CLIENT_ID` | Google Calendar (*public*) | `api/config.js`, `api/google-calendar-*.js` |
+| `GOOGLE_CLIENT_SECRET` | Google Calendar | `api/google-calendar-callback.js`, `-refresh.js` |
+| `WHOOP_CLIENT_ID` | WHOOP (*public*) | `api/config.js`, `api/whoop-callback.js`, `-refresh.js` |
+| `WHOOP_CLIENT_SECRET` | WHOOP | `api/whoop-callback.js`, `-refresh.js` |
+| `TRADING212_API_KEY` / `TRADING212_API_SECRET` | Trading 212 read-only check | `api/trading212-data.js` |
+| `TRADING212_ENV` | optional, `live` (default) or `demo` | `api/trading212-data.js` |
+| `WEATHER_API_KEY` | optional — OpenWeatherMap instead of the free default (Open-Meteo, no key) | `api/weather.js` |
+
+No longer read (safe to delete): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_LEGACY_SYNC_ENABLED`.
 
 ---
 
 ## 2. Supabase — sign-in and Cloud Sync
 
-1. Create a project at **supabase.com**. Confirm **Auth → Providers → Email** is enabled and decide whether
-   public sign-up should be allowed.
-2. In **SQL Editor**, run:
-   - [`supabase/life_os_state.sql`](supabase/life_os_state.sql) — one private row per user holding this
-     device's saved data (row-level security: each user only sees their own row).
-   - [`supabase/assistant_usage.sql`](supabase/assistant_usage.sql) — the per-user AI request limit (§4).
-3. **Project Settings → API**: copy the Project URL and the anon/publishable key into Vercel:
+1. Create a project at supabase.com. **Auth → Providers → Email** on; decide whether public sign-up is allowed
+   (AI and Trading 212 are allowlist-only regardless).
+2. **SQL Editor**: run [`supabase/life_os_state.sql`](supabase/life_os_state.sql) (one private row per user) and
+   [`supabase/assistant_usage.sql`](supabase/assistant_usage.sql) (AI request limit).
+3. Copy the Project URL and anon key into the two `NEXT_PUBLIC_SUPABASE_*` variables.
+4. **Auth → URL Configuration**: Site URL = your production URL. Add your preview URL(s) to Redirect URLs (§8).
+5. Open **Menu → Account** and sign in. Sync settings and conflict choices are under **Menu → Settings**.
 
-| Variable | Value |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / publishable key (public) |
+How sync stays safe: each device remembers which cloud version it last saw. Automatic saves only replace the
+cloud copy if it is still that version; if another device saved in between, nothing is overwritten and
+Settings asks you to choose ("Use the cloud copy" / "Keep this device's data", each confirmed first).
+Credentials (sign-in sessions, connection tokens, API keys) are never included in the cloud copy or backups.
 
-4. Redeploy, open **Menu → Account**, sign in. Cloud sync settings and manual save/load are under
-   **Menu → Settings**. Auto cloud save pushes this device's data when signed in.
-
-⚠️ Only the anon key goes in env vars. Never use the `service_role` key anywhere in this project.
-
-### Older Supabase objects — check before deploying
-Earlier versions of this guide created two objects the app **no longer uses**:
-- `public.app_state` table with an `anon` policy allowing **all** reads and writes (legacy blob sync).
-- `progress-photos` Storage bucket, `public = true`, with an `anon` policy for **all** operations
-  (old Strength HQ progress photos).
-
-Anyone holding the anon key — which ships to every browser — can read or change these. Check what's
-actually applied in your project (Table editor / Storage → Policies) and restrict them as described in
-the deployment checklist. Don't delete them without exporting what's inside first.
+**Legacy objects:** an old `app_state` table and `progress-photos` bucket may still be publicly writable.
+Follow [`supabase/legacy/README.md`](supabase/legacy/README.md) — reviewed SQL, in order, keeping all data.
 
 ---
 
 ## 3. Google Calendar (optional, read-only)
 
-1. **console.cloud.google.com** → enable the **Google Calendar API**.
-2. **Credentials** → OAuth client ID → **Web application**. Authorized redirect URI:
-   `https://your-app.vercel.app/api/google-calendar-callback` (one per domain you use).
-3. **OAuth consent screen**: scope `.../auth/calendar.events.readonly`; add yourself as a test user if in Testing.
-4. Vercel env vars, then redeploy:
+1. console.cloud.google.com → enable **Google Calendar API**.
+2. Credentials → OAuth client ID → **Web application**. Authorized redirect URIs — one per domain, exact
+   (Google does not accept wildcards): `https://<domain>/api/google-calendar-callback`.
+3. OAuth consent screen: scope `.../auth/calendar.events.readonly`; add yourself as a test user while in Testing.
+4. Set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, redeploy, then **Menu → Integrations → Connect**.
 
-| Variable | Value |
-|---|---|
-| `GOOGLE_CLIENT_ID` | Client ID (public — also sent to the browser via `/api/config`) |
-| `GOOGLE_CLIENT_SECRET` | Client Secret (**secret**, server-side only) |
+Used by: Today (commitments), Assistant (Morning, Weekly), Settings.
 
-5. **Menu → Integrations → Connect Google Calendar.** Google returns you to that page.
+## 4. AI (optional, paid)
 
-Read-only scope: the app can never create, edit or delete events.
+Stays **off** until `ANTHROPIC_API_KEY`, both Supabase variables, `ASSISTANT_ALLOWED_EMAILS` and the
+`assistant_usage` table are all in place. Each request is checked on the server (valid session → allowlisted
+email → under the shared daily limit) before Anthropic is contacted; 20 s timeout; temporary errors retried at
+most twice on the same model; refusals never retried on another model.
+
+**Cost (Anthropic list prices, Oct 2026):** Haiku 5.5 is $0.10 per million input tokens and $0.50 per million
+output tokens. A request is ~1,500–3,000 tokens in, capped at 2,000 out: about **$0.0005–$0.0013 per press**
+(≈ £0.001); at 40 a day at most ~$0.05/day. Sonnet 5.5 is 20× and Opus 5.5 40× the per-token price.
+Set a monthly spend limit in the Anthropic Console.
+
+## 5. WHOOP (optional)
+
+1. developer.whoop.com → your app → Redirect URI: `https://<domain>/api/whoop-callback` (one per domain).
+   Scopes used: `read:recovery read:sleep read:cycles offline`.
+2. Set `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET`, redeploy, **Menu → Integrations → Connect WHOOP**.
+
+Used by: Settings (status) and Workforce → Training (latest recovery/sleep shown as a dated reading, not interpreted).
+Tokens stay on the device; disconnecting removes them (also remove the app in your WHOOP account to revoke fully).
+
+## 6. Weather (optional)
+
+Works without a key (Open-Meteo). Enter a town in **Menu → Integrations → Weather**. Used by: Settings only.
+A failed refresh says so and keeps the last real reading with its time — no placeholder weather.
+
+## 7. Trading 212 (optional, read-only)
+
+Create an API key + secret in Trading 212 (read-only permissions), set `TRADING212_API_KEY` / `TRADING212_API_SECRET`
+(and `TRADING212_ENV=demo` for a practice account). **Menu → Integrations → Check connection** shows a summary;
+nothing is saved or traded. The route requires a signed-in, allowlisted account — without `ASSISTANT_ALLOWED_EMAILS`
+and the Supabase variables it refuses every request. Used by: Settings only. Older imported holdings remain in your
+saved records (Backup).
 
 ---
 
-## 4. AI (optional, server-side)
+## 8. Vercel branch preview
 
-Assistant, Content and Workforce work without AI (labelled Basic / Template modes). All three share the
-one `/api/assistant` endpoint and one per-user daily limit. It is a **paid** endpoint, so it stays **off**
-until every protection below is in place:
-
-| Requirement | Value |
-|---|---|
-| `ANTHROPIC_API_KEY` | from console.anthropic.com — server-side only |
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from §2 — used to verify your session on the server |
-| `ASSISTANT_ALLOWED_EMAILS` | comma-separated emails allowed to use AI (signing up alone is not enough) |
-| `supabase/assistant_usage.sql` | run once (§2) — requests are refused if it's missing |
-| `ASSISTANT_DAILY_LIMIT` | optional, default 40 requests per user per rolling 24 h |
-| `ASSISTANT_MODEL` | optional, default `claude-haiku-5-5` |
-
-Every request is checked on the server — valid Supabase session → allowlisted email → under the limit —
-**before** Anthropic is contacted. Requests time out after 20 s; temporary errors are retried at most twice
-on the same model; a refusal is never retried on another model.
-
-**Cost (Anthropic list prices, Oct 2026):** Haiku 5.5 is $0.10 per million input tokens and $0.50 per
-million output tokens. A request sends roughly 1,500–3,000 tokens and is capped at 2,000 output tokens, so
-about **$0.0005–$0.0013 per press** (≈ £0.001); at the default 40 a day, at most about $0.05/day. Sonnet 5.5
-costs 20× and Opus 5.5 40× the per-token price. Set a monthly spend limit in the Anthropic Console too.
+- Every push to a branch gets a preview at a per-deployment URL plus a stable **branch alias**:
+  `https://<project>-git-<branch>-<team-slug>.vercel.app` (for this branch: `…-git-lock-in-hq-stage-1-…`). Use the
+  branch alias for all callback registrations — the per-deployment URLs change every push.
+- **Env vars:** add them under the **Preview** environment (optionally scoped to the branch). Without them the preview
+  is local-only, calendar not connected, AI off.
+- **Does the preview share the production database?** Yes — if the Preview variables point at the same Supabase
+  project as Production, the preview reads and writes the **same** `life_os_state` row (per account) and shares the
+  same AI usage limit. Sync is conflict-safe, but a preview build can still change your real data. For isolation,
+  create a second Supabase project for Preview (run the same two SQL files) and use its URL/key there.
+- **Supabase:** Auth → URL Configuration → Redirect URLs: add `https://<project>-git-*-<team-slug>.vercel.app/**`
+  (wildcards are allowed here). Password sign-in works on the preview; sign-up confirmation emails link to the Site URL.
+- **Google:** add `https://<branch-alias>/api/google-calendar-callback` as an Authorized redirect URI (exact, no wildcard).
+- **WHOOP:** add `https://<branch-alias>/api/whoop-callback` as a Redirect URI.
+- Vercel Deployment Protection (on by default for previews) requires you to be logged in to Vercel when opening the
+  preview; OAuth callbacks work because they return through your own logged-in browser.
 
 ---
 
-## 5. Removed integrations
+## 9. Credentials: clean-up after this release
 
-WHOOP, Trading 212, Weather and the browser-key "Nova" coach were removed with their pages. Their saved data
-(tokens, imported holdings, cached readings) stays in browser storage and in **Menu → Backup → Export**.
-You can delete these Vercel env vars if set: `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, `TRADING212_API_KEY`,
-`TRADING212_API_SECRET`, `TRADING212_ENV`, `WEATHER_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-`SUPABASE_LEGACY_SYNC_ENABLED`. Also remove the WHOOP redirect URI from your WHOOP developer app.
+Earlier versions copied **all** browser storage into backups and the cloud copy — including your Supabase sign-in
+session, Google Calendar / WHOOP tokens and any Anthropic key pasted into the old Nova page. From this release they
+are excluded and are never written back by restores or cloud loads. To finish the clean-up:
+
+1. After deploying, sign in on each device and let it save once (or **Settings → Save this device to cloud**) — the
+   cloud copy is replaced without credentials.
+2. Delete or securely store old backup files (`life-os-backup-*.json`) made before this release.
+3. If you ever pasted an Anthropic key into Nova: **Settings → Credentials → Remove**, then revoke that key in the
+   Anthropic Console.
+4. Google: optionally revoke the old grant at myaccount.google.com → Security → Third-party access, then reconnect.
+5. WHOOP: disconnect and reconnect (or revoke in your WHOOP account).
+6. Supabase sessions from old backups: **Sign out** on each device (revokes its refresh token); in Supabase you can
+   also sign a user out from Authentication → Users.
+7. Run `supabase/legacy/01_inspect.sql` and check the old `app_state` keys for anything sensitive before locking it.

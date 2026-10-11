@@ -13,6 +13,9 @@
 //    GOOGLE_CLIENT_SECRET is sensitive, and that stays server-side only
 //    inside api/google-calendar-callback.js / api/google-calendar-refresh.js.
 //
+// 3. WHOOP (scripts/whoop-service.js): WHOOP_CLIENT_ID → window.WHOOP_CLIENT_ID.
+//    Also public (it's in the authorize URL); WHOOP_CLIENT_SECRET stays server-side.
+//
 // Loaded via <script src="/api/config"></script> in each page's <head>.
 // These are PUBLIC values. Never put the service_role key, the
 // Anthropic key or any other secret here.
@@ -21,11 +24,13 @@ export default function handler(req, res) {
   const nextUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const nextKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+  const whoopClientId = process.env.WHOOP_CLIENT_ID || '';
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).send(
     'window.NEXT_PUBLIC_SUPABASE_URL=' + JSON.stringify(nextUrl) + ';' +
     'window.NEXT_PUBLIC_SUPABASE_ANON_KEY=' + JSON.stringify(nextKey) + ';' +
-    'window.GOOGLE_CLIENT_ID=' + JSON.stringify(googleClientId) + ';'
+    'window.GOOGLE_CLIENT_ID=' + JSON.stringify(googleClientId) + ';' +
+    'window.WHOOP_CLIENT_ID=' + JSON.stringify(whoopClientId) + ';'
   );
 }

@@ -53,6 +53,8 @@
   function isExcludedKey(key) {
     if (!key) return true;
     if (EXCLUDE_KEYS[key]) return true;
+    // Credentials aren't part of the cloud copy, so token refreshes shouldn't trigger a push.
+    if (window.Backup && window.Backup.isPortableKey && !window.Backup.isPortableKey(key)) return true;
     for (var i = 0; i < EXCLUDE_PREFIXES.length; i++) {
       if (key.indexOf(EXCLUDE_PREFIXES[i]) === 0) return true;
     }
@@ -210,8 +212,18 @@
       if (syncStatus.code === 'cloud-newer') {
         setState({
           status: 'action-needed',
-          reason: 'A newer cloud save is waiting on another device — open Cloud Sync to choose which to keep.',
+          reason: 'A newer cloud save from another device is waiting — load it from Settings (or accept the prompt).',
           lastResult: 'skipped', lastReason: 'Auto push skipped: cloud newer',
+        });
+        return;
+      }
+      // Both sides changed since this device last synced: never overwrite
+      // either automatically — the user chooses in Settings.
+      if (syncStatus.code === 'conflict') {
+        setState({
+          status: 'action-needed',
+          reason: 'This device and the cloud copy both changed — open Settings to choose which to keep.',
+          lastResult: 'skipped', lastReason: 'Auto push skipped: both changed',
         });
         return;
       }
@@ -255,6 +267,8 @@
 
         if (result.timedOut) {
           setState({ status: 'action-needed', reason: 'Push timed out.', lastResult: 'failed', lastReason: 'Auto push timed out' });
+        } else if (result.conflict) {
+          setState({ status: 'action-needed', reason: result.error, lastError: result.error, lastResult: 'skipped', lastReason: 'Auto push stopped: cloud changed on another device' });
         } else if (result.ok) {
           setState({
             status: 'synced', reason: '', lastError: '', lastPushAt: result.updatedAt,
@@ -326,8 +340,12 @@
     var origSet = localStorage.setItem.bind(localStorage);
     var origRemove = localStorage.removeItem.bind(localStorage);
     function wrappedSet(key, value) {
+      // Rewriting an identical value (e.g. a page re-saving defaults on load)
+      // is not an edit — only real changes mark this device as changed.
+      var before = null;
+      try { before = localStorage.getItem(key); } catch (e) {}
       origSet(key, value);
-      if (!isExcludedKey(key)) markDirty();
+      if (!isExcludedKey(key) && before !== String(value)) markDirty();
     }
     function wrappedRemove(key) {
       origRemove(key);

@@ -21,8 +21,8 @@
 // and nothing is saved anywhere without the user confirming.
 // ============================================================
 import Anthropic from '@anthropic-ai/sdk';
-import { createClient } from '@supabase/supabase-js';
 import { ROLE_IDS, webSystemPrompt } from './_specialists.js';
+import { accessConfig, checkAccess } from './_access.js';
 
 export const DEFAULT_MODEL = 'claude-haiku-5-5';
 const MAX_BODY_CHARS = 12000;
@@ -173,46 +173,22 @@ export function validateOutput(mode, d) {
     d.support.every(validAction) && isStr(d.answer, 2000) && Array.isArray(d.notesUsed) && d.notesUsed.every((x) => isStr(x, 80));
 }
 
-// ---------- access control ----------
+// ---------- access control (shared with other private routes: api/_access.js) ----------
 function settings() {
   const env = process.env;
+  const c = accessConfig();
   const s = {
     apiKey: env.ANTHROPIC_API_KEY || '',
     model: env.ASSISTANT_MODEL || DEFAULT_MODEL,
-    sbUrl: env.NEXT_PUBLIC_SUPABASE_URL || '',
-    sbAnon: env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    allowed: String(env.ASSISTANT_ALLOWED_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
     dailyLimit: Math.max(1, Math.min(500, Number(env.ASSISTANT_DAILY_LIMIT) || 40)),
+    access: c,
   };
-  s.missing = [];
-  if (!s.apiKey) s.missing.push('ANTHROPIC_API_KEY');
-  if (!s.sbUrl || !s.sbAnon) s.missing.push('NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  if (!s.allowed.length) s.missing.push('ASSISTANT_ALLOWED_EMAILS');
+  s.missing = (s.apiKey ? [] : ['ANTHROPIC_API_KEY']).concat(c.missing);
   s.enabled = s.missing.length === 0;
   return s;
 }
 
 const lastCall = new Map(); // per serverless instance only — the durable limit is the usage table
-
-// Returns { ok, user, sb } or { ok:false, code, error }. Never contacts Anthropic.
-export async function checkAccess(req, s) {
-  const auth = String((req.headers && (req.headers.authorization || req.headers.Authorization)) || '');
-  const m = /^Bearer\s+(.+)$/.exec(auth);
-  if (!m) return { ok: false, code: 401, error: 'Sign in to use AI.' };
-  const token = m[1].trim();
-  const sb = createClient(s.sbUrl, s.sbAnon, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: 'Bearer ' + token } },
-  });
-  let user = null;
-  try {
-    const { data, error } = await sb.auth.getUser(token);
-    if (!error) user = data && data.user;
-  } catch (e) { /* treated as invalid */ }
-  if (!user) return { ok: false, code: 401, error: 'Session not valid — sign in again.' };
-  if (s.allowed.indexOf(String(user.email || '').toLowerCase()) === -1) return { ok: false, code: 403, error: 'This account is not allowed to use AI.' };
-  return { ok: true, user, sb };
-}
 
 // Durable daily limit via RLS-scoped table; any error fails closed.
 export async function consumeQuota(sb, user, mode, s) {
@@ -239,7 +215,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!s.enabled) return res.status(503).json({ error: 'AI is off: missing ' + s.missing.join(', ') + '.' });
 
-  const access = await checkAccess(req, s);
+  const access = await checkAccess(req, s.access);
   if (!access.ok) return res.status(access.code).json({ error: access.error });
 
   let body = req.body;

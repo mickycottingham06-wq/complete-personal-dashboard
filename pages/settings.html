@@ -15,6 +15,8 @@
 <script src="../scripts/integrations-data.js"></script>
 <script src="../scripts/auto-sync.js"></script>
 <script src="../scripts/google-calendar-service.js"></script>
+<script src="../scripts/whoop-service.js"></script>
+<script src="../scripts/weather-service.js"></script>
 <script src="../scripts/ai-client.js"></script>
 <script src="../scripts/sync-status-line.js"></script>
 <script src="../scripts/menu.js" defer></script>
@@ -58,9 +60,18 @@
       <p class="meta"><strong id="syncLabel">—</strong></p>
       <p class="hint" id="syncReason"></p>
       <dl class="kv">
-        <dt>Last cloud save from this device</dt><dd id="syncLastPush">—</dd>
+        <dt>Last synced on this device</dt><dd id="syncLastPush">—</dd>
         <dt>Last local change</dt><dd id="syncLocal">—</dd>
+        <dt>Cloud copy saved</dt><dd id="syncCloud">—</dd>
       </dl>
+      <div id="conflictBox" class="card" style="margin-top:12px;background:var(--bg);border-color:var(--warn)" hidden>
+        <p class="flag" style="margin-top:0" id="conflictText"></p>
+        <p class="hint">Nothing has been overwritten. Export a backup first if unsure, then choose:</p>
+        <div class="row">
+          <button type="button" id="useCloudBtn">Use the cloud copy</button>
+          <button type="button" id="keepDeviceBtn">Keep this device's data</button>
+        </div>
+      </div>
       <label>Auto cloud save</label>
       <div class="seg" role="group" aria-label="Auto cloud save">
         <button type="button" id="autoOn" aria-pressed="false">On</button>
@@ -81,8 +92,8 @@
   <section id="backup" aria-labelledby="backupH">
     <h2 id="backupH">Backup</h2>
     <div class="card">
-      <p class="meta">Export saves <strong>everything</strong> stored on this device — tasks, notes, drafts, money, training and health records from older pages, integrations — as one file.</p>
-      <p class="hint">Records from removed pages (Money HQ, Strength HQ, Boxing HQ, Health HQ and older dashboard pages) are still stored and included. Content photos are kept separately on this device and are not in the file.</p>
+      <p class="meta">Export saves your records stored on this device — tasks, notes, drafts, money, training and health records from older pages, integration settings — as one file.</p>
+      <p class="hint">Records from removed pages (Money HQ, Strength HQ, Boxing HQ, Health HQ and older dashboard pages) are still stored and included. Not included: sign-in sessions and connection tokens/keys (they stay on this device only), and Content photos (kept separately on this device).</p>
       <dl class="kv"><dt>Last export</dt><dd id="lastBackup">Never</dd><dt>Items stored</dt><dd id="keyCount">—</dd></dl>
       <div class="row">
         <button type="button" class="primary" id="exportBtn">Export backup</button>
@@ -107,12 +118,42 @@
       <p class="status" id="calMsg" role="status" aria-live="polite"></p>
     </div>
     <div class="card">
+      <p class="meta"><strong>WHOOP</strong> · <span id="whoopStatus">—</span></p>
+      <p class="hint" id="whoopDetail"></p>
+      <div class="row">
+        <button type="button" class="primary" id="whoopConnect">Connect WHOOP</button>
+        <button type="button" id="whoopRefresh">Refresh now</button>
+        <button type="button" id="whoopDisconnect">Disconnect</button>
+      </div>
+      <p class="status" id="whoopMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="card">
+      <p class="meta"><strong>Weather</strong> · <span id="wxStatus">—</span></p>
+      <p class="hint" id="wxDetail"></p>
+      <label for="wxLocation">Town or postcode</label>
+      <input id="wxLocation" maxlength="80" placeholder="e.g. Heathfield">
+      <div class="row"><button type="button" id="wxRefresh">Refresh weather</button></div>
+      <p class="status" id="wxMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="card">
+      <p class="meta"><strong>Trading 212</strong> · read-only</p>
+      <p class="hint">Checks the connection and shows a summary from Trading 212 — nothing is saved or traded. Requires sign-in and an allowlisted email; keys stay on the server.</p>
+      <div class="row"><button type="button" id="t212Check">Check connection</button></div>
+      <p class="status" id="t212Msg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="card">
       <p class="meta"><strong>AI</strong> · <span id="aiState">Checking…</span></p>
       <p class="hint">Used by Assistant, Content and Workforce when switched on in Vercel (see SETUP.md §4). Without it those pages use labelled Basic / Template modes.</p>
     </div>
     <div class="card">
       <p class="meta"><strong>Email</strong> · Not connected</p>
       <p class="hint">There is no email integration — no page reads or sends email.</p>
+    </div>
+    <div class="card">
+      <p class="meta"><strong>Credentials on this device</strong></p>
+      <p class="hint">Names only — values are never shown, exported or synced.</p>
+      <ul class="plain commit" id="credList"></ul>
+      <p class="status" id="credMsg" role="status" aria-live="polite"></p>
     </div>
   </section>
 
@@ -192,35 +233,65 @@
     $('syncLocal').textContent = window.CloudSync ? when(window.CloudSync.latestLocalTimestamp()) : '—';
     var can = !!(window.CloudSync && window.CloudSync.isAvailable());
     $('pushBtn').disabled = !can; $('pullBtn').disabled = !can;
+    renderSyncStatus();
+  }
+  // Async part: the real comparison with the cloud copy (shows the conflict choice).
+  var statusBusy = false;
+  async function renderSyncStatus() {
+    if (statusBusy || !window.CloudSync || !window.CloudSync.isAvailable()) { $('conflictBox').hidden = true; $('syncCloud').textContent = '—'; return; }
+    statusBusy = true;
+    try {
+      var st = await window.CloudSync.getSyncStatus();
+      var cloud = await window.CloudSync.getCloudStatus();
+      $('syncCloud').textContent = cloud.ok && cloud.exists ? when(cloud.updatedAt) : cloud.ok ? 'No cloud copy yet' : 'Unavailable';
+      var box = $('conflictBox');
+      if (st.code === 'conflict') {
+        box.hidden = false;
+        $('conflictText').textContent = 'This device and the cloud copy (saved ' + when(st.cloudUpdatedAt) + ' from another device or session) both changed since this device last synced.';
+      } else if (st.code === 'cloud-newer') {
+        box.hidden = false;
+        $('conflictText').textContent = 'A newer cloud copy (saved ' + when(st.cloudUpdatedAt) + ') is waiting. This device has no unsynced changes.';
+      } else box.hidden = true;
+    } finally { statusBusy = false; }
   }
   function setAuto(on) { window.Integrations.setEnabled('cloudSync', on); if (window.AutoSync) window.AutoSync.refresh(); renderSync(); }
   $('autoOn').addEventListener('click', function () { setAuto(true); });
   $('autoOff').addEventListener('click', function () { setAuto(false); });
-  $('pushBtn').addEventListener('click', async function () {
-    var st = await window.CloudSync.getCloudStatus();
-    confirmIn($('syncConfirm'), 'Replace your cloud copy (' + (st.exists ? 'saved ' + when(st.updatedAt) : 'none yet') + ') with this device\'s data?', 'Save to cloud', async function () {
-      var saved = window.ForceSave ? window.ForceSave.run() : { ok: true };
-      if (!saved.ok) { setStatus($('syncStatus'), 'err', saved.error); return; }
-      var r = await window.CloudSync.pushToCloud();
-      setStatus($('syncStatus'), r.ok ? 'ok' : 'err', r.ok ? 'Saved to cloud (' + r.keyCount + ' items) at ' + when(r.updatedAt) + '.' : r.error);
-      renderSync();
-    });
-  });
-  $('pullBtn').addEventListener('click', async function () {
-    var st = await window.CloudSync.getCloudStatus();
-    if (!st.ok || !st.exists) { setStatus($('syncStatus'), 'err', st.error || 'No cloud copy yet — save from a device first.'); return; }
-    confirmIn($('syncConfirm'), 'Replace this device\'s data with the cloud copy saved ' + when(st.updatedAt) + '? Export a backup first if unsure.', 'Load from cloud', async function () {
-      var r = await window.CloudSync.pullToLocal();
-      if (!r.ok) { setStatus($('syncStatus'), 'err', r.error); return; }
-      setStatus($('syncStatus'), 'ok', 'Loaded ' + r.keyCount + ' items from the cloud. Reloading…');
-      setTimeout(function () { location.reload(); }, 900);
-    });
-  });
+  // Explicit user choice: replace the cloud copy with this device (force).
+  function keepDevice() {
+    return async function () {
+      var st = await window.CloudSync.getCloudStatus();
+      confirmIn($('syncConfirm'), 'Replace your cloud copy (' + (st.exists ? 'saved ' + when(st.updatedAt) : 'none yet') + ') with this device\'s data? The cloud copy\'s changes will be lost.', 'Replace cloud copy', async function () {
+        var saved = window.ForceSave ? window.ForceSave.run() : { ok: true };
+        if (!saved.ok) { setStatus($('syncStatus'), 'err', saved.error); return; }
+        var r = await window.CloudSync.pushToCloud({ force: true });
+        setStatus($('syncStatus'), r.ok ? 'ok' : 'err', r.ok ? 'Saved to cloud (' + r.keyCount + ' items) at ' + when(r.updatedAt) + '.' : r.error);
+        if (window.AutoSync) window.AutoSync.refresh();
+        renderSync();
+      });
+    };
+  }
+  function useCloud() {
+    return async function () {
+      var st = await window.CloudSync.getCloudStatus();
+      if (!st.ok || !st.exists) { setStatus($('syncStatus'), 'err', st.error || 'No cloud copy yet — save from a device first.'); return; }
+      confirmIn($('syncConfirm'), 'Replace this device\'s data with the cloud copy saved ' + when(st.updatedAt) + '? Unsynced changes on this device will be lost — export a backup first if unsure.', 'Use cloud copy', async function () {
+        var r = await window.CloudSync.pullToLocal();
+        if (!r.ok) { setStatus($('syncStatus'), 'err', r.error); return; }
+        setStatus($('syncStatus'), 'ok', 'Loaded ' + r.keyCount + ' items from the cloud. Reloading…');
+        setTimeout(function () { location.reload(); }, 900);
+      });
+    };
+  }
+  $('pushBtn').addEventListener('click', keepDevice());
+  $('keepDeviceBtn').addEventListener('click', keepDevice());
+  $('pullBtn').addEventListener('click', useCloud());
+  $('useCloudBtn').addEventListener('click', useCloud());
 
   // ---------- Backup ----------
   function renderBackup() {
     $('lastBackup').textContent = when(window.Backup.load().lastBackupDate);
-    $('keyCount').textContent = String(localStorage.length);
+    $('keyCount').textContent = String(window.Backup.buildExport().meta.keyCount);
   }
   $('exportBtn').addEventListener('click', function () {
     var r = window.Backup.downloadExport();
@@ -283,11 +354,98 @@
     $('aiState').textContent = s.available ? 'On (' + s.model + ')' : 'Off — ' + s.reason;
   }
 
+  // ---------- WHOOP ----------
+  function renderWhoop() {
+    var w = window.Integrations.load().whoop;
+    var connected = window.WhoopService.isConnected();
+    var configured = !!window.WHOOP_CLIENT_ID;
+    $('whoopStatus').textContent = connected ? (/^Refresh failed/.test(w.status) ? 'Refresh failed' : 'Connected') : configured ? 'Not connected' : 'Not set up on this server';
+    var parts = [];
+    if (w.lastSync) parts.push('Last retrieved ' + when(w.lastSync) + (w.recoveryScore != null ? ' · recovery ' + w.recoveryScore + '%' : '') + (w.sleepHours != null ? ' · sleep ' + w.sleepHours + ' h' : '') + '.');
+    if (/^Refresh failed/.test(w.status)) parts.push(w.status + '.');
+    if (!configured && !connected) parts.push('Needs WHOOP_CLIENT_ID and WHOOP_CLIENT_SECRET in Vercel (SETUP.md §5).');
+    parts.push('Used by Workforce → Training as a labelled, timestamped record.');
+    $('whoopDetail').textContent = parts.join(' ');
+    $('whoopConnect').hidden = connected;
+    $('whoopRefresh').hidden = !connected;
+    $('whoopDisconnect').hidden = !connected;
+  }
+  $('whoopConnect').addEventListener('click', function () {
+    if (!window.WhoopService.connect()) setStatus($('whoopMsg'), 'err', 'WHOOP isn\'t set up on this server (WHOOP_CLIENT_ID missing).');
+  });
+  $('whoopRefresh').addEventListener('click', async function () {
+    setStatus($('whoopMsg'), '', 'Refreshing…');
+    var r = await window.WhoopService.refresh();
+    setStatus($('whoopMsg'), r.ok ? 'ok' : 'err', r.ok ? 'WHOOP refreshed.' : 'Refresh failed: ' + (r.error || 'unknown error'));
+    renderWhoop(); renderCreds();
+  });
+  $('whoopDisconnect').addEventListener('click', function () {
+    window.WhoopService.disconnect();
+    setStatus($('whoopMsg'), 'ok', 'Disconnected — tokens removed from this device. To revoke access fully, also remove the app in your WHOOP account.');
+    renderWhoop(); renderCreds();
+  });
+
+  // ---------- Weather ----------
+  function renderWeather() {
+    var w = window.Integrations.load().weather;
+    if (document.activeElement !== $('wxLocation')) $('wxLocation').value = w.location || '';
+    var real = w.lastSync && w.status && w.status !== 'Connected (demo data)' && w.status !== 'Connected (mock data)';
+    $('wxStatus').textContent = !w.location ? 'Not set' : /^Refresh failed/.test(w.status) ? 'Refresh failed' : real ? 'Connected' : 'Not refreshed yet';
+    $('wxDetail').textContent = (real && w.temperature ? w.location + ': ' + w.temperature + ', ' + w.condition + ' — retrieved ' + when(w.lastSync) + '. ' : '') +
+      'Shown here only; no other page uses weather.';
+  }
+  $('wxRefresh').addEventListener('click', async function () {
+    setStatus($('wxMsg'), '', 'Refreshing…');
+    var r = await window.WeatherService.refresh($('wxLocation').value);
+    setStatus($('wxMsg'), r.ok ? 'ok' : 'err', r.ok ? 'Weather refreshed.' : 'Refresh failed: ' + (r.error || 'unknown error'));
+    renderWeather();
+  });
+
+  // ---------- Trading 212 (read-only check, nothing stored) ----------
+  $('t212Check').addEventListener('click', async function () {
+    var token = window.AiClient ? window.AiClient.accessToken() : '';
+    if (!token) { setStatus($('t212Msg'), 'err', 'Sign in first (Account above) — Trading 212 data is only available to allowlisted accounts.'); return; }
+    setStatus($('t212Msg'), '', 'Checking…');
+    try {
+      var r = await fetch('/api/trading212-data', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+      var j = null; try { j = await r.json(); } catch (e) {}
+      if (!r.ok || !j) { setStatus($('t212Msg'), 'err', (j && j.error) || (r.status === 404 ? 'Not available on this server (local preview or not deployed).' : 'Check failed (' + r.status + ').')); return; }
+      var known = j.holdings.filter(function (h) { return !h.valueUnknown; });
+      var total = known.reduce(function (s, h) { return s + h.currentValueGBP; }, 0);
+      setStatus($('t212Msg'), 'ok', 'Connected · ' + j.holdings.length + ' holding(s)' + (known.length ? ', £' + total.toFixed(2) + ' in GBP-valued holdings' : '') +
+        (j.holdings.length - known.length ? ' (' + (j.holdings.length - known.length) + ' with value not reported in GBP)' : '') + ' · checked ' + when(new Date().toISOString()) + '. Not saved.');
+    } catch (e) { setStatus($('t212Msg'), 'err', 'Could not reach the server.'); }
+  });
+
+  // ---------- Credentials (names only) ----------
+  var CRED_LABELS = { gcal_tokens_v1: 'Google Calendar tokens', whoop_tokens_v1: 'WHOOP tokens', nova_lite_api_key: 'Anthropic API key from the removed Nova page — no longer used' };
+  function renderCreds() {
+    var ul = $('credList');
+    ul.textContent = '';
+    var keys = window.Backup.storedCredentialKeys();
+    if (!keys.length) { ul.appendChild(el('li', { class: 'empty', text: 'None stored.' })); return; }
+    keys.forEach(function (k) {
+      var label = CRED_LABELS[k] || (k.indexOf('sb-') === 0 ? 'Sign-in session' : 'Stored credential (' + k + ')');
+      var removable = k === 'nova_lite_api_key';
+      ul.appendChild(el('li', {}, [label, removable ? el('button', { type: 'button', style: 'margin-left:10px;min-height:44px', text: 'Remove', onclick: function () {
+        try { localStorage.removeItem(k); } catch (e) {}
+        setStatus($('credMsg'), 'ok', 'Removed from this device. Also revoke that key in the Anthropic Console, since it may exist in older backups or cloud copies.');
+        renderCreds();
+      } }) : null]));
+    });
+  }
+
   // ---------- boot ----------
-  if (window.SupabaseAuth) { window.SupabaseAuth.init(); window.SupabaseAuth.subscribe(function () { renderAuth(); renderSync(); renderAi(); }); }
+  if (window.SupabaseAuth) { window.SupabaseAuth.init(); window.SupabaseAuth.subscribe(function () { renderAuth(); renderSync(); renderAi(); renderCreds(); }); }
   else renderAuth();
   if (window.AutoSync) window.AutoSync.subscribe(renderSync);
-  renderSync(); renderBackup(); renderCal(); renderAi();
+  renderSync(); renderBackup(); renderCal(); renderAi(); renderWhoop(); renderWeather(); renderCreds();
+  if (window.WhoopService.consumeJustConnected()) {
+    window.WhoopService.refresh().then(function (r) {
+      setStatus($('whoopMsg'), r.ok ? 'ok' : 'err', r.ok ? 'WHOOP connected and refreshed.' : 'Connected, but the first refresh failed: ' + (r.error || ''));
+      renderWhoop(); renderCreds();
+    });
+  }
   if (window.GoogleCalendarService.consumeJustConnected()) {
     window.GoogleCalendarService.refresh('googleCalendar').then(function (r) {
       setStatus($('calMsg'), r.ok ? 'ok' : 'err', r.ok ? 'Google Calendar connected and refreshed.' : 'Connected, but the first refresh failed: ' + (r.error || ''));

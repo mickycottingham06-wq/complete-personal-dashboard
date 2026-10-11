@@ -1,0 +1,17 @@
+-- =============================================================
+-- STEP 4 — OPTIONAL TEMPLATE. Needs a manual decision; do not run as-is.
+-- After step 3 nobody can read the photos through the app or a link.
+-- The app no longer uses them. Only if you want a signed-in account to
+-- read them again (e.g. for a future private gallery), decide WHICH user
+-- owns them — files uploaded with the anon key have owner = null, so the
+-- database cannot tell whose they are — then replace the placeholder with
+-- that user's UUID (Authentication → Users → copy the user id).
+-- =============================================================
+-- begin;
+-- update storage.objects set owner = '00000000-0000-0000-0000-000000000000'::uuid  -- <-- your user id
+--   where bucket_id = 'progress-photos' and owner is null;
+-- create policy "owner reads progress-photos" on storage.objects
+--   for select to authenticated
+--   using (bucket_id = 'progress-photos' and owner = auth.uid());
+-- commit;
+-- No insert/update/delete policy is created: the files stay read-only.

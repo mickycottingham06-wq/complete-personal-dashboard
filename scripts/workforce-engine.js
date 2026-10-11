@@ -107,7 +107,7 @@
         var guard = 0;
         while (due < t && guard++ < 24) { var d = new Date(due + 'T12:00:00'); d.setMonth(d.getMonth() + 1); due = dateKey(d); rolled = true; }
       }
-      var row = { id: 'bill:' + b.id, name: b.name || 'Bill', amount: Number(b.amount), dueDate: due, source: 'Money HQ (entered by you)' + (rolled ? ' · next monthly date assumed' : '') };
+      var row = { id: 'bill:' + b.id, name: b.name || 'Bill', amount: Number(b.amount), dueDate: due, source: 'Your saved bills (entered by you)' + (rolled ? ' · next monthly date assumed' : '') };
       if (String(b.category || '').toLowerCase() === 'business') business.push(row); else bills.push(row);
     });
     return { accounts: accounts, bankTotal: accounts.reduce(function (s, a) { return s + Number(a.balance); }, 0), bills: bills, businessBills: business };
@@ -124,15 +124,26 @@
     var a = st.answers, t = today(), rec = moneyRecords();
     if (a.balance === undefined) { var b = findLabelled(st.request, 'balance|in my (?:bank|account)|have'); if (b !== null) a.balance = b; }
     if (a.payday === undefined) { var pm = /pa(?:id|yday)[^.]*?(?:on|is|in)?\s+([^.,;]+)/i.exec(st.request); var pd = pm && parseDate(pm[1], t); if (pd) a.payday = pd; }
+    // Saved details from "Update my information" (manual entries, dated).
+    var prof = window.WorkforceRecords ? window.WorkforceRecords.budgetProfile() : {};
+    var savedOn = prof.updatedAt ? 'entered by you ' + dayLabel(String(prof.updatedAt).slice(0, 10)) : 'entered by you';
+    st.saved = st.saved || {};
+    if (a.balance === undefined && typeof prof.balance === 'number') {
+      if (prof.balanceDate === t) { a.balance = prof.balance; st.saved.balance = 'entered by you for today'; }
+      else return question('balance', 'Your saved personal balance is ' + gbp(prof.balance) + ' (entered by you for ' + (prof.balanceDate ? dayLabel(prof.balanceDate) : 'an earlier day') + '). What is it now?', { options: ['Still ' + gbp(prof.balance)] });
+    }
+    if (a.payday === undefined && prof.payday && prof.payday >= t) { a.payday = prof.payday; st.saved.payday = savedOn; }
+    if (a.otherDue === undefined && typeof prof.otherDue === 'number') { a.otherDue = prof.otherDue; st.saved.otherDue = savedOn; }
+    if (a.earmarked === undefined && prof.earmarked && typeof prof.earmarked === 'object') { a.earmarked = prof.earmarked; st.saved.earmarked = savedOn; }
     if (a.balance === undefined) {
       return question('balance', rec.accounts.length
-        ? 'Money HQ has ' + gbp(rec.bankTotal) + ' across your bank accounts — entered by you, not a live balance. What is your personal balance right now?'
+        ? 'Your saved bank accounts total ' + gbp(rec.bankTotal) + ' — entered by you earlier, not a live balance. What is your personal balance right now?'
         : 'What is your current personal account balance? (£)', rec.accounts.length ? { options: ['Use ' + gbp(rec.bankTotal)] } : {});
     }
     if (a.payday === undefined) return question('payday', 'When is your next payday? (e.g. 28th, Friday, or in 12 days)');
     var bills = rec.bills.filter(function (b) { return b.dueDate >= t && b.dueDate <= a.payday; });
     if (a.otherDue === undefined) {
-      return question('otherDue', (bills.length ? 'Money HQ lists ' + bills.length + ' bill' + (bills.length === 1 ? '' : 's') + ' due before payday (' + gbp(bills.reduce(function (s, x) { return s + x.amount; }, 0)) + '). ' : 'No bills are recorded in Money HQ for before payday. ') +
+      return question('otherDue', (bills.length ? 'You have ' + bills.length + ' saved bill' + (bills.length === 1 ? '' : 's') + ' due before payday (' + gbp(bills.reduce(function (s, x) { return s + x.amount; }, 0)) + '). ' : 'No saved bills are due before payday. ') +
         'Any other personal payments due before payday? (total £, or 0)', { options: ['0'] });
     }
     if (a.earmarked === undefined) return question('earmarked', 'How much of your balance is set aside — property, family or other? (e.g. "property 500, family 200", or 0)', { options: ['0'] });
@@ -143,11 +154,12 @@
     else if (calc.shortfall) lines.push('You\'re short by ' + gbp(calc.shortfall) + ' before payday (' + dayLabel(a.payday) + ') once bills and set-aside money are covered.');
     else lines.push(gbp(calc.available) + ' available until payday on ' + dayLabel(a.payday) + ' (' + calc.days + ' day' + (calc.days === 1 ? '' : 's') + ', about ' + gbp(calc.perDay) + ' a day).');
     lines.push('Set aside and not counted as spendable: ' + gbp(calc.earmarkTotal) + ' (property ' + gbp(a.earmarked.property) + ', family ' + gbp(a.earmarked.family) + ', other ' + gbp(a.earmarked.other) + ').');
+    var src = function (k) { return '(' + (st.saved[k] || 'you said') + ')'; };
     var table = [
-      ['Personal balance (you said)', gbp(a.balance)],
-      ['Bills due before payday (Money HQ)', '−' + gbp(calc.billsTotal)],
-      ['Other payments due (you said)', '−' + gbp(a.otherDue)],
-      ['Set aside (you said)', '−' + gbp(calc.earmarkTotal)],
+      ['Personal balance ' + src('balance'), gbp(a.balance)],
+      ['Bills due before payday (your saved bills)', '−' + gbp(calc.billsTotal)],
+      ['Other payments due ' + src('otherDue'), '−' + gbp(a.otherDue)],
+      ['Set aside ' + src('earmarked'), '−' + gbp(calc.earmarkTotal)],
       [calc.shortfall ? 'Shortfall' : 'Available until payday', calc.available === null ? '—' : gbp(calc.available)],
     ];
     var assumptions = [calc.formula, 'Balance is what you typed — the app has no live bank connection.', 'Personal only: ' + (rec.businessBills.length ? rec.businessBills.length + ' business bill(s) excluded.' : 'business money not included.'), 'Spending already made but not yet cleared is not known.'];
@@ -156,7 +168,8 @@
     return {
       type: 'result', label: 'Calculated in the app', lines: lines, table: table, assumptions: assumptions, figures: figures,
       computed: { balance: a.balance, payday: a.payday, days: calc.days, billsTotal: calc.billsTotal, otherDue: a.otherDue, earmarkTotal: calc.earmarkTotal, available: calc.available, perDay: calc.perDay, shortfall: calc.shortfall, complete: calc.complete },
-      records: calc.bills.map(function (b) { return { id: b.id, label: b.name + ' ' + gbp(b.amount) + ' due ' + dayLabel(b.dueDate), source: b.source }; }),
+      records: calc.bills.map(function (b) { return { id: b.id, label: b.name + ' ' + gbp(b.amount) + ' due ' + dayLabel(b.dueDate), source: b.source }; })
+        .concat(Object.keys(st.saved).length ? [{ id: 'budget:profile', label: 'Your saved budget details (' + Object.keys(st.saved).join(', ') + ')', source: 'Entered by you in "Update my information"' }] : []),
       nextAction: calc.shortfall
         ? { text: 'Decide which payment can move before payday', firstStep: 'List the bills due before ' + dayLabel(a.payday), minutes: 10 }
         : { text: 'Check your banking app matches ' + gbp(a.balance), firstStep: 'Open your banking app', minutes: 5 },
@@ -341,37 +354,60 @@
   function trainingStep(st) {
     var a = st.answers, t = today();
     var box = raw('boxing') || {}, tr = raw('training') || {};
+    var WR = window.WorkforceRecords;
+    var prof = WR ? WR.trainingProfile() : {};
+    var fresh = !!(WR && WR.trainingFresh(14));
+    var confirmedLabel = prof.confirmedAt ? dayLabel(String(prof.confirmedAt).slice(0, 10)) : '';
+    // Dates come from your confirmed profile when there is one (see lockin-data.js).
     var dated = (window.LockIn ? window.LockIn.SUPPLIED_ROUTINE.dates : []).filter(function (d) { return d.date >= t; });
-    if (box.fightDate && box.fightDate >= t && !dated.some(function (d) { return d.date === box.fightDate; })) dated.push({ date: box.fightDate, label: 'Fight (Boxing HQ)' });
+    if (!prof.confirmedAt && box.fightDate && box.fightDate >= t && !dated.some(function (d) { return d.date === box.fightDate; })) dated.push({ date: box.fightDate, label: 'Fight (saved)' });
     if (dated.length && a.datedStillOn === undefined) {
-      return question('datedStillOn', 'Are these still on: ' + dated.map(function (d) { return d.label + ' ' + dayLabel(d.date); }).join(', ') + '?', { options: ['Yes', 'No'] });
+      if (fresh) a.datedStillOn = true;
+      else return question('datedStillOn', 'Are these still on: ' + dated.map(function (d) { return d.label + ' ' + dayLabel(d.date); }).join(', ') + '?', { options: ['Yes', 'No'] });
     }
-    if (a.injury === undefined) return question('injury', 'Any injury or niggle to plan around right now? (describe it, or "none")', { options: ['None'] });
+    if (a.injury === undefined) {
+      if (fresh) a.injury = prof.limitations || 'none';
+      else return question('injury', 'Any injury or niggle to plan around right now? (describe it, or "none")', { options: ['None'] });
+    }
     var R = window.LockIn ? window.LockIn.SUPPLIED_ROUTINE.weekdayWork : { start: '08:00', end: '17:30', label: 'Work' };
     var lines = [], steps = [], records = [];
-    steps.push('Weekdays: training fits after ' + R.end + ' (your work routine) — keep about an hour for family each evening.');
-    steps.push('Weekends: longer sessions or recovery, around family plans.');
-    if (box.weeklyBoxingTarget || box.weeklyRunTarget || box.weeklyStrengthTarget) {
-      steps.push('Your Boxing HQ targets: ' + [box.weeklyBoxingTarget ? box.weeklyBoxingTarget + ' boxing' : '', box.weeklyRunTarget ? box.weeklyRunTarget + ' runs' : '', box.weeklyStrengthTarget ? box.weeklyStrengthTarget + ' strength' : ''].filter(Boolean).join(', ') + ' a week.');
-      records.push({ id: 'boxing:targets', label: 'Boxing HQ weekly targets', source: 'Boxing HQ (entered by you)' });
+    if (prof.goal) steps.push('Current goal (entered by you): ' + prof.goal);
+    if (prof.availability) steps.push('Your availability (entered by you): ' + prof.availability + ' — keep about an hour for family each evening.');
+    else {
+      steps.push('Weekdays: training fits after ' + R.end + ' (your work routine) — keep about an hour for family each evening.');
+      steps.push('Weekends: longer sessions or recovery, around family plans.');
     }
-    if (tr && tr.currentWeek) { steps.push('Strength HQ programme: week ' + tr.currentWeek + '.'); records.push({ id: 'training:week', label: 'Strength HQ week ' + tr.currentWeek, source: 'Strength HQ' }); }
-    if (box.nextSessionPlan) { steps.push('Next session you planned: ' + String(box.nextSessionPlan).slice(0, 120)); records.push({ id: 'boxing:nextSession', label: 'Boxing HQ next session plan', source: 'Boxing HQ (entered by you)' }); }
+    if (box.weeklyBoxingTarget || box.weeklyRunTarget || box.weeklyStrengthTarget) {
+      steps.push('Your saved weekly targets: ' + [box.weeklyBoxingTarget ? box.weeklyBoxingTarget + ' boxing' : '', box.weeklyRunTarget ? box.weeklyRunTarget + ' runs' : '', box.weeklyStrengthTarget ? box.weeklyStrengthTarget + ' strength' : ''].filter(Boolean).join(', ') + ' a week.');
+      records.push({ id: 'boxing:targets', label: 'Weekly training targets', source: 'Saved Boxing HQ record (entered by you)' });
+    }
+    if (tr && tr.currentWeek) { steps.push('Strength programme: week ' + tr.currentWeek + '.'); records.push({ id: 'training:week', label: 'Strength programme week ' + tr.currentWeek, source: 'Saved Strength HQ record' }); }
+    if (box.nextSessionPlan) { steps.push('Next session you planned: ' + String(box.nextSessionPlan).slice(0, 120)); records.push({ id: 'boxing:nextSession', label: 'Next session plan', source: 'Saved Boxing HQ record (entered by you)' }); }
+    if (prof.confirmedAt) records.push({ id: 'training:profile', label: 'Goals, dates, availability and limitations', source: 'Entered by you — last confirmed ' + confirmedLabel + (fresh ? '' : ' (over 2 weeks ago, so you were asked again)') });
+    // WHOOP (if connected): shown as a dated device reading, not interpreted.
+    var wh = window.Integrations ? window.Integrations.load().whoop : null;
+    if (wh && wh.lastSync && (wh.recoveryScore != null || wh.sleepHours != null)) {
+      var when = dayLabel(String(wh.lastSync).slice(0, 10)) + ' ' + String(new Date(wh.lastSync).toTimeString()).slice(0, 5);
+      steps.push('WHOOP (retrieved ' + when + '): ' + [wh.recoveryScore != null ? 'recovery ' + wh.recoveryScore + '%' : '', wh.sleepHours != null ? 'sleep ' + wh.sleepHours + ' h' : ''].filter(Boolean).join(', ') + '.');
+      records.push({ id: 'whoop:latest', label: 'WHOOP recovery/sleep', source: 'WHOOP, retrieved ' + when });
+    }
+    var soon = dated.filter(function (d) { return d.date <= addDays(t, 7); });
     if (dated.length && a.datedStillOn === true) {
-      lines.push('Fight week: follow your coach\'s plan; keep sessions short and sharp, protect sleep, and keep family time.');
+      if (soon.length) lines.push('Fight week: follow your coach\'s plan; keep sessions short and sharp, protect sleep, and keep family time.');
+      else lines.push('Building towards ' + dated.map(function (d) { return d.label + ' ' + dayLabel(d.date); }).join(', ') + ' — follow your coach\'s plan.');
     } else if (dated.length) lines.push('Dated goals no longer apply — planning a normal week.');
     else lines.push('Normal training week — no dated fight or weigh-in ahead.');
-    if (a.injury && !/^none$/i.test(a.injury)) lines.push('Injury noted ("' + a.injury.slice(0, 80) + '"): this isn\'t a diagnosis. Avoid loading it, and see a physio or GP if pain persists or gets worse.');
+    if (a.injury && !/^none$/i.test(a.injury)) lines.push('Limitation noted ("' + a.injury.slice(0, 80) + '"): this isn\'t a diagnosis. Avoid loading it, and see a physio or GP if pain persists or gets worse.');
     if (/\bcut\b|make weight|lose \d+\s*(kg|lb|pounds?)|sauna|dehydrat|water ?load|sweat (it )?off/i.test(st.request)) {
       lines.push('Weight-making: no extreme or rapid cuts (dehydration, saunas, starving). Plan it with your coach and a qualified professional.');
     }
+    if (prof.confirmedAt && fresh) lines.push('Using your saved goals and limitations — last confirmed ' + confirmedLabel + '.');
     return {
       type: 'result', label: 'Basic mode (no AI)', lines: lines, steps: steps, figures: [], records: records,
-      assumptions: ['Uses your routine and what you entered in Boxing/Strength HQ — no session times are invented.'],
+      assumptions: ['Uses your routine and what you entered — no session times are invented.'],
       nextAction: { text: 'Put your next training session in the diary', firstStep: 'Pick the evening and time', minutes: 5 },
     };
   }
-
   var STEPS = { 'mb-automotive-business': businessStep, 'personal-budget': budgetStep, 'property-analyst': propertyStep, 'content-marketing': contentStep, 'training-recovery': trainingStep };
 
   // Applies an answer typed/clicked by the user for the current question key.
